@@ -158,14 +158,18 @@ function checkWin(game) {
     }
   }
   // Check reach home
-  const home0 = HOMES[0]; // Player 0 wins by reaching row8 col0 (player1 home)
-  const home1 = HOMES[1]; // Player 1 wins by reaching row0 col8 (player0 home)
-  const atHome0 = game.board[home1.row][home1.col];
-  const atHome1 = game.board[home0.row][home0.col];
-  if (atHome0 && atHome0.player === 1) {
+  const home0 = HOMES[0]; // Player 0's home (row0, col8)
+  const home1 = HOMES[1]; // Player 1's home (row8, col0)
+  
+  const pieceAtHome0 = game.board[home0.row][home0.col];
+  const pieceAtHome1 = game.board[home1.row][home1.col];
+  
+  // Player 1 wins by reaching Player 0's home
+  if (pieceAtHome0 && pieceAtHome0.player === 1) {
     game.status = 'finished'; game.winner = 1; game.winReason = 'reached_home'; return true;
   }
-  if (atHome1 && atHome1.player === 0) {
+  // Player 0 wins by reaching Player 1's home
+  if (pieceAtHome1 && pieceAtHome1.player === 0) {
     game.status = 'finished'; game.winner = 0; game.winReason = 'reached_home'; return true;
   }
   return false;
@@ -240,7 +244,7 @@ function createRoom(ws, playerName) {
   let roomId;
   do { roomId = generateRoomId(); } while (rooms.has(roomId));
 
-  const room = { players: [{ ws, name: playerName, index: 0 }], game: null };
+  const room = { players: [{ ws, name: playerName, index: 0 }], game: null, lastActivity: Date.now() };
   rooms.set(roomId, room);
   players.set(ws, { roomId, playerIndex: 0, name: playerName });
 
@@ -259,6 +263,7 @@ function joinRoom(ws, roomId, playerName) {
   players.set(ws, { roomId, playerIndex: 1, name: playerName });
 
   room.game = createGame(roomId, room.players[0].name, room.players[1].name);
+  room.lastActivity = Date.now();
 
   send(ws, { type: 'room_joined', roomId, playerIndex: 1, playerName });
 
@@ -301,6 +306,7 @@ wss.on('connection', (ws) => {
         if (room.players[pi]) room.players[pi].ws = ws;
         else room.players[pi] = { ws, name: `Player${pi}`, index: pi };
         players.set(ws, { roomId: msg.roomId, playerIndex: pi, name: room.players[pi].name });
+        room.lastActivity = Date.now();
         console.log(`Player ${pi} (${room.players[pi].name}) rejoined room ${msg.roomId}`);
         send(ws, {
           type: 'rejoin_ack',
@@ -324,6 +330,7 @@ wss.on('connection', (ws) => {
         if (!check.valid) { send(ws, { type: 'move_invalid', reason: check.reason }); break; }
 
         applyMove(game, pInfo.playerIndex, fromRow, fromCol, toRow, toCol);
+        room.lastActivity = Date.now();
         const won = checkWin(game);
 
         if (won) {
@@ -377,6 +384,24 @@ wss.on('connection', (ws) => {
 
   ws.on('error', () => {});
 });
+
+// ─── Cleanup Inactive Rooms ────────────────────────────────────────────────
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [roomId, room] of rooms.entries()) {
+    if (now - room.lastActivity > INACTIVITY_TIMEOUT) {
+      broadcastToRoom(room, { type: 'error', message: 'Trận đấu đã bị hủy do không có tương tác trong 5 phút.' });
+      for (const p of room.players) {
+        if (p.ws) players.delete(p.ws);
+      }
+      rooms.delete(roomId);
+      console.log(`Room ${roomId} removed due to inactivity.`);
+      broadcastLobbyState();
+      broadcastSpectatorUpdate();
+    }
+  }
+}, 60 * 1000); // Check every minute
 
 // ─── Start ─────────────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {

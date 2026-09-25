@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPS Arena - Spectator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script type="module">
+    import { playhtml } from "https://unpkg.com/playhtml@latest";
+    playhtml.init();
+  </script>
+  <style>
+    :root {
+      --bg: #060609; --surface: #0e0e18; --surface2: #141420;
+      --border: rgba(130,100,255,.15);
+      --accent: #7c5cff; --accent2: #ff5c8a; --accent3: #5cffb8;
+      --text: #e8e8f0; --muted: #5a5a7a; --gold: #ffd700;
+      --p0: #7c5cff; --p1: #ff5c8a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 0% 0%, rgba(124,92,255,.07), transparent 50%),
+                  radial-gradient(ellipse at 100% 100%, rgba(255,92,138,.05), transparent 50%);
+    }
+
+    /* Header */
+    .spec-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(6,6,9,.93); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .logo { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 900; background: linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .live-badge { display:flex; align-items:center; gap:5px; background:rgba(255,50,50,.12); border:1px solid rgba(255,80,80,.35); border-radius:20px; padding:3px 10px; font-size:.65rem; font-weight:700; color:#ff6060; letter-spacing:.1em; }
+    .live-dot { width:6px; height:6px; border-radius:50%; background:#ff4444; animation:lpulse 1.5s ease-in-out infinite; }
+    @keyframes lpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    .stats-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .stat-chip { background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:3px 10px; display:flex; align-items:center; gap:6px; font-size:.7rem; }
+    .stat-chip .val { font-family:'Orbitron',sans-serif; font-weight:700; color:var(--accent3); }
+    .stat-chip .lbl { color:var(--muted); }
+
+    /* 4-slot grid */
+    .games-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:10px 14px 16px; }
+    @media(max-width:860px){.games-grid{grid-template-columns:1fr;}}
+
+    .game-slot { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; position:relative; transition:border-color .3s; }
+    .game-slot.has-game { border-color:rgba(124,92,255,.3); }
+
+    .slot-header { background:var(--surface2); border-bottom:1px solid var(--border); padding:6px 12px; display:flex; align-items:center; justify-content:space-between; }
+    .match-label { font-family:'Orbitron',sans-serif; font-size:.65rem; font-weight:700; color:var(--accent); letter-spacing:.1em; }
+    .match-status { font-size:.6rem; padding:2px 7px; border-radius:10px; font-weight:600; }
+    .match-status.playing  { background:rgba(92,255,184,.1);  color:var(--accent3); border:1px solid rgba(92,255,184,.3); }
+    .match-status.waiting  { background:rgba(255,215,0,.1);   color:var(--gold);    border:1px solid rgba(255,215,0,.3); }
+    .match-status.finished { background:rgba(255,92,138,.1);  color:var(--accent2); border:1px solid rgba(255,92,138,.3); }
+
+    .slot-body { padding:8px; }
+
+    /* Player info strip */
+    .mini-players { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .mini-player.p0 .mpname { color:var(--p0); font-weight:700; font-family:'Orbitron',sans-serif; font-size:.6rem; }
+    .mini-player.p1 .mpname { color:var(--p1); font-weight:700; font-family:'Orbitron',sans-serif; font-size:.6rem; }
+    .mpics { display:flex; gap:3px; margin-top:2px; font-size:.6rem; color:var(--muted); align-items:center; }
+    .mpics img { width:12px; height:12px; object-fit:contain; }
+    .mini-vs { font-family:'Orbitron',sans-serif; font-size:.75rem; color:var(--gold); }
+
+    /* Mini board with 4-side coords */
+    .mini-chess-wrap { display:inline-grid; grid-template-columns:12px auto 12px; grid-template-rows:12px auto 12px; width:100%; }
+    .mini-col-strip { display:grid; grid-template-columns:repeat(9,1fr); }
+    .mini-row-strip { display:flex; flex-direction:column; }
+    .mini-clabel { font-family:'Orbitron',sans-serif; font-size:.33rem; color:rgba(255,255,255,.22); font-weight:700; display:flex; align-items:center; justify-content:center; }
+
+    .mini-board { display:grid; grid-template-columns:repeat(9,1fr); gap:1px; background:rgba(100,80,220,.12); border:1px solid rgba(100,80,220,.2); border-radius:5px; padding:2px; width:100%; aspect-ratio:1; }
+    .mini-cell { aspect-ratio:1; border-radius:2px; display:flex; align-items:center; justify-content:center; position:relative; }
+    .mini-cell.light-sq { background:#1e1e32; }
+    .mini-cell.dark-sq  { background:#141422; }
+    .mini-cell.home-p0  { background:rgba(124,92,255,.25) !important; }
+    .mini-cell.home-p1  { background:rgba(255,92,138,.25) !important; }
+    .mini-cell.last-from { outline:1px dashed rgba(124,92,255,.4); }
+    .mini-cell.last-to   { outline:1px solid rgba(92,255,184,.6); }
+
+    .mini-piece { width:82%; height:82%; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+    .mini-piece img { width:75%; height:75%; object-fit:contain; pointer-events:none; }
+    .mini-piece.p0 { background:radial-gradient(circle at 35% 35%,rgba(124,92,255,.7),rgba(40,20,120,.9)); border:1px solid rgba(124,92,255,.8); }
+    .mini-piece.p1 { background:radial-gradient(circle at 35% 35%,rgba(255,92,138,.7),rgba(120,20,60,.9)); border:1px solid rgba(255,92,138,.8); }
+    .mini-home-icon { position:absolute; top:0; right:1px; font-size:5px; opacity:.7; }
+
+    .move-count { text-align:center; font-size:.6rem; color:var(--muted); margin-top:5px; }
+
+    .empty-slot { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px 16px; color:var(--muted); gap:6px; }
+    .empty-slot-icon { font-size:1.8rem; opacity:.3; }
+    .empty-slot-text { font-size:.75rem; text-align:center; }
+
+    .winner-banner { display:none; position:absolute; inset:0; background:rgba(0,0,0,.82); backdrop-filter:blur(3px); z-index:10; align-items:center; justify-content:center; flex-direction:column; gap:5px; text-align:center; border-radius:14px; }
+    .winner-banner.show { display:flex; }
+    .winner-banner .crown { font-size:1.8rem; }
+    .winner-banner .wname { font-family:'Orbitron',sans-serif; font-size:.8rem; font-weight:900; color:var(--gold); }
+    .winner-banner .wdesc { font-size:.6rem; color:var(--muted); }
+
+    .toast { position:fixed; top:60px; right:16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 14px; font-size:.8rem; z-index:300; animation:toast-in .3s ease; max-width:260px; }
+    @keyframes toast-in { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+    .toast.event-capture { border-color:var(--accent2); }
+    .toast.event-win { border-color:var(--gold); }
+
+    #spec-cursor { z-index:200; }
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-thumb { background:var(--accent); border-radius:2px; }
+  </style>
+</head>
+<body>
+  <header class="spec-header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="logo">⚔️ RPS ARENA</div>
+      <div class="live-badge"><div class="live-dot"></div>TRỰC TIẾP</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-chip"><span class="val" id="stat-active">0</span><span class="lbl">TRẬN ĐANG ĐẤU</span></div>
+      <div class="stat-chip"><span class="val" id="stat-waiting">0</span><span class="lbl">ĐANG CHỜ</span></div>
+      <a href="/" style="text-decoration:none;font-size:.7rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 8px;">↩ Tham gia</a>
+    </div>
+  </header>
+
+  <div class="games-grid" id="games-grid"></div>
+
+  <div id="spec-cursor" can-move style="position:fixed;bottom:4rem;right:1.2rem;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:.7rem;display:flex;align-items:center;gap:6px;cursor:grab;user-select:none;">
+    👁 <span id="viewer-label">Khán giả</span>
+  </div>
+
+  <script>
+    const PIECE_IMG   = { R:'/img/rock.png', P:'/img/paper.png', S:'/img/scissor.png' };
+    const PIECE_LABEL = { R:'Búa', P:'Bao', S:'Kéo' };
+    const COL_LABELS  = ['A','B','C','D','E','F','G','H','I'];
+    const MAX_SLOTS   = 4;
+
+    let ws = null, games = [], toastTm = null;
+
+    const adj = ['Huyền bí','Thần thánh','Bí ẩn','Dũng mãnh','Huyền thoại'];
+    const nn  = ['Quan sát viên','Chứng nhân','Nhà phân tích','Thám tử'];
+    document.getElementById('viewer-label').textContent =
+      adj[Math.floor(Math.random()*adj.length)] + ' ' + nn[Math.floor(Math.random()*nn.length)];
+
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}`);
+      ws.onopen = () => ws.send(JSON.stringify({ type:'spectate' }));
+      ws.onmessage = e => onMsg(JSON.parse(e.data));
+      ws.onclose = () => setTimeout(connect, 3000);
+      ws.onerror = () => {};
+    }
+
+    function onMsg(msg) {
+      switch (msg.type) {
+        case 'spectator_init':
+          games = msg.games || [];
+          renderAll();
+          // Update stats from message
+          document.getElementById('stat-active').textContent  = msg.activeCount  ?? games.filter(g=>g.status==='playing').length;
+          document.getElementById('stat-waiting').textContent = msg.waitingCount ?? 0;
+          break;
+        case 'spectator_update':
+          detectEvents(msg.games || []);
+          games = msg.games || [];
+          renderAll();
+          document.getElementById('stat-active').textContent  = msg.activeCount  ?? games.filter(g=>g.status==='playing').length;
+          document.getElementById('stat-waiting').textContent = msg.waitingCount ?? 0;
+          break;
+      }
+    }
+
+    function detectEvents(newGames) {
+      for (const ng of newGames) {
+        const og = games.find(g => g.roomId === ng.roomId);
+        if (!og) continue;
+        if (ng.players[0].piecesLeft < og.players[0].piecesLeft) showToast(`💥 ${ng.players[0].name} mất 1 quân!`, 'event-capture');
+        if (ng.players[1].piecesLeft < og.players[1].piecesLeft) showToast(`💥 ${ng.players[1].name} mất 1 quân!`, 'event-capture');
+        if (ng.status === 'finished' && og.status !== 'finished')
+          showToast(`🏆 ${ng.players[ng.winner].name} thắng!`, 'event-win');
+      }
+    }
+
+    function renderAll() {
+      const grid = document.getElementById('games-grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < MAX_SLOTS; i++) grid.appendChild(createSlot(i+1, games[i] || null));
+    }
+
+    function createSlot(num, game) {
+      const slot = document.createElement('div');
+      slot.className = `game-slot ${game ? 'has-game' : ''}`;
+
+      if (!game) {
+        slot.innerHTML = `
+          <div class="slot-header"><span class="match-label">TRẬN ${num}</span><span class="match-status waiting">CHỜ</span></div>
+          <div class="slot-body"><div class="empty-slot"><div class="empty-slot-icon">⚔️</div><div class="empty-slot-text">Chưa có trận đấu<br><small>Đang chờ người chơi...</small></div></div></div>`;
+        return slot;
+      }
+
+      const stText  = game.status === 'playing' ? 'ĐANG ĐẤU' : game.status === 'finished' ? 'KẾT THÚC' : 'CHỜ';
+      const stClass = game.status === 'playing' ? 'playing' : game.status === 'finished' ? 'finished' : 'waiting';
+      const p0 = game.players[0], p1 = game.players[1];
+      const lm = game.lastMove;
+      const turnCol = game.currentTurn === 0 ? 'var(--p0)' : 'var(--p1)';
+
+      const counts = [{ R:0,P:0,S:0 }, { R:0,P:0,S:0 }];
+      for (let r = 0; r < 9; r++)
+        for (let c = 0; c < 9; c++) { const pc = game.board[r][c]; if (pc) counts[pc.player][pc.type]++; }
+
+      slot.innerHTML = `
+        <div class="slot-header">
+          <span class="match-label">TRẬN ${num}</span>
+          <span style="font-family:Orbitron,sans-serif;font-size:.6rem;color:${turnCol}">${game.currentTurn===0?'→':'←'} LƯỢT</span>
+          <span class="match-status ${stClass}">${stText}</span>
+        </div>
+        <div class="slot-body">
+          <div class="mini-players">
+            <div class="mini-player p0">
+              <div class="mpname">🟣 ${p0.name}</div>
+              <div class="mpics">
+                <img src="/img/rock.png">${counts[0].R}
+                <img src="/img/paper.png">${counts[0].P}
+                <img src="/img/scissor.png">${counts[0].S}
+              </div>
+            </div>
+            <div class="mini-vs">${game.moveCount}🗡</div>
+            <div class="mini-player p1" style="text-align:right">
+              <div class="mpname">${p1.name} 🔴</div>
+              <div class="mpics" style="justify-content:flex-end">
+                <img src="/img/scissor.png">${counts[1].S}
+                <img src="/img/paper.png">${counts[1].P}
+                <img src="/img/rock.png">${counts[1].R}
+              </div>
+            </div>
+          </div>
+          <div class="mini-chess-wrap">
+            <div></div>
+            <div class="mini-col-strip" id="mct-${num}"></div>
+            <div></div>
+            <div class="mini-row-strip" id="mrl-${num}"></div>
+            <div class="mini-board" id="mb-${num}"></div>
+            <div class="mini-row-strip" id="mrr-${num}"></div>
+            <div></div>
+            <div class="mini-col-strip" id="mcb-${num}"></div>
+            <div></div>
+          </div>
+          <div class="move-count">${game.moveCount} nước đi</div>
+        </div>`;
+
+      // Build coords
+      COL_LABELS.forEach(l => {
+        [`mct-${num}`,`mcb-${num}`].forEach(id => {
+          const d = document.createElement('div'); d.className = 'mini-clabel'; d.textContent = l;
+          slot.querySelector('#'+id).appendChild(d);
+        });
+      });
+      for (let r = 0; r < 9; r++) {
+        [`mrl-${num}`,`mrr-${num}`].forEach(id => {
+          const d = document.createElement('div'); d.className = 'mini-clabel';
+          d.textContent = 9-r; d.style.flex = '1';
+          slot.querySelector('#'+id).appendChild(d);
+        });
+      }
+
+      // Build mini board
+      const boardEl = slot.querySelector(`#mb-${num}`);
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'mini-cell ' + ((r+c)%2===0 ? 'light-sq' : 'dark-sq');
+          if (r===0&&c===8) { cell.classList.add('home-p0'); const ic=document.createElement('span'); ic.className='mini-home-icon'; ic.textContent='★'; cell.appendChild(ic); }
+          if (r===8&&c===0) { cell.classList.add('home-p1'); const ic=document.createElement('span'); ic.className='mini-home-icon'; ic.textContent='★'; cell.appendChild(ic); }
+          if (lm) {
+            if (r===lm.fromRow&&c===lm.fromCol) cell.classList.add('last-from');
+            if (r===lm.toRow&&c===lm.toCol)     cell.classList.add('last-to');
+          }
+          const piece = game.board[r][c];
+          if (piece) {
+            const pe = document.createElement('div'); pe.className = `mini-piece p${piece.player}`;
+            const img = document.createElement('img'); img.src = PIECE_IMG[piece.type]; img.alt = PIECE_LABEL[piece.type];
+            pe.appendChild(img); cell.appendChild(pe);
+          }
+          boardEl.appendChild(cell);
+        }
+      }
+
+      // Winner overlay
+      if (game.status === 'finished' && game.winner !== null) {
+        const reasons = { reached_home:'🏠 Tiến đến home', eliminated:'⚔️ Tiêu diệt hết quân', forfeit:'🚪 Bỏ cuộc' };
+        const banner = document.createElement('div');
+        banner.className = 'winner-banner show';
+        banner.innerHTML = `<div class="crown">🏆</div><div class="wname">${game.players[game.winner].name} THẮNG!</div><div class="wdesc">${reasons[game.winReason]||''}</div>`;
+        slot.appendChild(banner);
+      }
+
+      return slot;
+    }
+
+    function showToast(msg, cls) {
+      if (toastTm) clearTimeout(toastTm);
+      document.querySelector('.toast')?.remove();
+      const el = document.createElement('div');
+      el.className = `toast ${cls}`; el.textContent = msg; document.body.appendChild(el);
+      toastTm = setTimeout(() => el.remove(), 3500);
+    }
+
+    connect();
+    renderAll();
+    setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 15000);
+  </script>
+</body>
+</html>

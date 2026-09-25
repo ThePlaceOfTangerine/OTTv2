@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <!-- user-scalable=no prevents mobile zoom-on-tap -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RPS Arena - Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0f; --surface:#12121a; --surface2:#1a1a28;
+      --border:rgba(130,100,255,.2);
+      --accent:#7c5cff; --accent2:#ff5c8a; --accent3:#5cffb8;
+      --text:#e8e8f0; --muted:#6b6b8a; --gold:#ffd700;
+      --p0:#7c5cff; --p1:#ff5c8a;
+    }
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+    html, body {
+      width:100%; height:100%;
+      overflow:hidden;
+      background:var(--bg); color:var(--text);
+      font-family:'Inter',sans-serif;
+      /* Prevent text-size-adjust on mobile */
+      -webkit-text-size-adjust:100%;
+    }
+    body::before {
+      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background:
+        radial-gradient(ellipse at 10% 10%, rgba(124,92,255,.1), transparent 50%),
+        radial-gradient(ellipse at 90% 90%, rgba(255,92,138,.07), transparent 50%);
+    }
+
+    /* ══ Root layout ══════════════════════════════════ */
+    #app {
+      position:relative; z-index:1;
+      width:100vw; height:100vh;
+      display:flex; flex-direction:column;
+      padding:6px; gap:5px;
+    }
+
+    /* Top bar */
+    .top-bar {
+      flex:0 0 auto;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:4px 12px; background:var(--surface);
+      border:1px solid var(--border); border-radius:9px;
+      height:36px;
+    }
+    .logo-sm {
+      font-family:'Orbitron',sans-serif; font-size:.85rem; font-weight:900;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      text-decoration:none;
+    }
+    .room-badge {
+      font-family:'Orbitron',sans-serif; font-size:.65rem; color:var(--gold);
+      border:1px solid rgba(255,215,0,.3); border-radius:5px; padding:2px 8px;
+    }
+    .conn-dot {
+      width:7px; height:7px; border-radius:50%; background:var(--accent3);
+      display:inline-block; margin-right:5px; animation:blink 2s infinite;
+    }
+    .conn-dot.offline { background:var(--accent2); animation:none; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    /* ══ Main area ════════════════════════════════════ */
+    .main-area {
+      flex:1 1 0;
+      min-height:0;
+      display:flex; gap:6px;
+    }
+
+    /* ══ Board column ═════════════════════════════════ */
+    .board-col {
+      flex:1 1 0;
+      min-width:0; min-height:0;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:4px;
+    }
+
+    /* Player banners */
+    .player-banner {
+      width:100%; max-width:560px;
+      display:flex; align-items:center; gap:8px;
+      padding:5px 10px; background:var(--surface);
+      border:1px solid var(--border); border-radius:9px;
+      flex:0 0 auto;
+      transition:border-color .3s, box-shadow .3s;
+    }
+    .player-banner.active { border-color:var(--accent3); box-shadow:0 0 12px rgba(92,255,184,.2); }
+    .player-banner.p0 { border-left:3px solid var(--p0); }
+    .player-banner.p1 { border-left:3px solid var(--p1); }
+    .banner-name {
+      font-family:'Orbitron',sans-serif; font-size:.68rem; font-weight:700; flex:1;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .p0 .banner-name { color:var(--p0); }
+    .p1 .banner-name { color:var(--p1); }
+    .banner-pieces { display:flex; gap:4px; align-items:center; flex-shrink:0; }
+    .pc {
+      display:flex; align-items:center; gap:3px;
+      background:var(--surface2); border-radius:5px; padding:2px 5px;
+      font-size:.68rem;
+    }
+    .pc img { width:13px; height:13px; object-fit:contain; }
+    .banner-turn { font-size:.62rem; color:var(--accent3); font-weight:600; white-space:nowrap; flex-shrink:0; }
+
+    /* Status line */
+    .status-msg {
+      font-size:.72rem; color:var(--muted); text-align:center;
+      flex:0 0 auto; min-height:1.1em;
+    }
+    .status-msg.your-turn { color:var(--accent3); font-weight:600; }
+
+    /* ══ Chess wrap (4-sided coords) ══════════════════ */
+    .chess-wrap {
+      display:inline-grid;
+      grid-template-columns:16px 1fr 16px;
+      grid-template-rows:16px 1fr 16px;
+      flex:1 1 0;
+      min-width:0; min-height:0;
+      max-width:560px; max-height:560px;
+      width:100%; height:100%;
+    }
+    .corner { }
+    .col-strip {
+      display:grid; grid-template-columns:repeat(9,1fr);
+      align-items:center;
+    }
+    .row-strip { display:flex; flex-direction:column; }
+    .clabel {
+      font-family:'Orbitron',sans-serif; font-size:.42rem;
+      color:rgba(255,255,255,.3); font-weight:700;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .row-strip .clabel { flex:1; }
+
+    /* ══ Game board ═══════════════════════════════════ */
+    #game-board {
+      display:grid; grid-template-columns:repeat(9,1fr);
+      gap:2px; padding:3px;
+      background:rgba(100,80,220,.15);
+      border:1.5px solid rgba(100,80,220,.3);
+      border-radius:8px;
+      width:100%; height:100%;
+      /* Prevent selection/zoom on click */
+      user-select:none; -webkit-user-select:none;
+      touch-action:manipulation;
+    }
+    .cell {
+      aspect-ratio:1;
+      border-radius:4px;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; position:relative; overflow:hidden;
+      /* CRITICAL: stop browser treating click as zoom trigger */
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      transition:filter .1s, box-shadow .12s;
+    }
+    .cell.light-sq { background:#1e1e32; }
+    .cell.dark-sq  { background:#141422; }
+    .cell:hover    { filter:brightness(1.3); }
+    .cell.home-p0  { background:rgba(124,92,255,.22) !important; box-shadow:inset 0 0 10px rgba(124,92,255,.3); }
+    .cell.home-p1  { background:rgba(255,92,138,.22) !important; box-shadow:inset 0 0 10px rgba(255,92,138,.3); }
+    .cell.selected { background:rgba(92,255,184,.22) !important; box-shadow:0 0 0 2px var(--accent3); z-index:2; }
+    .cell.valid-target {
+      background:rgba(255,215,0,.12) !important; box-shadow:0 0 0 2px rgba(255,215,0,.5);
+      animation:tpulse 1s ease-in-out infinite;
+    }
+    @keyframes tpulse {
+      0%,100%{box-shadow:0 0 0 2px rgba(255,215,0,.4)}
+      50%{box-shadow:0 0 0 3px rgba(255,215,0,.8),0 0 10px rgba(255,215,0,.2)}
+    }
+    .cell.attack-target { background:rgba(255,92,138,.18) !important; box-shadow:0 0 0 2px rgba(255,92,138,.7); }
+    .cell.last-from { outline:1px dashed rgba(124,92,255,.5); }
+    .cell.last-to   { outline:2px solid rgba(92,255,184,.5); }
+    .home-icon { position:absolute; top:1px; right:2px; font-size:6px; opacity:.7; pointer-events:none; }
+
+    /* Pieces */
+    .piece {
+      width:82%; height:82%; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      position:relative; z-index:1;
+      transition:transform .12s;
+      pointer-events:none;  /* let clicks pass through to cell */
+    }
+    .piece img {
+      width:78%; height:78%; object-fit:contain;
+      filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));
+      pointer-events:none;
+    }
+    .piece.p0 {
+      background:radial-gradient(circle at 35% 35%,rgba(124,92,255,.7),rgba(40,20,120,.9));
+      border:1.5px solid rgba(124,92,255,.8); box-shadow:0 2px 8px rgba(124,92,255,.5);
+    }
+    .piece.p1 {
+      background:radial-gradient(circle at 35% 35%,rgba(255,92,138,.7),rgba(120,20,60,.9));
+      border:1.5px solid rgba(255,92,138,.8); box-shadow:0 2px 8px rgba(255,92,138,.5);
+    }
+    .cell:hover .piece { transform:scale(1.1); }
+    .cell.selected .piece { transform:scale(1.15); }
+
+    /* ══ Sidebar ══════════════════════════════════════ */
+    .sidebar {
+      flex:0 0 200px;
+      min-height:0;
+      display:flex; flex-direction:column; gap:5px; overflow:hidden;
+    }
+    @media(max-width:600px){ .sidebar{ flex:0 0 140px; } }
+    .sidebar-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:8px 10px; flex-shrink:0;
+    }
+    .sidebar-title {
+      font-family:'Orbitron',sans-serif; font-size:.55rem;
+      letter-spacing:.12em; color:var(--accent); margin-bottom:6px; font-weight:700;
+      display:flex; align-items:center; gap:5px;
+    }
+    .sidebar-title::before { content:''; width:2px; height:11px; background:var(--accent); border-radius:2px; display:block; }
+    .stats-row { display:flex; gap:4px; justify-content:space-around; }
+    .stat-item { text-align:center; }
+    .stat-val {
+      font-family:'Orbitron',sans-serif; font-size:.95rem; font-weight:900;
+      background:linear-gradient(135deg,var(--accent),var(--accent3));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .stat-lbl { font-size:.5rem; color:var(--muted); letter-spacing:.06em; }
+    .move-log-card { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+    .log-entries {
+      flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:1px;
+    }
+    .log-entries::-webkit-scrollbar { width:3px; }
+    .log-entries::-webkit-scrollbar-thumb { background:var(--accent); border-radius:2px; }
+    .log-entry { font-size:.65rem; color:var(--muted); padding:2px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+    .log-entry .pt { font-weight:600; }
+    .log-entry .pt.p0 { color:var(--p0); }
+    .log-entry .pt.p1 { color:var(--p1); }
+
+    /* ══ Game Over overlay ════════════════════════════ */
+    .overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.85); z-index:100;
+      align-items:center; justify-content:center;
+      backdrop-filter:blur(8px);
+    }
+    .overlay.show { display:flex; }
+    .overlay-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:20px; padding:2rem; text-align:center;
+      max-width:360px; width:90%;
+      animation:pop-in .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes pop-in { from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1} }
+    .winner-crown { font-size:2.8rem; margin-bottom:.4rem; }
+    .winner-title {
+      font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900;
+      background:linear-gradient(135deg,var(--gold),#ff9500);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      margin-bottom:.3rem;
+    }
+    .winner-name { font-size:.95rem; color:var(--text); margin-bottom:.8rem; }
+    .win-reason  { font-size:.75rem; color:var(--muted); margin-bottom:1.2rem; }
+    .btn {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.6rem 1.3rem; border:none; border-radius:9px;
+      font-family:'Orbitron',sans-serif; font-size:.72rem; font-weight:700;
+      letter-spacing:.08em; cursor:pointer; text-decoration:none; transition:all .2s;
+    }
+    .btn-primary {
+      background:linear-gradient(135deg,var(--accent),#9b7cff);
+      color:white; box-shadow:0 4px 16px rgba(124,92,255,.4);
+    }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 22px rgba(124,92,255,.6); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <div class="top-bar">
+    <a href="/" class="logo-sm">⚔️ RPS ARENA</a>
+    <span style="font-size:.7rem;color:var(--muted)">
+      <span class="conn-dot" id="conn-dot"></span><span id="conn-text">Kết nối...</span>
+    </span>
+    <span class="room-badge" id="room-badge">——</span>
+  </div>
+
+  <!-- Main -->
+  <div class="main-area">
+
+    <!-- Board column -->
+    <div class="board-col" id="board-col">
+      <!-- Opponent (always top) -->
+      <div class="player-banner" id="banner-opp">
+        <div class="banner-name" id="name-opp">Đối thủ</div>
+        <div class="banner-pieces" id="pieces-opp"></div>
+        <div class="banner-turn" id="turn-opp" style="display:none">◀ Lượt đi</div>
+      </div>
+
+      <div class="status-msg" id="status-msg">Đang kết nối...</div>
+
+      <!-- 4-sided chess board -->
+      <div class="chess-wrap" id="chess-wrap">
+        <div class="corner"></div><div class="col-strip" id="col-top"></div><div class="corner"></div>
+        <div class="row-strip" id="row-left"></div>
+        <div id="game-board"></div>
+        <div class="row-strip" id="row-right"></div>
+        <div class="corner"></div><div class="col-strip" id="col-bot"></div><div class="corner"></div>
+      </div>
+
+      <!-- Me (always bottom) -->
+      <div class="player-banner" id="banner-me">
+        <div class="banner-name" id="name-me">Bạn</div>
+        <div class="banner-pieces" id="pieces-me"></div>
+        <div class="banner-turn" id="turn-me" style="display:none">▶ Lượt bạn</div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-title">THỐNG KÊ</div>
+        <div class="stats-row">
+          <div class="stat-item"><div class="stat-val" id="stat-moves">0</div><div class="stat-lbl">NƯỚC</div></div>
+          <div class="stat-item"><div class="stat-val" id="stat-my-pieces">10</div><div class="stat-lbl">QUÂN BẠN</div></div>
+          <div class="stat-item"><div class="stat-val" id="stat-opp-pieces">10</div><div class="stat-lbl">QUÂN ĐỐI</div></div>
+        </div>
+      </div>
+      <div class="sidebar-card move-log-card">
+        <div class="sidebar-title">LỊCH SỬ</div>
+        <div class="log-entries" id="log-entries"></div>
+      </div>
+    </div>
+
+  </div><!-- /.main-area -->
+</div><!-- /#app -->
+
+<!-- Game Over -->
+<div class="overlay" id="overlay-gameover">
+  <div class="overlay-card">
+    <div class="winner-crown" id="winner-crown">🏆</div>
+    <div class="winner-title" id="winner-title">CHIẾN THẮNG!</div>
+    <div class="winner-name" id="winner-name"></div>
+    <div class="win-reason"  id="win-reason"></div>
+    <a href="/" class="btn btn-primary">↩ VỀ LOBBY</a>
+  </div>
+</div>
+
+<script>
+  /* ── Constants ─────────────────────────────────── */
+  const PIECE_IMG   = { R:'/img/rock.png', P:'/img/paper.png', S:'/img/scissor.png' };
+  const PIECE_LABEL = { R:'Búa', P:'Bao', S:'Kéo' };
+  const BEATS       = { R:'S', S:'P', P:'R' };
+  // Standard col labels A-I (Player1 view). Flipped view = reversed.
+  const COL_STD  = ['A','B','C','D','E','F','G','H','I'];
+  const COL_FLIP = ['I','H','G','F','E','D','C','B','A'];
+
+  /* ── State ─────────────────────────────────────── */
+  let ws, gameState=null, myPlayerIndex=null;
+  let playerNames=[], selectedCell=null, validMoves=[], moveLog=[];
+  let roomId=null;
+  // flipped=true means Player 0 view: board rendered upside-down so their pieces are at bottom
+  let flipped = false;
+
+  const stored = sessionStorage.getItem('gameState');
+  if (stored) {
+    const s = JSON.parse(stored);
+    gameState=s.game; myPlayerIndex=s.playerIndex; playerNames=s.playerNames||[];
+  }
+  roomId = new URLSearchParams(location.search).get('room');
+
+  /* ── Coord strips (rebuilt when flip changes) ─── */
+  function buildCoords() {
+    const cols = flipped ? COL_FLIP : COL_STD;
+    // rows: flipped → 1,2,...,9  (row8 at top when flipped = label 1)
+    //       normal  → 9,8,...,1
+    const rows = flipped
+      ? Array.from({length:9},(_,i)=>i+1)
+      : Array.from({length:9},(_,i)=>9-i);
+
+    ['col-top','col-bot'].forEach(id=>{
+      const el=document.getElementById(id); el.innerHTML='';
+      cols.forEach(l=>{
+        const d=document.createElement('div'); d.className='clabel'; d.textContent=l; el.appendChild(d);
+      });
+    });
+    ['row-left','row-right'].forEach(id=>{
+      const el=document.getElementById(id); el.innerHTML='';
+      rows.forEach(n=>{
+        const d=document.createElement('div'); d.className='clabel'; d.textContent=n; el.appendChild(d);
+      });
+    });
+  }
+
+  /* ── WebSocket ─────────────────────────────────── */
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}`);
+    ws.onopen = ()=>{
+      setConn(true);
+      if (roomId && myPlayerIndex!==null)
+        ws.send(JSON.stringify({type:'rejoin_game',roomId,playerIndex:myPlayerIndex}));
+    };
+    ws.onmessage = e=>onMsg(JSON.parse(e.data));
+    ws.onclose = ()=>{ setConn(false); setTimeout(connect,3000); };
+    ws.onerror = ()=>setConn(false);
+  }
+  function setConn(on){
+    document.getElementById('conn-dot').classList.toggle('offline',!on);
+    document.getElementById('conn-text').textContent=on?'Đã kết nối':'Mất kết nối';
+  }
+  function onMsg(msg){
+    switch(msg.type){
+      case 'game_start':
+      case 'rejoin_ack':
+        gameState=msg.game; playerNames=msg.playerNames;
+        // Determine flip: Player0 sees board flipped so their pieces (top-right) appear at bottom
+        flipped = (myPlayerIndex === 0);
+        buildCoords();
+        renderGame();
+        break;
+      case 'game_update':
+        gameState=msg.game; renderGame(); addLog(msg.game.lastMove); break;
+      case 'game_over':
+        if(gameState){ gameState.status='finished'; gameState.winner=msg.winner; }
+        showGameOver(msg); break;
+      case 'move_invalid': setStatus(`❌ ${msg.reason}`,''); break;
+      case 'error': setStatus(`⚠️ ${msg.message}`,''); break;
+    }
+  }
+
+  /* ── Render ────────────────────────────────────── */
+  function renderGame(){
+    if(!gameState) return;
+    const g=gameState, oppIdx=1-myPlayerIndex;
+    document.getElementById('room-badge').textContent=roomId||'——';
+
+    const myN=playerNames[myPlayerIndex]||'Bạn', oppN=playerNames[oppIdx]||'Đối thủ';
+    document.getElementById('name-me').textContent=`${myN} (bạn)`;
+    document.getElementById('name-opp').textContent=oppN;
+
+    const myTurn=g.currentTurn===myPlayerIndex;
+    document.getElementById('turn-me').style.display=myTurn?'block':'none';
+    document.getElementById('turn-opp').style.display=!myTurn?'block':'none';
+    document.getElementById('banner-me').classList.toggle('active',myTurn);
+    document.getElementById('banner-opp').classList.toggle('active',!myTurn);
+
+    const myC=myPlayerIndex===0?'p0':'p1', oppC=oppIdx===0?'p0':'p1';
+    document.getElementById('banner-me').className=`player-banner ${myC}`;
+    document.getElementById('banner-opp').className=`player-banner ${oppC}`;
+
+    const counts=[{R:0,P:0,S:0},{R:0,P:0,S:0}];
+    for(let r=0;r<9;r++) for(let c=0;c<9;c++){const p=g.board[r][c];if(p)counts[p.player][p.type]++;}
+
+    renderBanner('pieces-me', counts[myPlayerIndex]);
+    renderBanner('pieces-opp',counts[oppIdx]);
+
+    document.getElementById('stat-moves').textContent=g.moveCount;
+    document.getElementById('stat-my-pieces').textContent=g.players[myPlayerIndex].piecesLeft;
+    document.getElementById('stat-opp-pieces').textContent=g.players[oppIdx].piecesLeft;
+
+    if(g.status==='playing')
+      setStatus(myTurn?'✨ Lượt của bạn — chọn một quân!':`⏳ Đang chờ ${oppN}...`, myTurn?'your-turn':'');
+
+    renderBoard();
+  }
+
+  function renderBanner(id,counts){
+    document.getElementById(id).innerHTML=['R','P','S'].map(t=>
+      `<span class="pc"><img src="${PIECE_IMG[t]}" alt="${PIECE_LABEL[t]}"><span>${counts[t]}</span></span>`
+    ).join('');
+  }
+
+  /* ── Board rendering (with flip support) ──────── */
+  function renderBoard(){
+    const board=document.getElementById('game-board');
+    board.innerHTML='';
+    const g=gameState, lm=g.lastMove;
+
+    // Iteration order depends on player perspective
+    const rowOrder = flipped ? [8,7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7,8];
+    const colOrder = flipped ? [8,7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7,8];
+
+    for(const r of rowOrder){
+      for(const c of colOrder){
+        const cell=document.createElement('div');
+        // Checkerboard by display position (not actual r,c)
+        const dispR=rowOrder.indexOf(r), dispC=colOrder.indexOf(c);
+        cell.className='cell '+((dispR+dispC)%2===0?'light-sq':'dark-sq');
+        // Store ACTUAL board coordinates for move logic
+        cell.dataset.row=r; cell.dataset.col=c;
+
+        if(r===0&&c===8){ cell.classList.add('home-p0'); addStar(cell); }
+        if(r===8&&c===0){ cell.classList.add('home-p1'); addStar(cell); }
+
+        if(lm){
+          if(r===lm.fromRow&&c===lm.fromCol) cell.classList.add('last-from');
+          if(r===lm.toRow  &&c===lm.toCol  ) cell.classList.add('last-to');
+        }
+        if(selectedCell&&selectedCell.row===r&&selectedCell.col===c) cell.classList.add('selected');
+
+        const isTgt=validMoves.some(m=>m.row===r&&m.col===c);
+        if(isTgt){
+          const tgt=g.board[r][c];
+          cell.classList.add(tgt&&tgt.player!==myPlayerIndex?'attack-target':'valid-target');
+        }
+
+        const piece=g.board[r][c];
+        if(piece){
+          const pe=document.createElement('div');
+          pe.className=`piece p${piece.player}`;
+          const img=document.createElement('img');
+          img.src=PIECE_IMG[piece.type]; img.alt=PIECE_LABEL[piece.type];
+          pe.appendChild(img); cell.appendChild(pe);
+        }
+
+        cell.addEventListener('click',()=>onClick(r,c));
+        board.appendChild(cell);
+      }
+    }
+  }
+
+  function addStar(cell){
+    const ic=document.createElement('span'); ic.className='home-icon'; ic.textContent='★'; cell.appendChild(ic);
+  }
+
+  /* ── Interaction ───────────────────────────────── */
+  function onClick(row,col){
+    const g=gameState;
+    if(!g||g.status!=='playing') return;
+    if(g.currentTurn!==myPlayerIndex){ setStatus('⏳ Chưa đến lượt bạn!',''); return; }
+    const piece=g.board[row][col];
+
+    if(selectedCell){
+      if(validMoves.some(m=>m.row===row&&m.col===col)){
+        sendMove(selectedCell.row,selectedCell.col,row,col);
+        selectedCell=null; validMoves=[]; renderBoard(); return;
+      }
+      if(piece&&piece.player===myPlayerIndex){
+        selectedCell={row,col}; validMoves=getValidMoves(row,col); renderBoard(); return;
+      }
+      selectedCell=null; validMoves=[]; renderBoard(); return;
+    }
+    if(piece&&piece.player===myPlayerIndex){
+      selectedCell={row,col}; validMoves=getValidMoves(row,col); renderBoard();
+    }
+  }
+
+  function getValidMoves(row,col){
+    const myPiece=gameState.board[row][col]; if(!myPiece) return [];
+    const moves=[];
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+      if(!dr&&!dc) continue;
+      const nr=row+dr, nc=col+dc;
+      if(nr<0||nr>=9||nc<0||nc>=9) continue;
+      const tgt=gameState.board[nr][nc];
+      if(tgt&&tgt.player===myPlayerIndex) continue;
+      if(tgt&&tgt.player!==myPlayerIndex&&BEATS[myPiece.type]!==tgt.type) continue;
+      moves.push({row:nr,col:nc});
+    }
+    return moves;
+  }
+
+  function sendMove(fromRow,fromCol,toRow,toCol){
+    if(ws&&ws.readyState===WebSocket.OPEN)
+      ws.send(JSON.stringify({type:'move',fromRow,fromCol,toRow,toCol}));
+  }
+
+  function setStatus(msg,cls){
+    const el=document.getElementById('status-msg'); el.textContent=msg; el.className=`status-msg ${cls}`;
+  }
+
+  function addLog(lm){
+    if(!lm) return;
+    const cols=COL_STD;
+    const from=`${cols[lm.fromCol]}${9-lm.fromRow}`, to=`${cols[lm.toCol]}${9-lm.toRow}`;
+    const pN=playerNames[lm.playerIndex]||`P${lm.playerIndex}`;
+    let html=`<span class="pt p${lm.playerIndex}">${pN}</span> ${from}→${to}`;
+    if(lm.captured) html+=' <span style="color:var(--accent2)">💥</span>';
+    moveLog.unshift(html);
+    document.getElementById('log-entries').innerHTML=
+      moveLog.slice(0,30).map(e=>`<div class="log-entry">${e}</div>`).join('');
+  }
+
+  function showGameOver(msg){
+    const win=msg.winner===myPlayerIndex;
+    document.getElementById('winner-crown').textContent=win?'🏆':'💔';
+    document.getElementById('winner-title').textContent=win?'CHIẾN THẮNG!':'THẤT BẠI';
+    document.getElementById('winner-name').textContent=msg.winnerName;
+    const reasons={reached_home:'🏠 Tiến đến home đối thủ!',eliminated:'⚔️ Tiêu diệt hết quân!',forfeit:'🚪 Đối thủ bỏ cuộc!'};
+    document.getElementById('win-reason').textContent=reasons[msg.winReason]||'';
+    document.getElementById('overlay-gameover').classList.add('show');
+  }
+
+  /* ── Init ──────────────────────────────────────── */
+  // Build default coords (will rebuild on game_start once we know playerIndex)
+  buildCoords();
+  connect();
+  if(gameState){ flipped=(myPlayerIndex===0); buildCoords(); setTimeout(renderGame,120); }
+
+  setInterval(()=>{ if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); },20000);
+</script>
+</body>
+</html>

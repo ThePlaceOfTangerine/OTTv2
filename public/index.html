@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPS Arena - Lobby</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --surface2: #1a1a28;
+      --border: rgba(130,100,255,0.2);
+      --accent: #7c5cff;
+      --accent2: #ff5c8a;
+      --accent3: #5cffb8;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --gold: #ffd700;
+      --r-color: #ff5c5c;
+      --p-color: #5cb8ff;
+      --s-color: #ffdb5c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(124,92,255,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(255,92,138,0.1) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.05em;
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(124,92,255,0.5)); }
+      50% { filter: drop-shadow(0 0 40px rgba(255,92,138,0.6)); }
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      letter-spacing: 0.1em;
+    }
+
+    .piece-preview {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .pp-icon {
+      font-size: 1.5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+    .pp-icon:nth-child(2) { animation-delay: 0.5s; }
+    .pp-icon:nth-child(3) { animation-delay: 1s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(124,92,255,0.5);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* Form elements */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,92,255,0.15);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #9b7cff);
+      color: white;
+      box-shadow: 0 4px 20px rgba(124,92,255,0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(124,92,255,0.6);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent3);
+      border: 1px solid var(--accent3);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(92,255,184,0.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--accent2), #ff3366);
+      color: white;
+      box-shadow: 0 4px 20px rgba(255,92,138,0.3);
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255,92,138,0.5);
+    }
+
+    .btn-full { width: 100%; }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Two column layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+
+    /* Room list */
+    .room-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .room-list::-webkit-scrollbar { width: 4px; }
+    .room-list::-webkit-scrollbar-track { background: var(--surface2); }
+    .room-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+    .room-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .room-item:hover { border-color: rgba(124,92,255,0.4); }
+
+    .room-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .room-id {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .room-creator {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent3);
+      animation: blink 1.5s ease-in-out infinite;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      margin-top: 0.2rem;
+    }
+
+    /* Notification */
+    .notif {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      font-size: 0.9rem;
+      max-width: 300px;
+      animation: slide-in 0.3s ease;
+      z-index: 100;
+    }
+
+    .notif.success { border-color: var(--accent3); }
+    .notif.error { border-color: var(--accent2); }
+
+    @keyframes slide-in {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Loading */
+    .waiting-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--gold);
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,215,0,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 2rem;
+      font-size: 0.9rem;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .rule-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem;
+      text-align: center;
+    }
+
+    .rule-card .icon { font-size: 1.5rem; }
+    .rule-card .name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.7rem;
+      color: var(--accent);
+      margin: 0.3rem 0;
+    }
+    .rule-card .desc { font-size: 0.7rem; color: var(--muted); }
+
+    .home-badges {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .home-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .spectate-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+
+    #roomId-display {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 0.2em;
+      text-align: center;
+      padding: 1rem;
+      background: var(--surface2);
+      border-radius: 10px;
+      border: 1px dashed var(--gold);
+      margin: 0.75rem 0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #roomId-display:hover { background: rgba(255,215,0,0.05); }
+
+    .copy-hint {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    #section-waiting { display: none; }
+    #section-lobby { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">⚔️ RPS ARENA</div>
+      <p class="subtitle">KÉO · BÚA · BAO — CHIẾN THUẬT 9×9</p>
+      <div class="piece-preview">
+        <span class="pp-icon">🪨</span>
+        <span class="pp-icon">📄</span>
+        <span class="pp-icon">✂️</span>
+      </div>
+    </div>
+
+    <!-- Lobby Stats -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value" id="stat-rooms">0</div>
+        <div class="stat-label">PHÒNG CHỜ</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="stat-games">0</div>
+        <div class="stat-label">ĐANG ĐẤU</div>
+      </div>
+    </div>
+
+    <!-- Section: Lobby (Create/Join) -->
+    <div id="section-lobby">
+      <div class="two-col">
+        <!-- Create Room -->
+        <div class="card">
+          <div class="card-title">TẠO PHÒNG MỚI</div>
+          <div class="form-group">
+            <label>Tên của bạn</label>
+            <input type="text" id="create-name" placeholder="Nhập tên..." maxlength="20">
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-create" onclick="createRoom()">
+            ✦ TẠO PHÒNG
+          </button>
+        </div>
+
+        <!-- Join Room -->
+        <div class="card">
+          <div class="card-title">THAM GIA PHÒNG</div>
+          <div class="form-group">
+            <label>Tên của bạn</label>
+            <input type="text" id="join-name" placeholder="Nhập tên..." maxlength="20">
+          </div>
+          <div class="form-group">
+            <label>Mã phòng</label>
+            <input type="text" id="join-code" placeholder="Ví dụ: AB12CD" maxlength="6" style="text-transform:uppercase">
+          </div>
+          <button class="btn btn-danger btn-full" id="btn-join" onclick="joinRoom()">
+            ⚡ VÀO PHÒNG
+          </button>
+        </div>
+      </div>
+
+      <!-- Available Rooms -->
+      <div class="card">
+        <div class="card-title">PHÒNG ĐANG CHỜ <span id="room-count" style="color:var(--muted);font-weight:400">(0)</span></div>
+        <div class="room-list" id="room-list">
+          <div class="empty-state">Chưa có phòng nào. Hãy tạo phòng đầu tiên!</div>
+        </div>
+      </div>
+
+      <!-- Rules -->
+      <div class="card">
+        <div class="card-title">LUẬT CHƠI</div>
+        <div class="rules-grid">
+          <div class="rule-card">
+            <div class="icon">🪨</div>
+            <div class="name">BÚA</div>
+            <div class="desc">Thắng ✂️<br>Thua 📄</div>
+          </div>
+          <div class="rule-card">
+            <div class="icon">📄</div>
+            <div class="name">BAO</div>
+            <div class="desc">Thắng 🪨<br>Thua ✂️</div>
+          </div>
+          <div class="rule-card">
+            <div class="icon">✂️</div>
+            <div class="name">KÉO</div>
+            <div class="desc">Thắng 📄<br>Thua 🪨</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);line-height:1.6">
+          • Mỗi người có <strong style="color:var(--text)">10 quân</strong> (3+3+4, ngẫu nhiên)<br>
+          • Di chuyển <strong style="color:var(--text)">8 hướng</strong>, 1 ô mỗi lượt<br>
+          • Thắng khi: đưa quân tới <strong style="color:var(--gold)">home đối thủ</strong> hoặc <strong style="color:var(--accent2)">ăn hết quân</strong>
+        </div>
+        <div class="home-badges" style="margin-top:0.75rem">
+          <div class="home-badge">🟣 Người 1: Góc trên-phải</div>
+          <div class="home-badge">🔴 Người 2: Góc dưới-trái</div>
+        </div>
+      </div>
+
+      <div class="spectate-link">
+        <a href="/spectator.html" class="btn btn-secondary">👁 XEM TẤT CẢ TRẬN ĐẤU</a>
+      </div>
+    </div>
+
+    <!-- Section: Waiting for opponent -->
+    <div id="section-waiting">
+      <div class="card" style="text-align:center">
+        <div class="card-title" style="justify-content:center">PHÒNG ĐÃ TẠO</div>
+        <p style="color:var(--muted);margin-bottom:0.5rem">Chia sẻ mã phòng với đối thủ:</p>
+        <div id="roomId-display" onclick="copyRoomId()" title="Click để sao chép">——</div>
+        <p class="copy-hint">Click để sao chép</p>
+        <div class="waiting-indicator" style="justify-content:center">
+          <div class="spinner"></div>
+          <span>Đang chờ đối thủ vào phòng...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WS_URL = `ws://${location.host}`;
+    let ws = null;
+    let currentRoomId = null;
+    let myPlayerIndex = null;
+    let myName = '';
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'get_lobby' }));
+        startHeartbeat();
+      };
+      ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+      ws.onclose = () => setTimeout(connect, 3000);
+      ws.onerror = () => {};
+    }
+
+    function startHeartbeat() {
+      setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 20000);
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'lobby_update':
+          updateLobbyUI(msg.rooms, msg.activeGames);
+          break;
+        case 'room_created':
+          myPlayerIndex = 0;
+          myName = msg.playerName;
+          currentRoomId = msg.roomId;
+          showWaitingSection(msg.roomId);
+          break;
+        case 'room_joined':
+          myPlayerIndex = msg.playerIndex;
+          myName = msg.playerName;
+          currentRoomId = msg.roomId;
+          break;
+        case 'game_start':
+          sessionStorage.setItem('gameState', JSON.stringify({
+            game: msg.game,
+            playerIndex: myPlayerIndex,
+            playerName: myName,
+            playerNames: msg.playerNames,
+          }));
+          location.href = `/game.html?room=${currentRoomId}`;
+          break;
+        case 'error':
+          showNotif(msg.message, 'error');
+          break;
+      }
+    }
+
+    function updateLobbyUI(rooms, activeGames) {
+      document.getElementById('stat-rooms').textContent = rooms.length;
+      document.getElementById('stat-games').textContent = activeGames;
+      document.getElementById('room-count').textContent = `(${rooms.length})`;
+
+      const list = document.getElementById('room-list');
+      if (rooms.length === 0) {
+        list.innerHTML = '<div class="empty-state">Chưa có phòng nào. Hãy tạo phòng đầu tiên!</div>';
+        return;
+      }
+
+      list.innerHTML = rooms.map(r => `
+        <div class="room-item">
+          <div class="room-info">
+            <span class="room-id">${r.roomId}</span>
+            <span class="room-creator"><span class="status-dot"></span>${r.creatorName} đang chờ</span>
+          </div>
+          <button class="btn btn-danger" onclick="quickJoin('${r.roomId}')">VÀO</button>
+        </div>
+      `).join('');
+    }
+
+    function createRoom() {
+      const name = document.getElementById('create-name').value.trim() || 'Player';
+      myName = name;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showNotif('Đang kết nối server...', 'error'); return;
+      }
+      ws.send(JSON.stringify({ type: 'create_room', playerName: name }));
+    }
+
+    function joinRoom() {
+      const name = document.getElementById('join-name').value.trim() || 'Player';
+      const code = document.getElementById('join-code').value.trim().toUpperCase();
+      if (!code) { showNotif('Nhập mã phòng!', 'error'); return; }
+      myName = name;
+      ws.send(JSON.stringify({ type: 'join_room', roomId: code, playerName: name }));
+    }
+
+    function quickJoin(roomId) {
+      const name = document.getElementById('join-name').value.trim() ||
+                   document.getElementById('create-name').value.trim() || 'Player';
+      myName = name;
+      document.getElementById('join-code').value = roomId;
+      ws.send(JSON.stringify({ type: 'join_room', roomId, playerName: name }));
+    }
+
+    function showWaitingSection(roomId) {
+      document.getElementById('section-lobby').style.display = 'none';
+      document.getElementById('section-waiting').style.display = 'block';
+      document.getElementById('roomId-display').textContent = roomId;
+    }
+
+    function copyRoomId() {
+      navigator.clipboard.writeText(currentRoomId).then(() => {
+        showNotif('Đã sao chép mã phòng: ' + currentRoomId, 'success');
+      });
+    }
+
+    function showNotif(msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = `notif ${type}`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    connect();
+
+    // Allow Enter to submit
+    document.getElementById('join-code').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinRoom();
+    });
+    document.getElementById('create-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') createRoom();
+    });
+  </script>
+</body>
+</html>

@@ -1,72 +1,156 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RPS Arena - Spectator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
   <script type="module">
     import { playhtml } from "https://unpkg.com/playhtml@latest";
     playhtml.init();
   </script>
   <style>
     :root {
-      --bg:#060609; --surface:#0e0e18; --surface2:#141420;
-      --border:rgba(130,100,255,.15);
-      --accent:#7c5cff; --accent2:#ff5c8a; --accent3:#5cffb8;
-      --text:#e8e8f0; --muted:#5a5a7a; --gold:#ffd700;
-      --p0:#7c5cff; --p1:#ff5c8a;
+      --bg: #060609;
+      --surface: #0e0e18;
+      --surface2: #141420;
+      --border: rgba(130, 100, 255, .15);
+      --accent: #7c5cff;
+      --accent2: #ff5c8a;
+      --accent3: #5cffb8;
+      --text: #e8e8f0;
+      --muted: #5a5a7a;
+      --gold: #ffd700;
+      --p0: #7c5cff;
+      --p1: #ff5c8a;
       /* Header height used for row-height calculation */
       --hh: 50px;
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { scroll-behavior: smooth; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      background: var(--bg); color: var(--text);
+      background: var(--bg);
+      color: var(--text);
       font-family: 'Inter', sans-serif;
       /* allow vertical scroll to reveal 2nd row of games */
-      overflow-x: hidden; overflow-y: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
+
     body::before {
-      content: ''; position: fixed; inset: 0; pointer-events: none;
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
       background:
-        radial-gradient(ellipse at 0% 0%, rgba(124,92,255,.06), transparent 50%),
-        radial-gradient(ellipse at 100% 100%, rgba(255,92,138,.04), transparent 50%);
+        radial-gradient(ellipse at 0% 0%, rgba(124, 92, 255, .06), transparent 50%),
+        radial-gradient(ellipse at 100% 100%, rgba(255, 92, 138, .04), transparent 50%);
     }
 
     /* ── Header ─────────────────────────────────────── */
     .spec-header {
-      position: sticky; top: 0; z-index: 50;
+      position: sticky;
+      top: 0;
+      z-index: 50;
       height: var(--hh);
-      background: rgba(6,6,9,.95); backdrop-filter: blur(16px);
+      background: rgba(6, 6, 9, .95);
+      backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
       padding: 0 20px;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
-    .logo {
-      font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 900;
-      background: linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .live-badge {
-      display: flex; align-items: center; gap: 5px;
-      background: rgba(255,50,50,.12); border: 1px solid rgba(255,80,80,.35);
-      border-radius: 20px; padding: 3px 10px;
-      font-size: .6rem; font-weight: 700; color: #ff6060; letter-spacing: .1em;
-    }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #ff4444; animation: lpulse 1.5s ease-in-out infinite; }
-    @keyframes lpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
 
-    .stat-chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .stat-chip {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 7px; padding: 3px 10px;
-      display: flex; align-items: center; gap: 5px; font-size: .65rem;
+    .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    .stat-chip .val { font-family: 'Orbitron',sans-serif; font-weight: 700; color: var(--accent3); }
-    .stat-chip .lbl { color: var(--muted); }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 50, 50, .12);
+      border: 1px solid rgba(255, 80, 80, .35);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: .6rem;
+      font-weight: 700;
+      color: #ff6060;
+      letter-spacing: .1em;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff4444;
+      animation: lpulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes lpulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1)
+      }
+
+      50% {
+        opacity: .5;
+        transform: scale(.8)
+      }
+    }
+
+    .stat-chips {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 3px 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .65rem;
+    }
+
+    .stat-chip .val {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      color: var(--accent3);
+    }
+
+    .stat-chip .lbl {
+      color: var(--muted);
+    }
 
     /* ── 2×2 Grid ────────────────────────────────────── */
     /*
@@ -84,6 +168,7 @@
       gap: 8px;
       padding: 8px;
     }
+
     @media (max-width: 700px) {
       .games-grid {
         grid-template-columns: 1fr;
@@ -96,46 +181,122 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      display: flex; flex-direction: column;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       min-height: 0;
       transition: border-color .3s;
     }
-    .game-slot.has-game { border-color: rgba(124,92,255,.35); }
+
+    .game-slot.has-game {
+      border-color: rgba(124, 92, 255, .35);
+    }
 
     /* Slot header strip */
     .slot-header {
       flex: 0 0 auto;
-      background: var(--surface2); border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
       padding: 5px 12px;
-      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
     }
-    .match-label { font-family:'Orbitron',sans-serif; font-size:.62rem; font-weight:700; color:var(--accent); letter-spacing:.1em; }
-    .match-status { font-size:.58rem; padding:2px 7px; border-radius:10px; font-weight:600; white-space:nowrap; }
-    .match-status.playing  { background:rgba(92,255,184,.1);  color:var(--accent3); border:1px solid rgba(92,255,184,.3); }
-    .match-status.waiting  { background:rgba(255,215,0,.1);   color:var(--gold);    border:1px solid rgba(255,215,0,.3); }
-    .match-status.finished { background:rgba(255,92,138,.1);  color:var(--accent2); border:1px solid rgba(255,92,138,.3); }
+
+    .match-label {
+      font-family: 'Orbitron', sans-serif;
+      font-size: .62rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: .1em;
+    }
+
+    .match-status {
+      font-size: .58rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .match-status.playing {
+      background: rgba(92, 255, 184, .1);
+      color: var(--accent3);
+      border: 1px solid rgba(92, 255, 184, .3);
+    }
+
+    .match-status.waiting {
+      background: rgba(255, 215, 0, .1);
+      color: var(--gold);
+      border: 1px solid rgba(255, 215, 0, .3);
+    }
+
+    .match-status.finished {
+      background: rgba(255, 92, 138, .1);
+      color: var(--accent2);
+      border: 1px solid rgba(255, 92, 138, .3);
+    }
 
     /* Slot body: flex column, fills remaining slot height */
     .slot-body {
       flex: 1 1 0;
       min-height: 0;
       padding: 6px 8px;
-      display: flex; flex-direction: column; gap: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       overflow: hidden;
     }
 
     /* Player info row */
     .mini-players {
       flex: 0 0 auto;
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    .mini-player { font-size: .58rem; }
-    .mini-player.p0 .mpname { color:var(--p0); font-weight:700; font-family:'Orbitron',sans-serif; font-size:.55rem; }
-    .mini-player.p1 .mpname { color:var(--p1); font-weight:700; font-family:'Orbitron',sans-serif; font-size:.55rem; }
-    .mpics { display:flex; gap:3px; margin-top:1px; font-size:.5rem; color:var(--muted); align-items:center; }
-    .mpics img { width:10px; height:10px; object-fit:contain; }
-    .mini-vs { font-family:'Orbitron',sans-serif; font-size:.65rem; color:var(--gold); flex-shrink:0; padding:0 4px; }
+
+    .mini-player {
+      font-size: .58rem;
+    }
+
+    .mini-player.p0 .mpname {
+      color: var(--p0);
+      font-weight: 700;
+      font-family: 'Orbitron', sans-serif;
+      font-size: .55rem;
+    }
+
+    .mini-player.p1 .mpname {
+      color: var(--p1);
+      font-weight: 700;
+      font-family: 'Orbitron', sans-serif;
+      font-size: .55rem;
+    }
+
+    .mpics {
+      display: flex;
+      gap: 3px;
+      margin-top: 1px;
+      font-size: .5rem;
+      color: var(--muted);
+      align-items: center;
+    }
+
+    .mpics img {
+      width: 10px;
+      height: 10px;
+      object-fit: contain;
+    }
+
+    .mini-vs {
+      font-family: 'Orbitron', sans-serif;
+      font-size: .65rem;
+      color: var(--gold);
+      flex-shrink: 0;
+      padding: 0 4px;
+    }
 
     /*
       Board area: fills remaining space after player info.
@@ -164,13 +325,30 @@
       grid-template-columns: 10px 1fr 10px;
       grid-template-rows: 10px 1fr 10px;
     }
-    .mini-col-strip { display: grid; grid-template-columns: repeat(9, 1fr); align-items: center; }
-    .mini-row-strip { display: flex; flex-direction: column; }
-    .mini-row-strip .mini-clabel { flex: 1; }
+
+    .mini-col-strip {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      align-items: center;
+    }
+
+    .mini-row-strip {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mini-row-strip .mini-clabel {
+      flex: 1;
+    }
+
     .mini-clabel {
-      font-family:'Orbitron',sans-serif; font-size:.28rem;
-      color:rgba(255,255,255,.25); font-weight:700;
-      display:flex; align-items:center; justify-content:center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: .28rem;
+      color: rgba(255, 255, 255, .25);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     /* The actual board grid */
@@ -179,90 +357,205 @@
       grid-template-columns: repeat(9, 1fr);
       grid-template-rows: repeat(9, 1fr);
       gap: 1px;
-      background: rgba(100,80,220,.12);
-      border: 1px solid rgba(100,80,220,.2);
+      background: rgba(100, 80, 220, .12);
+      border: 1px solid rgba(100, 80, 220, .2);
       border-radius: 5px;
       padding: 2px;
       /* Fill the 1fr cell of the chess-wrap */
-      width: 100%; height: 100%;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
     }
+
     .mini-cell {
       border-radius: 2px;
-      display: flex; align-items: center; justify-content: center;
-      position: relative; overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
     }
-    .mini-cell.light-sq { background: #1e1e32; }
-    .mini-cell.dark-sq  { background: #141422; }
-    .mini-cell.home-p0  { background: rgba(124,92,255,.25) !important; }
-    .mini-cell.home-p1  { background: rgba(255,92,138,.25) !important; }
-    .mini-cell.last-from { outline: 1px dashed rgba(124,92,255,.5); }
-    .mini-cell.last-to   { outline: 1px solid rgba(92,255,184,.7); }
+
+    .mini-cell.light-sq {
+      background: #1e1e32;
+    }
+
+    .mini-cell.dark-sq {
+      background: #141422;
+    }
+
+    .mini-cell.home-p0 {
+      background: rgba(124, 92, 255, .25) !important;
+    }
+
+    .mini-cell.home-p1 {
+      background: rgba(255, 92, 138, .25) !important;
+    }
+
+    .mini-cell.last-from {
+      outline: 1px dashed rgba(124, 92, 255, .5);
+    }
+
+    .mini-cell.last-to {
+      outline: 1px solid rgba(92, 255, 184, .7);
+    }
 
     .mini-piece {
-      width: 82%; height: 82%; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
+      width: 82%;
+      height: 82%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .mini-piece img { width: 72%; height: 72%; object-fit: contain; pointer-events: none; }
+
+    .mini-piece img {
+      width: 72%;
+      height: 72%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
     .mini-piece.p0 {
-      background: radial-gradient(circle at 35% 35%,rgba(124,92,255,.75),rgba(40,20,120,.95));
-      border: 1px solid rgba(124,92,255,.9);
+      background: radial-gradient(circle at 35% 35%, rgba(124, 92, 255, .75), rgba(40, 20, 120, .95));
+      border: 1px solid rgba(124, 92, 255, .9);
     }
+
     .mini-piece.p1 {
-      background: radial-gradient(circle at 35% 35%,rgba(255,92,138,.75),rgba(120,20,60,.95));
-      border: 1px solid rgba(255,92,138,.9);
+      background: radial-gradient(circle at 35% 35%, rgba(255, 92, 138, .75), rgba(120, 20, 60, .95));
+      border: 1px solid rgba(255, 92, 138, .9);
     }
-    .mini-home-icon { position:absolute; top:0; right:1px; font-size:4px; opacity:.7; }
+
+    .mini-home-icon {
+      position: absolute;
+      top: 0;
+      right: 1px;
+      font-size: 4px;
+      opacity: .7;
+    }
 
     /* Empty slot */
     .empty-slot {
-      flex: 1; display:flex; flex-direction:column;
-      align-items:center; justify-content:center;
-      color:var(--muted); gap:6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      gap: 6px;
     }
-    .empty-slot-icon { font-size:1.8rem; opacity:.25; }
-    .empty-slot-text { font-size:.72rem; text-align:center; }
+
+    .empty-slot-icon {
+      font-size: 1.8rem;
+      opacity: .25;
+    }
+
+    .empty-slot-text {
+      font-size: .72rem;
+      text-align: center;
+    }
 
     /* Winner overlay */
     .winner-banner {
-      display:none; position:absolute; inset:0;
-      background:rgba(0,0,0,.82); backdrop-filter:blur(3px);
-      z-index:10; align-items:center; justify-content:center;
-      flex-direction:column; gap:5px; text-align:center; border-radius:12px;
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, .82);
+      backdrop-filter: blur(3px);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 5px;
+      text-align: center;
+      border-radius: 12px;
     }
-    .winner-banner.show { display:flex; }
-    .winner-banner .crown { font-size:2rem; }
-    .winner-banner .wname { font-family:'Orbitron',sans-serif; font-size:.85rem; font-weight:900; color:var(--gold); }
-    .winner-banner .wdesc { font-size:.6rem; color:var(--muted); }
+
+    .winner-banner.show {
+      display: flex;
+    }
+
+    .winner-banner .crown {
+      font-size: 2rem;
+    }
+
+    .winner-banner .wname {
+      font-family: 'Orbitron', sans-serif;
+      font-size: .85rem;
+      font-weight: 900;
+      color: var(--gold);
+    }
+
+    .winner-banner .wdesc {
+      font-size: .6rem;
+      color: var(--muted);
+    }
 
     /* Toast */
     .toast {
-      position:fixed; top:60px; right:16px;
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:10px; padding:8px 14px; font-size:.78rem;
-      z-index:300; animation:toast-in .3s ease; max-width:260px;
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: .78rem;
+      z-index: 300;
+      animation: toast-in .3s ease;
+      max-width: 260px;
     }
-    @keyframes toast-in { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
-    .toast.event-capture { border-color:var(--accent2); }
-    .toast.event-win     { border-color:var(--gold); }
+
+    @keyframes toast-in {
+      from {
+        transform: translateX(120%);
+        opacity: 0
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1
+      }
+    }
+
+    .toast.event-capture {
+      border-color: var(--accent2);
+    }
+
+    .toast.event-win {
+      border-color: var(--gold);
+    }
 
     /* playhtml tag */
-    #spec-cursor { z-index:200; }
+    #spec-cursor {
+      z-index: 200;
+    }
 
-    ::-webkit-scrollbar { width:4px; }
-    ::-webkit-scrollbar-thumb { background:rgba(124,92,255,.5); border-radius:2px; }
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(124, 92, 255, .5);
+      border-radius: 2px;
+    }
   </style>
 </head>
+
 <body>
   <header class="spec-header">
     <div style="display:flex;align-items:center;gap:10px">
       <div class="logo">⚔️ RPS ARENA</div>
-      <div class="live-badge"><div class="live-dot"></div>TRỰC TIẾP</div>
+      <div class="live-badge">
+        <div class="live-dot"></div>TRỰC TIẾP
+      </div>
     </div>
     <div class="stat-chips">
       <div class="stat-chip"><span class="val" id="stat-active">0</span><span class="lbl">ĐANG ĐẤU</span></div>
       <div class="stat-chip"><span class="val" id="stat-waiting">0</span><span class="lbl">CHỜ</span></div>
-      <a href="/" style="text-decoration:none;font-size:.65rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 8px;">↩ Tham gia</a>
+      <a href="/"
+        style="text-decoration:none;font-size:.65rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 8px;">↩
+        Thoát</a>
     </div>
   </header>
 
@@ -279,26 +572,26 @@
   </div>
 
   <script>
-    const PIECE_IMG   = { R:'/img/rock.png', P:'/img/paper.png', S:'/img/scissor.png' };
-    const PIECE_LABEL = { R:'Búa', P:'Bao', S:'Kéo' };
-    const COL_LABELS  = ['A','B','C','D','E','F','G','H','I'];
-    const MAX_SLOTS   = 4;
+    const PIECE_IMG = { R: '/img/rock.png', P: '/img/paper.png', S: '/img/scissor.png' };
+    const PIECE_LABEL = { R: 'Búa', P: 'Bao', S: 'Kéo' };
+    const COL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+    const MAX_SLOTS = 4;
 
     let ws = null, games = [], toastTm = null;
 
     // Random viewer nickname
-    const adj = ['Huyền bí','Thần thánh','Dũng mãnh','Huyền thoại','Bí ẩn'];
-    const nn  = ['Quan sát viên','Nhà phân tích','Chứng nhân','Thám tử'];
+    const adj = ['Huyền bí', 'Thần thánh', 'Dũng mãnh', 'Huyền thoại', 'Bí ẩn'];
+    const nn = ['Quan sát viên', 'Nhà phân tích', 'Chứng nhân', 'Thám tử'];
     document.getElementById('viewer-label').textContent =
-      adj[Math.floor(Math.random()*adj.length)] + ' ' + nn[Math.floor(Math.random()*nn.length)];
+      adj[Math.floor(Math.random() * adj.length)] + ' ' + nn[Math.floor(Math.random() * nn.length)];
 
     // ── WebSocket ──────────────────────────────────────
     function connect() {
       ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
-      ws.onopen = () => ws.send(JSON.stringify({ type:'spectate' }));
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'spectate' }));
       ws.onmessage = e => onMsg(JSON.parse(e.data));
       ws.onclose = () => setTimeout(connect, 3000);
-      ws.onerror = () => {};
+      ws.onerror = () => { };
     }
 
     function onMsg(msg) {
@@ -306,14 +599,14 @@
         case 'spectator_init':
           games = msg.games || [];
           renderAll();
-          document.getElementById('stat-active').textContent  = msg.activeCount  ?? games.filter(g=>g.status==='playing').length;
+          document.getElementById('stat-active').textContent = msg.activeCount ?? games.filter(g => g.status === 'playing').length;
           document.getElementById('stat-waiting').textContent = msg.waitingCount ?? 0;
           break;
         case 'spectator_update':
           detectEvents(msg.games || []);
           games = msg.games || [];
           renderAll();
-          document.getElementById('stat-active').textContent  = msg.activeCount  ?? games.filter(g=>g.status==='playing').length;
+          document.getElementById('stat-active').textContent = msg.activeCount ?? games.filter(g => g.status === 'playing').length;
           document.getElementById('stat-waiting').textContent = msg.waitingCount ?? 0;
           break;
       }
@@ -356,15 +649,15 @@
         return slot;
       }
 
-      const stText  = { playing:'ĐANG ĐẤU', finished:'KẾT THÚC', waiting:'CHỜ' }[game.status] || 'CHỜ';
-      const stClass = { playing:'playing',   finished:'finished',  waiting:'waiting'  }[game.status] || 'waiting';
+      const stText = { playing: 'ĐANG ĐẤU', finished: 'KẾT THÚC', waiting: 'CHỜ' }[game.status] || 'CHỜ';
+      const stClass = { playing: 'playing', finished: 'finished', waiting: 'waiting' }[game.status] || 'waiting';
       const p0 = game.players[0], p1 = game.players[1];
       const lm = game.lastMove;
       const turnColor = game.currentTurn === 0 ? 'var(--p0)' : 'var(--p1)';
       const turnArrow = game.currentTurn === 0 ? '→' : '←';
 
       // Count pieces
-      const cnt = [{ R:0,P:0,S:0 }, { R:0,P:0,S:0 }];
+      const cnt = [{ R: 0, P: 0, S: 0 }, { R: 0, P: 0, S: 0 }];
       for (let r = 0; r < 9; r++)
         for (let c = 0; c < 9; c++) { const pc = game.board[r][c]; if (pc) cnt[pc.player][pc.type]++; }
 
@@ -415,12 +708,12 @@
       // Build coord strips
       const makeColStrip = () => {
         const s = document.createElement('div'); s.className = 'mini-col-strip';
-        COL_LABELS.forEach(l => { const d=document.createElement('div'); d.className='mini-clabel'; d.textContent=l; s.appendChild(d); });
+        COL_LABELS.forEach(l => { const d = document.createElement('div'); d.className = 'mini-clabel'; d.textContent = l; s.appendChild(d); });
         return s;
       };
       const makeRowStrip = () => {
         const s = document.createElement('div'); s.className = 'mini-row-strip';
-        for (let r = 0; r < 9; r++) { const d=document.createElement('div'); d.className='mini-clabel'; d.textContent=9-r; s.appendChild(d); }
+        for (let r = 0; r < 9; r++) { const d = document.createElement('div'); d.className = 'mini-clabel'; d.textContent = 9 - r; s.appendChild(d); }
         return s;
       };
       const corner = () => document.createElement('div');
@@ -436,12 +729,12 @@
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
           const cell = document.createElement('div');
-          cell.className = 'mini-cell ' + ((r+c)%2===0 ? 'light-sq' : 'dark-sq');
-          if (r===0 && c===8) { cell.classList.add('home-p0'); const ic=document.createElement('span'); ic.className='mini-home-icon'; ic.textContent='★'; cell.appendChild(ic); }
-          if (r===8 && c===0) { cell.classList.add('home-p1'); const ic=document.createElement('span'); ic.className='mini-home-icon'; ic.textContent='★'; cell.appendChild(ic); }
+          cell.className = 'mini-cell ' + ((r + c) % 2 === 0 ? 'light-sq' : 'dark-sq');
+          if (r === 0 && c === 8) { cell.classList.add('home-p0'); const ic = document.createElement('span'); ic.className = 'mini-home-icon'; ic.textContent = '★'; cell.appendChild(ic); }
+          if (r === 8 && c === 0) { cell.classList.add('home-p1'); const ic = document.createElement('span'); ic.className = 'mini-home-icon'; ic.textContent = '★'; cell.appendChild(ic); }
           if (lm) {
-            if (r===lm.fromRow && c===lm.fromCol) cell.classList.add('last-from');
-            if (r===lm.toRow   && c===lm.toCol  ) cell.classList.add('last-to');
+            if (r === lm.fromRow && c === lm.fromCol) cell.classList.add('last-from');
+            if (r === lm.toRow && c === lm.toCol) cell.classList.add('last-to');
           }
           const piece = game.board[r][c];
           if (piece) {
@@ -464,10 +757,10 @@
 
       // Winner overlay
       if (game.status === 'finished' && game.winner !== null) {
-        const reasons = { reached_home:'🏠 Tiến đến home', eliminated:'⚔️ Tiêu diệt hết quân', forfeit:'🚪 Bỏ cuộc' };
+        const reasons = { reached_home: '🏠 Tiến đến home', eliminated: '⚔️ Tiêu diệt hết quân', forfeit: '🚪 Bỏ cuộc' };
         const banner = document.createElement('div');
         banner.className = 'winner-banner show';
-        banner.innerHTML = `<div class="crown">🏆</div><div class="wname">${game.players[game.winner].name} THẮNG!</div><div class="wdesc">${reasons[game.winReason]||''}</div>`;
+        banner.innerHTML = `<div class="crown">🏆</div><div class="wname">${game.players[game.winner].name} THẮNG!</div><div class="wdesc">${reasons[game.winReason] || ''}</div>`;
         slot.appendChild(banner);
       }
 
@@ -486,7 +779,8 @@
     // ── Init ────────────────────────────────────────────
     connect();
     renderAll();
-    setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 15000);
+    setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' })); }, 15000);
   </script>
 </body>
+
 </html>

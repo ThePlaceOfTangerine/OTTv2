@@ -396,7 +396,7 @@
 
   /* ── WebSocket ─────────────────────────────────── */
   function connect() {
-    ws = new WebSocket(`ws://${location.host}`);
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
     ws.onopen = ()=>{
       setConn(true);
       if (roomId && myPlayerIndex!==null)

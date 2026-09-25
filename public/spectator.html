@@ -294,7 +294,7 @@
 
     // ── WebSocket ──────────────────────────────────────
     function connect() {
-      ws = new WebSocket(`ws://${location.host}`);
+      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
       ws.onopen = () => ws.send(JSON.stringify({ type:'spectate' }));
       ws.onmessage = e => onMsg(JSON.parse(e.data));
       ws.onclose = () => setTimeout(connect, 3000);

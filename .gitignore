@@ -1,0 +1,19 @@
+node_modules/
+data/
+.env
+coverage/
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+Thumbs.db
+
+# Local instructions and development reports; retain on disk, exclude from commits.
+/# Vai trò.md
+/docs/PLAN.md
+/docs/PHASE*.md
+
+# Old duplicate assets. Runtime serves public/img/.
+/img/

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RPS Arena - Spectator</title>
+  <title>OTTv2 · Theo dõi trận chơi trực tiếp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap"
@@ -545,7 +545,7 @@
 <body>
   <header class="spec-header">
     <div style="display:flex;align-items:center;gap:10px">
-      <div class="logo">⚔️ RPS ARENA</div>
+      <div class="logo">⚔️ OTT v2</div>
       <div class="live-badge">
         <div class="live-dot"></div>TRỰC TIẾP
       </div>
@@ -553,7 +553,7 @@
     <div class="stat-chips">
       <div class="stat-chip"><span class="val" id="stat-active">0</span><span class="lbl">ĐANG ĐẤU</span></div>
       <div class="stat-chip"><span class="val" id="stat-waiting">0</span><span class="lbl">CHỜ</span></div>
-      <a href="/"
+      <a href="/legacy/"
         style="text-decoration:none;font-size:.65rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 8px;">↩
         Thoát</a>
     </div>
@@ -580,14 +580,14 @@
     let ws = null, games = [], toastTm = null;
 
     // Random viewer nickname
-    const adj = ['Huyền bí', 'Thần thánh', 'Dũng mãnh', 'Huyền thoại', 'Bí ẩn'];
-    const nn = ['Quan sát viên', 'Nhà phân tích', 'Chứng nhân', 'Thám tử'];
+    const adj = [''];
+    const nn = ['Người xem'];
     document.getElementById('viewer-label').textContent =
       adj[Math.floor(Math.random() * adj.length)] + ' ' + nn[Math.floor(Math.random() * nn.length)];
 
     // ── WebSocket ──────────────────────────────────────
     function connect() {
-      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
+      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/legacy/ws`);
       ws.onopen = () => ws.send(JSON.stringify({ type: 'spectate' }));
       ws.onmessage = e => onMsg(JSON.parse(e.data));
       ws.onclose = () => setTimeout(connect, 3000);
@@ -757,7 +757,7 @@
 
       // Winner overlay
       if (game.status === 'finished' && game.winner !== null) {
-        const reasons = { reached_home: '🏠 Tiến đến home', eliminated: '⚔️ Tiêu diệt hết quân', forfeit: '🚪 Bỏ cuộc' };
+        const reasons = { reached_home: '🏠 Chiếm nhà đối thủ', eliminated: '⚔️ Ăn hết quân đối thủ', forfeit: '🚪 Bỏ cuộc' };
         const banner = document.createElement('div');
         banner.className = 'winner-banner show';
         banner.innerHTML = `<div class="crown">🏆</div><div class="wname">${game.players[game.winner].name} THẮNG!</div><div class="wdesc">${reasons[game.winReason] || ''}</div>`;

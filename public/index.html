@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RPS Arena - Lobby</title>
+  <title>OTTv2 · Phòng chơi trực tiếp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -455,8 +455,8 @@
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">⚔️ RPS ARENA</div>
-      <p class="subtitle">KÉO · BÚA · BAO — CHIẾN THUẬT 9×9</p>
+      <div class="logo">⚔️ OTT v2</div>
+      <p class="subtitle">Người chơi tự điều khiển quân trên bàn 9 × 9. Tạo phòng và gửi mã cho người chơi thứ hai; trận bắt đầu khi đủ hai người. <a href="/portal">Về khu thi đấu bot</a></p>
       <div class="piece-preview">
         <img src="/img/rock.png" class="pp-icon" alt="Búa" style="width: 2rem; height: 2rem; object-fit: contain;">
         <img src="/img/paper.png" class="pp-icon" alt="Bao" style="width: 2rem; height: 2rem; object-fit: contain;">
@@ -512,7 +512,7 @@
       <div class="card">
         <div class="card-title">PHÒNG ĐANG CHỜ <span id="room-count" style="color:var(--muted);font-weight:400">(0)</span></div>
         <div class="room-list" id="room-list">
-          <div class="empty-state">Chưa có phòng nào. Hãy tạo phòng đầu tiên!</div>
+          <div class="empty-state">Chưa có phòng chờ. Bạn có thể tạo phòng mới hoặc nhập mã phòng được chia sẻ.</div>
         </div>
       </div>
 
@@ -523,29 +523,29 @@
           <div class="rule-card">
             <div class="icon"><img src="/img/rock.png" alt="Búa" style="width: 2rem; height: 2rem; object-fit: contain;"></div>
             <div class="name">BÚA</div>
-            <div class="desc">Thắng <img src="/img/scissor.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"><br>Thua <img src="/img/paper.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"></div>
+            <div class="desc">Ăn Kéo<br>Bị Bao ăn</div>
           </div>
           <div class="rule-card">
             <div class="icon"><img src="/img/paper.png" alt="Bao" style="width: 2rem; height: 2rem; object-fit: contain;"></div>
             <div class="name">BAO</div>
-            <div class="desc">Thắng <img src="/img/rock.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"><br>Thua <img src="/img/scissor.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"></div>
+            <div class="desc">Ăn Búa<br>Bị Kéo ăn</div>
           </div>
           <div class="rule-card">
             <div class="icon"><img src="/img/scissor.png" alt="Kéo" style="width: 2rem; height: 2rem; object-fit: contain;"></div>
             <div class="name">KÉO</div>
-            <div class="desc">Thắng <img src="/img/paper.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"><br>Thua <img src="/img/rock.png" style="width: 1em; height: 1em; vertical-align: -0.15em;"></div>
+            <div class="desc">Ăn Bao<br>Bị Búa ăn</div>
           </div>
         </div>
         <div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);line-height:1.6">
-          • Mỗi người có <strong style="color:var(--text)">10 quân</strong> (3+3+4, ngẫu nhiên)<br>
-          • Di chuyển <strong style="color:var(--text)">8 hướng</strong>, 1 ô mỗi lượt<br>
-          • Thắng khi: đưa quân tới <strong style="color:var(--gold)">home đối thủ</strong> hoặc <strong style="color:var(--accent2)">ăn hết quân</strong>
+          • Mỗi bên có <strong style="color:var(--text)">10 quân Búa, Bao, Kéo theo tỷ lệ 3–3–4</strong>. Loại có 4 quân được chọn ngẫu nhiên; hai bên cùng cơ cấu quân.<br>
+          • Mỗi lượt đi một quân sang ô liền kề theo chiều ngang, dọc hoặc chéo. Được vào ô trống hoặc ô có quân đối thủ bị quân đang đi khắc chế; không được vào ô có quân cùng bên, quân cùng loại hoặc quân khắc chế mình.<br>
+          • Thắng khi: đưa quân tới <strong style="color:var(--gold)">nhà đối thủ (ô ★)</strong> hoặc <strong style="color:var(--accent2)">ăn hết quân đối thủ</strong>.<br>• Khu chơi trực tiếp không tính điểm bot; chưa áp dụng hòa sau 500 nước hoặc lặp thế cờ, và chưa tự xử thua khi hết nước hợp lệ.
         </div>
 
       </div>
 
       <div class="spectate-link">
-        <a href="/spectator.html" class="btn btn-secondary">👁 XEM TẤT CẢ TRẬN ĐẤU</a>
+        <a href="/legacy/spectator.html" class="btn btn-secondary">👁 XEM TRẬN CHƠI TRỰC TIẾP</a>
       </div>
     </div>
 
@@ -554,8 +554,8 @@
       <div class="card" style="text-align:center">
         <div class="card-title" style="justify-content:center">PHÒNG ĐÃ TẠO</div>
         <p style="color:var(--muted);margin-bottom:0.5rem">Chia sẻ mã phòng với đối thủ:</p>
-        <div id="roomId-display" onclick="copyRoomId()" title="Click để sao chép">——</div>
-        <p class="copy-hint">Click để sao chép</p>
+        <div id="roomId-display" onclick="copyRoomId()" title="Bấm để sao chép mã phòng">——</div>
+        <p class="copy-hint">Bấm để sao chép mã phòng</p>
         <div class="waiting-indicator" style="justify-content:center">
           <div class="spinner"></div>
           <span>Đang chờ đối thủ vào phòng...</span>
@@ -565,7 +565,7 @@
   </div>
 
   <script>
-    const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+    const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/legacy/ws`;
     let ws = null;
     let currentRoomId = null;
     let myPlayerIndex = null;
@@ -613,7 +613,7 @@
             playerName: myName,
             playerNames: msg.playerNames,
           }));
-          location.href = `/game.html?room=${currentRoomId}`;
+          location.href = `/legacy/game.html?room=${currentRoomId}`;
           break;
         case 'error':
           showNotif(msg.message, 'error');
@@ -628,7 +628,7 @@
 
       const list = document.getElementById('room-list');
       if (rooms.length === 0) {
-        list.innerHTML = '<div class="empty-state">Chưa có phòng nào. Hãy tạo phòng đầu tiên!</div>';
+        list.innerHTML = '<div class="empty-state">Chưa có phòng chờ. Bạn có thể tạo phòng mới hoặc nhập mã phòng được chia sẻ.</div>';
         return;
       }
 
@@ -644,16 +644,16 @@
     }
 
     function createRoom() {
-      const name = document.getElementById('create-name').value.trim() || 'Player';
+      const name = document.getElementById('create-name').value.trim() || 'Người chơi';
       myName = name;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showNotif('Đang kết nối server...', 'error'); return;
+        showNotif('Đang kết nối máy chủ. Vui lòng chờ rồi thử lại.', 'error'); return;
       }
       ws.send(JSON.stringify({ type: 'create_room', playerName: name }));
     }
 
     function joinRoom() {
-      const name = document.getElementById('join-name').value.trim() || 'Player';
+      const name = document.getElementById('join-name').value.trim() || 'Người chơi';
       const code = document.getElementById('join-code').value.trim().toUpperCase();
       if (!code) { showNotif('Nhập mã phòng!', 'error'); return; }
       myName = name;
@@ -662,7 +662,7 @@
 
     function quickJoin(roomId) {
       const name = document.getElementById('join-name').value.trim() ||
-                   document.getElementById('create-name').value.trim() || 'Player';
+                   document.getElementById('create-name').value.trim() || 'Người chơi';
       myName = name;
       document.getElementById('join-code').value = roomId;
       ws.send(JSON.stringify({ type: 'join_room', roomId, playerName: name }));

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <!-- user-scalable=no prevents mobile zoom-on-tap -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RPS Arena - Game</title>
+  <title>OTTv2 · Trận chơi trực tiếp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -280,7 +280,7 @@
 <div id="app">
   <!-- Top bar -->
   <div class="top-bar">
-    <a href="/" class="logo-sm">⚔️ RPS ARENA</a>
+    <a href="/legacy/" class="logo-sm">⚔️ OTT v2</a>
     <span style="font-size:.7rem;color:var(--muted)">
       <span class="conn-dot" id="conn-dot"></span><span id="conn-text">Kết nối...</span>
     </span>
@@ -329,7 +329,7 @@
         </div>
       </div>
       <div class="sidebar-card move-log-card">
-        <div class="sidebar-title">LỊCH SỬ</div>
+        <div class="sidebar-title">LỊCH SỬ NƯỚC ĐI</div><p style="font-size:.8rem;line-height:1.6;color:var(--muted)">Đến lượt, chọn một quân của bạn rồi chọn ô đích được đánh dấu. Có thể chọn một quân khác của bạn để đổi lựa chọn. Ô ★ là nhà; đưa quân vào nhà đối thủ để thắng.</p>
         <div class="log-entries" id="log-entries"></div>
       </div>
     </div>
@@ -341,10 +341,10 @@
 <div class="overlay" id="overlay-gameover">
   <div class="overlay-card">
     <div class="winner-crown" id="winner-crown">🏆</div>
-    <div class="winner-title" id="winner-title">CHIẾN THẮNG!</div>
+    <div class="winner-title" id="winner-title">BẠN THẮNG</div>
     <div class="winner-name" id="winner-name"></div>
     <div class="win-reason"  id="win-reason"></div>
-    <a href="/" class="btn btn-primary">↩ VỀ LOBBY</a>
+    <a href="/legacy/" class="btn btn-primary">↩ VỀ DANH SÁCH PHÒNG</a>
   </div>
 </div>
 
@@ -396,7 +396,7 @@
 
   /* ── WebSocket ─────────────────────────────────── */
   function connect() {
-    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/legacy/ws`);
     ws.onopen = ()=>{
       setConn(true);
       if (roomId && myPlayerIndex!==null)
@@ -586,9 +586,9 @@
   function showGameOver(msg){
     const win=msg.winner===myPlayerIndex;
     document.getElementById('winner-crown').textContent=win?'🏆':'💔';
-    document.getElementById('winner-title').textContent=win?'CHIẾN THẮNG!':'THẤT BẠI';
+    document.getElementById('winner-title').textContent=win?'BẠN THẮNG':'BẠN THUA';
     document.getElementById('winner-name').textContent=msg.winnerName;
-    const reasons={reached_home:'🏠 Tiến đến home đối thủ!',eliminated:'⚔️ Tiêu diệt hết quân!',forfeit:'🚪 Đối thủ bỏ cuộc!'};
+    const reasons={reached_home:'🏠 Chiếm nhà đối thủ',eliminated:'⚔️ Ăn hết quân đối thủ',forfeit:'🚪 Đối thủ rời trận'};
     document.getElementById('win-reason').textContent=reasons[msg.winReason]||'';
     document.getElementById('overlay-gameover').classList.add('show');
   }

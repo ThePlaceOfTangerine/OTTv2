@@ -2,11 +2,20 @@
   "name": "ottv2",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.js",
+    "seed": "node scripts/seed.js",
+    "sandbox:build": "node scripts/sandbox.js build",
+    "sandbox:check": "node scripts/sandbox.js check",
+    "test:sandbox": "node --test test/sandbox.integration.js",
+    "test:pipeline": "node --test test/submissions.integration.js",
+    "seed:bots": "node scripts/seed-bots.js",
+    "test:scoring": "node --test test/scoring.integration.js",
+    "test:templates": "node --test test/templates.integration.js",
+    "test:two-players": "node --test test/two-players.integration.js"
   },
   "repository": {
     "type": "git",
@@ -21,8 +30,14 @@
   },
   "homepage": "https://github.com/ThePlaceOfTangerine/OTTv2#readme",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
+    "multer": "^2.4.0",
     "uuid": "^14.0.2",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "yauzl": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=24.16.0"
   }
 }

@@ -1,0 +1,14 @@
+{
+  "id": "ottv2-classic", "version": 2, "engine": "rps-grid-v1", "name": "OTTv2 Classic",
+  "randomExtraPiece": true,
+  "boardSize": 9,
+  "homes": [{"row":0,"col":8},{"row":8,"col":0}],
+  "pieceTypes": ["R","R","R","P","P","P","S","S","S","S"],
+  "beats": {"R":"S","S":"P","P":"R"},
+  "directions": [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],
+  "startingPositions": [
+    [[0,6],[1,7],[2,8],[0,5],[1,6],[2,7],[3,8],[1,5],[2,6],[3,7]],
+    [[8,2],[7,1],[6,0],[8,3],[7,2],[6,1],[5,0],[7,3],[6,2],[5,1]]
+  ],
+  "maxMoves": 500, "repetitionLimit": 3, "noLegalMoves": "loss"
+}

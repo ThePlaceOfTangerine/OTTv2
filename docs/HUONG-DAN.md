@@ -51,7 +51,7 @@ Bot khởi động lại mỗi lượt, nên biến toàn cục không giữ đ�
 4. Theo dõi “Bộ xử lý và hàng đợi”: worker là bộ xử lý tự động, slot là số bài/trận có thể chạy cùng lúc. “Xem nhật ký” mở thông tin bài nộp và các trận thử. Khi có trận đang chơi, nút xem trực tiếp xuất hiện.
 5. Cần ít nhất hai tài khoản đang mở có bot ACTIVE Accepted. Nhập seed, số ván mỗi bot và số ván mỗi cặp. Thử ban đầu: 2 ván/bot và 2 ván/cặp. Mỗi cặp chơi đổi bên trên cùng seed; seed quyết định việc ghép cặp và bố trí trận, không phải mật khẩu.
 6. Số ván/bot phải chia hết số ván/cặp; số ván/cặp chẵn từ 2–20; số đối thủ nhỏ hơn số bot. Với số bot lẻ, chọn số đối thủ chẵn, ví dụ 3 bot: 4 ván/bot, 2 ván/cặp.
-7. Bấm “Tạo và chạy vòng điểm”. Chỉ có một vòng chưa hoàn tất tại một thời điểm. Không dùng khu “Kiểm tra đấu trường” để tính điểm: khu đó chỉ chạy bot mẫu, không ảnh hưởng bảng xếp hạng.
+7. Bấm “Tạo và chạy vòng điểm”. Chỉ có một vòng chưa hoàn tất tại một thời điểm. Không dùng khu “Kiểm tra đấu trường” để tính điểm: khu đó chạy trận thử theo luật với bot mẫu hoặc bot thí sinh, không ảnh hưởng bảng xếp hạng.
 8. Theo dõi bảng điểm và xem từng trận. Lỗi hạ tầng tự thử lại; sau 3 lần lỗi, bấm “Chạy lại sau lỗi máy chủ” khi đã sửa Docker/máy chủ. Bot chạy lỗi trong trận thực sự thì bị xử thua.
 9. Khi hoàn tất, tải CSV bảng điểm. Mỗi vòng bắt đầu Elo 1500 riêng; xếp theo Elo rồi điểm. Thắng được 1 điểm, hòa 0,5, thua 0. Elo xét thêm sức mạnh đối thủ, nên thứ hạng không chỉ dựa trên số trận thắng.
 
@@ -62,8 +62,14 @@ Bot khởi động lại mỗi lượt, nên biến toàn cục không giữ đ�
 - Không tạo được vòng điểm: xem số bot đủ điều kiện, cấu hình số ván và vòng cũ đã hoàn tất chưa.
 - Thấy bài bị từ chối: mở “Chi tiết & trận thử”, xem gợi ý và “Nhật ký kiểm tra”. Không sửa code chỉ vì máy chủ báo lỗi hạ tầng.
 
-Hiện triển khai đến phase 4: bộ luật tùy chỉnh và bracket chưa có trong giao diện.
+Đã có quản lý bộ luật và sandbox luật ở trang admin. Bracket và cửa sổ nộp lại bot chưa được triển khai. Xem [hướng dẫn bộ luật](RULE-SETS.md) để tạo, lưu phiên bản và chạy thử.
 
 Luật Classic v2: mỗi bên 10 quân Búa/Bao/Kéo theo tỷ lệ 3–3–4. Loại có 4 quân được chọn ngẫu nhiên theo seed; hai bên có cùng cơ cấu, vị trí được xáo trộn riêng. Classic v1 và replay cũ vẫn giữ cơ cấu 3 Búa, 3 Bao, 4 Kéo. Game trực tiếp cũng đã đổi cách chia quân sang 3–3–4 ngẫu nhiên.
 
 Khung “Hướng dẫn và mã mẫu” nằm ở đầu trang thí sinh, có thể đọc trước khi đăng nhập. Chọn “Giao thức và luật chơi” để đọc quy định, hoặc tải một mã mẫu Python/C++. Các đường dẫn đọc và tải mẫu không yêu cầu đổi mật khẩu; thao tác nộp bài vẫn yêu cầu đăng nhập và hoàn tất đổi mật khẩu tạm.
+
+## Admin: chọn và sửa luật
+
+Mở **Quản lý bộ luật**, chọn luật có sẵn hoặc **Tạo bộ luật mới**. Đặt tên, chỉnh cấu hình và bấm **Lưu bộ luật**. Mỗi lần lưu được đánh số tự động; đó là phiên bản luật, không phải bản nộp của bot. Ví dụ bản 1 giới hạn 500 nước, bản 2 giới hạn 100 nước: trận cũ giữ bản 1, trận mới có thể chọn bản 2. Lịch sử chỉ hiện khi bộ luật đã có nhiều lần lưu.
+
+Trong **Đấu thử theo bộ luật**, chọn luật (thường là bản mới nhất), hai bot và seed rồi chạy. Các bản cũ được ghi rõ để kiểm tra lại khi cần. Trận thử không cập nhật điểm, Elo hay bot đang chọn. Vòng Elo hiện dùng Classic mặc định; việc lưu luật chỉ bổ sung lựa chọn cho đấu thử. Bracket và cửa sổ nộp lại bot chưa có.

@@ -82,6 +82,16 @@ function openDatabase(filename) {
     ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1));
     UPDATE users SET must_change_password=1 WHERE role='contestant';
     INSERT INTO migrations VALUES(5); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=6').get()) db.exec(`BEGIN;
+    CREATE TABLE rule_sets(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at INTEGER NOT NULL);
+    CREATE TABLE rule_versions(rule_set_id TEXT NOT NULL REFERENCES rule_sets(id),version INTEGER NOT NULL,rules_json TEXT NOT NULL,created_by INTEGER REFERENCES users(id),created_at INTEGER NOT NULL,PRIMARY KEY(rule_set_id,version));
+    CREATE TRIGGER rule_versions_immutable_update BEFORE UPDATE ON rule_versions BEGIN SELECT RAISE(ABORT,'Rule versions are immutable'); END;
+    CREATE TRIGGER rule_versions_immutable_delete BEFORE DELETE ON rule_versions BEGIN SELECT RAISE(ABORT,'Rule versions are immutable'); END;
+    ALTER TABLE practice_matches ADD COLUMN rule_set_id TEXT;
+    ALTER TABLE practice_matches ADD COLUMN rule_set_version INTEGER;
+    ALTER TABLE practice_matches ADD COLUMN bot_snapshots_json TEXT;
+    UPDATE practice_matches SET rule_set_id=json_extract(rules_json,'$.id'),rule_set_version=json_extract(rules_json,'$.version');
+    INSERT INTO migrations VALUES(6); COMMIT;`);
   return db;
 }
 module.exports = { openDatabase };

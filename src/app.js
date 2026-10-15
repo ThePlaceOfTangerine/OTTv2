@@ -9,6 +9,7 @@ const { SubmissionService } = require('./submissions/service');
 const { UPLOAD_LIMIT } = require('./submissions/source');
 const { registerAdmin } = require('./admin');
 const { ScoringService, registerScoring } = require('./scoring');
+const { RuleSetService, registerRuleSets } = require('./rule-sets');
 
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const random = () => crypto.randomBytes(32).toString('hex');
@@ -18,8 +19,11 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
   const app = express();
   const matches = matchService || new MatchService(db);
   app.locals.matches = matches;
+  const ruleSets = matches.ruleSets || new RuleSetService(db);
+  app.locals.ruleSets = ruleSets;
   const submissions = submissionService || new SubmissionService(db, submissionOptions);
   app.locals.submissions = submissions;
+  matches.submissions = submissions;
   const scoring = new ScoringService(db, submissions);
   app.locals.scoring = scoring;
   const upload = multer({ storage: multer.memoryStorage(), preservePath: true, limits: { fileSize: UPLOAD_LIMIT, files: 1, fields: 1, fieldSize: 180, parts: 2 } });
@@ -135,7 +139,7 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     res.clearCookie('ott_session', cookieOptions).json({ ok: true });
   });
   app.get('/api/portal/overview', requireRole('contestant'), (req, res) => {
-    res.json({ username: req.auth.username, phase: 4 });
+    res.json({ username: req.auth.username, phase: 5 });
   });
   app.get('/api/portal/submissions', requireRole('contestant'), (req, res) => res.json({ submissions: submissions.list(req.auth.id) }));
   app.post('/api/portal/submissions', requireRole('contestant'), csrf, limitUploads, upload.single('bot'), async (req, res) => {
@@ -160,24 +164,25 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
   });
   app.get('/api/admin/overview', requireRole('admin'), (req, res) => {
     res.json({ contestants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='contestant'").get().n,
-      locked: db.prepare('SELECT COUNT(*) AS n FROM users WHERE locked=1').get().n, phase: 4 });
+      locked: db.prepare('SELECT COUNT(*) AS n FROM users WHERE locked=1').get().n, phase: 5 });
   });
   app.get('/api/admin/sandbox', requireRole('admin'), async (req, res) => {
     try { res.json({ ...await matches.manager.check(), samples: Object.keys(SAMPLES) }); }
     catch (error) { res.status(503).json({ available: false, error: error.message, code: error.code || 'sandbox_unavailable' }); }
   });
-  app.get('/api/admin/matches', requireRole('admin'), (req, res) => res.json({ matches: matches.list(), samples: Object.keys(SAMPLES) }));
+  app.get('/api/admin/matches', requireRole('admin'), (req, res) => res.json({ matches: matches.list(), samples: Object.keys(SAMPLES), bots: matches.botChoices() }));
   app.get('/api/admin/matches/:id', requireRole('admin'), (req, res) => {
     const match = matches.get(req.params.id);
     if (!match) return res.status(404).json({ error: 'Không tìm thấy trận.' });
     res.json(match);
   });
   app.post('/api/admin/matches', requireRole('admin'), csrf, (req, res) => {
-    const { botA, botB, seed } = req.body || {};
-    const id = matches.create({ userId: req.auth.id, botA, botB, seed });
+    const { botA, botB, seed, ruleSetId, ruleSetVersion } = req.body || {};
+    const id = matches.create({ userId: req.auth.id, botA, botB, seed, ruleSetId, ruleSetVersion });
     res.status(202).json({ id });
   });
   registerAdmin(app, { db, submissions, requireRole, csrf });
+  registerRuleSets(app, { ruleSets, requireRole, csrf });
   registerScoring(app, { db, scoring, requireRole, csrf });
   const web = path.join(__dirname, '../web');
   app.get('/', (req, res) => res.redirect('/portal'));
@@ -192,7 +197,7 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
   app.get('/templates/cpp.cpp', (req, res) => res.download(path.join(__dirname, '../bots/templates/cpp/main.cpp'), 'main.cpp'));
   app.use('/legacy', express.static(path.join(__dirname, '../public')));
   app.use('/img', express.static(path.join(__dirname, '../public/img')));
-  app.get('/api/health', (req, res) => res.json({ status: 'ok', phase: 4 }));
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', phase: 5 }));
   app.use('/api', (req, res) => res.status(404).json({ error: 'Không tìm thấy API.' }));
   app.use((error, req, res, next) => {
     if (error instanceof multer.MulterError) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'File vượt giới hạn 5 MiB.' : 'Mỗi lần nộp chỉ nhận một file và một đường dẫn file chính (entry).' });

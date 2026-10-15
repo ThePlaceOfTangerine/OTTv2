@@ -201,4 +201,14 @@ git diff --cached --stat
 # Kiểm tra các file được stage trước khi tự tạo commit và push.
 ```
 
-Hiện có auth, nộp bot, kiểm tra tự động, quản trị và vòng Elo. Giao diện chỉnh bộ luật, bracket và kiểm thử tải toàn hệ thống 1000 bot chưa được triển khai. Giao diện chơi trực tiếp có tài nguyên font/thư viện từ CDN; các trang bot dùng tài nguyên nội bộ.
+Hiện có auth, nộp bot, kiểm tra tự động, quản trị và vòng Elo. Đã có quản lý bộ luật có phiên bản và sandbox đấu thử theo luật. Bracket, cửa sổ nộp lại bot và kiểm thử tải toàn hệ thống 1000 bot chưa được triển khai. Giao diện chơi trực tiếp có tài nguyên font/thư viện từ CDN; các trang bot dùng tài nguyên nội bộ.
+
+## 10. Quản lý bộ luật và sandbox luật
+
+Tại /admin, mở **Quản lý bộ luật**. Chọn “Tạo bộ luật mới”, đặt tên, chỉnh JSON rồi lưu. Máy chủ cấp ID và version. Sửa bộ luật hiện có tạo phiên bản kế tiếp; bản cũ không bị ghi đè. Chọn phiên bản cũ để xem lại cấu hình. Nếu có người vừa sửa cùng bộ luật, tải lại trước khi lưu.
+
+Trong **Đấu thử theo bộ luật**, chọn bộ luật và phiên bản, hai bot và seed, rồi chạy. Có thể ghép bot mẫu với bot thí sinh, hai bot thí sinh, hoặc cùng một bot ở cả hai bên. Mọi phiên bản thí sinh đã Accepted đều có thể được chọn. Trận giữ cấu hình luật và thông tin bot tại thời điểm tạo; thay luật hoặc đổi bot active sau đó không sửa trận cũ. Không cộng điểm, không thay Elo và không đổi bot active. Chọn “Xem trận” để xem replay, tự chạy hoặc tải nhật ký.
+
+Vòng Elo hiện vẫn dùng Classic mặc định. Lưu luật mới không tự đổi luật vòng Elo. Chọn luật theo vòng bracket và cửa sổ nộp lại thuộc phase 6.
+
+Chi tiết cấu hình, kiến trúc module và giới hạn: [RULE-SETS.md](docs/RULE-SETS.md). Kiểm thử Docker riêng cho phase này: npm run test:rules (cần image sandbox đã build và Docker đang chạy).

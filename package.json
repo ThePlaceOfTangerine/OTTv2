@@ -15,7 +15,8 @@
     "seed:bots": "node scripts/seed-bots.js",
     "test:scoring": "node --test test/scoring.integration.js",
     "test:templates": "node --test test/templates.integration.js",
-    "test:two-players": "node --test test/two-players.integration.js"
+    "test:two-players": "node --test test/two-players.integration.js",
+    "test:rules": "node --test test/rules.integration.js"
   },
   "repository": {
     "type": "git",

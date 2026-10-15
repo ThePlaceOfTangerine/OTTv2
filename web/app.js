@@ -19,7 +19,7 @@ async function showSession(data) {
   panel.hidden = true; dashboard.hidden = false;
   document.getElementById('heading').textContent = admin ? 'Quản lý giải đấu' : 'Khu vực thí sinh';
   document.getElementById('welcome').textContent = `Tài khoản: ${data.user.username}`;
-  document.getElementById('dashboard-help').textContent = admin ? 'Quản lý tài khoản, theo dõi bài nộp và tổ chức các vòng tính điểm. Khu chạy thử bot mẫu dùng để kiểm tra máy chủ, không tính điểm xếp hạng.' : 'Nộp mã nguồn bot, theo dõi kết quả kiểm tra và xem lại trận thử. Kết quả thi đấu chính thức xuất hiện sau khi ban tổ chức tạo vòng tính điểm.';
+  document.getElementById('dashboard-help').textContent = admin ? 'Quản lý tài khoản, theo dõi bài nộp và tổ chức các vòng tính điểm. Khu đấu thử cho phép chọn luật và bot để kiểm tra, không tính điểm xếp hạng.' : 'Nộp mã nguồn bot, theo dõi kết quả kiểm tra và xem lại trận thử. Kết quả thi đấu chính thức xuất hiện sau khi ban tổ chức tạo vòng tính điểm.';
   document.getElementById('open-password').hidden = admin || data.user.mustChangePassword;
   if (data.user.mustChangePassword) {
     document.getElementById('heading').textContent = 'Đặt mật khẩu riêng.';
@@ -79,13 +79,14 @@ document.getElementById('check-sandbox').addEventListener('click', async event =
 document.getElementById('match-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = document.getElementById('run-match'); button.disabled = true; message.textContent = '';
   try {
-    await api('/api/admin/matches', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ botA: document.getElementById('bot-a').value, botB: document.getElementById('bot-b').value, seed: document.getElementById('match-seed').value }) });
+    await api('/api/admin/matches', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ botA: document.getElementById('bot-a').value, botB: document.getElementById('bot-b').value, seed: document.getElementById('match-seed').value, ruleSetId: JSON.parse(document.getElementById('practice-rule').value)[0], ruleSetVersion: JSON.parse(document.getElementById('practice-rule').value)[1] }) });
     await loadMatches();
   } catch (error) { message.textContent = error.message; button.disabled = false; }
 });
 async function loadMatches() {
   clearTimeout(pollTimer);
   const data = await api('/api/admin/matches');
+  for (const id of ['bot-a','bot-b']) { const select=document.getElementById(id), selected=select.value; select.replaceChildren(...(data.bots || data.samples.map(id=>({id,label:id}))).map(bot=>{const option=document.createElement('option');option.value=bot.id;option.textContent=bot.label;return option;})); if ([...select.options].some(o=>o.value===selected)) select.value=selected; }
   const list = document.getElementById('match-list'); list.replaceChildren();
   document.getElementById('run-match').disabled = data.matches.some(match => match.status === 'running');
   if (!data.matches.length) list.textContent = 'Chưa có trận thử.';
@@ -93,7 +94,7 @@ async function loadMatches() {
     const row = document.createElement('div'); row.className = 'match-row';
     const info = document.createElement('div'), title = document.createElement('strong'), detail = document.createElement('p');
     title.textContent = `${match.bots.join(' gặp ')} · ${statusLabels[match.status]}`;
-    detail.textContent = `Chuỗi khởi tạo: ${match.seed} · Lần chạy: ${match.attempts}${match.error ? ' · ' + match.error.message : ''}`;
+    detail.textContent = `Luật: ${match.rule_set_id || "Classic"} · v${match.rule_set_version || 1} · Chuỗi khởi tạo: ${match.seed} · Lần chạy: ${match.attempts}${match.error ? ' · ' + match.error.message : ''}`;
     info.append(title, detail); const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Xem trận';
     button.addEventListener('click', () => openMatch(match.id).catch(error => { message.textContent = error.message; }));
     row.append(info, button); list.append(row);

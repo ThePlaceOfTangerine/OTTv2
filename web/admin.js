@@ -34,7 +34,7 @@ async function loadMonitor() {
   if (jobPage > 0) el('jobs-list').append(action('Bài nộp trước', async () => { jobPage--; await loadMonitor(); }));
   if ((jobPage + 1) * 100 < data.total) el('jobs-list').append(action('Bài nộp tiếp theo', async () => { jobPage++; await loadMonitor(); }));
   el('live-list').replaceChildren();
-  for (const m of live.matches) el('live-list').append(action(`Xem trực tiếp · ${{submission:'Kiểm tra bài nộp',practice:'Trận bot mẫu'}[m.kind] || m.kind} · ${m.id.slice(0, 8)}`, () => watchLive(`/api/admin/live/${m.id}`)));
+  for (const m of live.matches) el('live-list').append(action(`Xem trực tiếp · ${{submission:'Kiểm tra bài nộp',practice:'Đấu thử theo luật'}[m.kind] || m.kind} · ${m.id.slice(0, 8)}`, () => watchLive(`/api/admin/live/${m.id}`)));
   for (const m of live.scoring) el('live-list').append(action(`Xem trận tính điểm · ván ${m.sequence + 1}`, () => watchLive(`/api/admin/score-matches/${m.id}`)));
 }
 let matchPage = 0;
@@ -66,6 +66,7 @@ el('score-round').onchange = () => { matchPage = 0; loadScoreDetail().catch(e =>
 el('refresh-scores').onclick = () => loadScores().catch(e => { message.textContent = e.message; });
 el('refresh-monitor').onclick = () => loadMonitor().catch(e => { message.textContent = e.message; });
 async function startAdminTools() {
+  if (admin) document.dispatchEvent(new Event('admin-ready'));
   el('scores-panel').hidden = false;
   if (admin) { el('admin-tools').hidden = false; await Promise.all([loadUsers(), loadMonitor()]); }
   await loadScores();

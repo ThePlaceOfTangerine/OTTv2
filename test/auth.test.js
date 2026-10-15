@@ -45,7 +45,7 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 5);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 6);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
@@ -252,4 +252,18 @@ test('first-login password change is enforced by API, rotates sessions and is re
  const relogin=await request('/api/auth/login',{method:'POST',body:{username:'firstlogin',password:nextPassword}});assert.equal(relogin.status,200);assert.equal((await relogin.json()).user.mustChangePassword,false);
  const admin=await login('admin');await request('/api/admin/users/'+id+'/reset',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken});
  assert.equal((await request('/api/auth/me',{cookie})).status,401);assert.equal(db.prepare('SELECT must_change_password FROM users WHERE id=?').get(id).must_change_password,1);
+});
+
+
+test('rule-set APIs isolate admin permissions, enforce CSRF and versioning',async()=>{
+ const a=await login('admin'),p=await login(),opts={cookie:a.cookie,csrf:a.data.csrfToken,method:'POST'};
+ assert.equal((await request('/api/admin/rule-sets')).status,401);assert.equal((await request('/api/admin/rule-sets',{cookie:p.cookie})).status,403);
+ const base=require('../rules/default.json');
+ assert.equal((await request('/api/admin/rule-sets',{...opts,csrf:undefined,body:{name:'test',rules:base}})).status,403);
+ let response=await request('/api/admin/rule-sets',{...opts,body:{name:'HTTP law',rules:{...base,maxMoves:8}}});assert.equal(response.status,201);const first=await response.json();
+ response=await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'HTTP renamed',rules:{...base,maxMoves:16},expectedVersion:1}});assert.equal(response.status,201);
+ const historical=await (await request('/api/admin/rule-sets/'+first.id+'?version=1',{cookie:a.cookie})).json();assert.equal(historical.rules.maxMoves,8);
+ response=await request('/api/admin/rule-sets/'+first.id+'/clone',{...opts,body:{name:'copy',version:1}});assert.equal(response.status,404);
+ assert.equal((await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'stale',rules:base,expectedVersion:1}})).status,409);
+ assert.equal((await request('/api/admin/rule-sets',{...opts,body:{name:'bad',rules:{...base,engine:'unknown'}}})).status,400);
 });

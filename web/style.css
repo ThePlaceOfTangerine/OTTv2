@@ -7,3 +7,5 @@
 #password-panel{margin-top:24px}#password-message{color:#ffce9f;white-space:pre-wrap}
 
 #admin-guide{max-width:none;margin:24px 0}.admin-steps{padding-left:24px;line-height:1.8;color:#c4cee4}.admin-steps li{padding:7px 0}.admin-steps a{color:#8be4c3}#admin-guide details{border-top:1px solid #34405c;padding-top:16px;margin-top:16px}#admin-users,#admin-monitor,#admin-create-round{scroll-margin-top:24px}
+
+#rule-panel{max-width:none;margin-top:24px}#rule-json{font:13px/1.7 Consolas,monospace;white-space:pre;min-height:280px}#rule-message{color:#ffce9f;white-space:pre-wrap}.practice-rule-field{grid-column:1/-1}

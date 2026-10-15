@@ -1,9 +1,10 @@
-const { GameEngine, DEFAULT_RULES } = require('./engine');
+const { DEFAULT_RULES } = require('./engine');
+const { createEngine } = require('./registry');
 const { BotFault, InfrastructureError, LIMITS, parseResponse, makeRequest } = require('./protocol');
 const { performance } = require('node:perf_hooks');
 
 async function runMatch({ seed, rules = DEFAULT_RULES, bots, choose, limits = LIMITS, onTurn }) {
-  const engine = new GameEngine({ seed, rules });
+  const engine = createEngine({ seed, rules });
   const replay = { protocol_version: 1, engine_version: 1, seed, rule_set_id: engine.rules.id, rule_set_version: engine.rules.version,
     rules: engine.rules, bots, limits, initial: engine.snapshot(), turns: [], cpu_ms: [0, 0], result: null };
   const userdata = [null, null], start = performance.now();
@@ -40,7 +41,7 @@ async function runMatch({ seed, rules = DEFAULT_RULES, bots, choose, limits = LI
   replay.result = engine.snapshot(); if (onTurn) await onTurn(replay); return replay;
 }
 function verifyReplay(replay) {
-  const engine = new GameEngine({ seed: replay.seed, rules: replay.rules });
+  const engine = createEngine({ seed: replay.seed, rules: replay.rules });
   if (JSON.stringify(engine.snapshot()) !== JSON.stringify(replay.initial)) throw new Error('Initial state mismatch');
   for (const turn of replay.turns) {
     if (turn.player !== engine.snapshot().currentTurn || turn.request_id !== `turn-${engine.snapshot().moveCount}`) throw new Error('Replay turn mismatch');

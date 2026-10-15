@@ -68,11 +68,12 @@
     <div class="eyebrow">HƯỚNG DẪN CHO BAN TỔ CHỨC</div><h2 id="admin-guide-title">Khởi động, chạy thử và điều hành giải</h2>
     <p class="muted">Trang quản trị dùng để cấp tài khoản, theo dõi bài nộp và tổ chức vòng tính điểm. Các nút chạy trận yêu cầu máy chủ Node.js và Docker đang hoạt động.</p>
     <ol class="admin-steps">
-      <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Chạy thử bot mẫu</a>, bấm “Kiểm tra Docker”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
+      <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Đấu thử theo bộ luật</a>, bấm “Kiểm tra Docker”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
       <li><strong>Cấp tài khoản.</strong> Dán danh sách tại <a href="#admin-users">Tài khoản thí sinh</a> rồi chọn “Tạo tài khoản từ CSV”. Lưu và gửi riêng mật khẩu tạm cho từng thí sinh. Không gửi toàn bộ danh sách cho mọi người.</li>
       <li><strong>Chờ bot hợp lệ.</strong> Thí sinh đăng nhập, đổi mật khẩu tạm và nộp mã nguồn. Theo dõi tại <a href="#admin-monitor">Bộ xử lý và hàng đợi</a>. Mỗi tài khoản cần một phiên bản đã vượt qua kiểm tra và đang được chọn.</li>
-      <li><strong>Chạy thử khi cần.</strong> Chọn hai bot mẫu và bấm “Chạy trận thử” để kiểm tra môi trường. Trận này không cộng Elo và không dùng bài nộp của thí sinh.</li>
-      <li><strong>Tạo vòng tính điểm.</strong> Khi có ít nhất hai bot đủ điều kiện, nhập seed và số ván tại <a href="#admin-create-round">Tạo vòng tính điểm</a>, rồi bấm “Tạo và chạy vòng điểm”. Ví dụ hai bot: 2 ván mỗi bot, 2 ván mỗi cặp. Danh sách, luật và phiên bản bot được chốt lúc tạo.</li>
+      <li><strong>Chạy thử khi cần.</strong> Trong <a href="#rule-panel">Quản lý bộ luật</a>, tạo hoặc chọn bộ luật. Sau đó chọn hai bot mẫu hoặc phiên bản bot thí sinh đã hợp lệ và bấm “Chạy trận thử”. Trận này không thay đổi điểm, Elo hay bot đang chọn.</li>
+      <li><strong>Sửa luật.</strong> Chọn bộ luật, sửa cấu hình rồi bấm “Lưu bộ luật”. Mỗi lần lưu được đánh số tự động để trận cũ vẫn giữ đúng luật. Ví dụ: bản 1 giới hạn 500 nước, bản 2 đổi thành 100 nước; replay đã chơi theo bản 1 vẫn giữ giới hạn 500. Chỉ cần chọn bản mới nhất khi chạy thử, trừ khi muốn kiểm tra lại luật cũ.</li>
+      <li><strong>Tạo vòng tính điểm.</strong> Khi có ít nhất hai bot đủ điều kiện, nhập seed và số ván tại <a href="#admin-create-round">Tạo vòng tính điểm</a>, rồi bấm “Tạo và chạy vòng điểm”. Ví dụ hai bot: 2 ván mỗi bot, 2 ván mỗi cặp. Vòng Elo hiện dùng Classic mặc định; chỉnh luật ở khu đấu thử không đổi luật vòng Elo. Danh sách, luật và phiên bản bot được chốt lúc tạo.</li>
       <li><strong>Theo dõi và xuất kết quả.</strong> Mở <a href="#scores-panel">Bảng xếp hạng</a> để xem tiến độ, Elo, replay và tải CSV. Khi vòng hoàn tất, kiểm tra tổng số ván trước khi công bố kết quả.</li>
     </ol>
     <details><summary>Các lệnh khởi động trên máy chủ</summary><p class="muted">Thực hiện trong terminal tại thư mục dự án sau khi cài Node.js và Docker. Đây là hướng dẫn lệnh; trang web không tự thực thi lệnh terminal.</p><pre>npm ci
@@ -93,16 +94,26 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
     <form id="score-form" class="match-form"><div><label for="score-seed">Chuỗi ghép cặp (seed)</label><input id="score-seed" value="ranking-2026" maxlength="100" required></div><div><label for="score-games">Số ván mỗi bot</label><input id="score-games" type="number" min="2" step="2" value="2" required></div><div><label for="score-pair">Số ván mỗi cặp</label><input id="score-pair" type="number" min="2" max="20" step="2" value="2" required></div><button>Tạo và chạy vòng điểm</button></form><p id="score-message" role="status"></p>
   </section>
   <section id="scores-panel" hidden><h2>Bảng xếp hạng</h2><p class="muted">Chọn vòng để xem thứ hạng. Elo là điểm đánh giá sức mạnh: bắt đầu 1500 ở mỗi vòng, tăng/giảm theo kết quả và sức mạnh đối thủ. Thắng được 1 điểm, hòa 0,5 điểm, thua 0 điểm; xếp theo Elo trước, rồi điểm. Cột Bot ghi phiên bản đã được chốt cho vòng đó. Khi vòng đang chạy, bảng điểm còn có thể thay đổi.</p><label for="score-round">Vòng điểm</label><select id="score-round"></select><button id="refresh-scores" type="button">Làm mới bảng điểm</button><p id="score-status" role="status"></p><div id="score-actions"></div><div id="standings" class="admin-scroll"></div><div id="score-matches" class="admin-scroll"></div></section>
+  <section id="rule-panel" hidden aria-labelledby="rule-panel-title"><div class="eyebrow">CẤU HÌNH LUẬT CHƠI</div><h2 id="rule-panel-title">Quản lý bộ luật</h2>
+    <p class="muted">Tạo, đặt tên và sửa cấu hình luật. Mỗi lần lưu được đánh số tự động (bản 1, bản 2…) để giữ lại luật đã dùng trong trận cũ. Ví dụ: đổi giới hạn từ 500 thành 100 nước chỉ áp dụng cho trận mới chọn bản vừa lưu. Vòng Elo hiện vẫn dùng Classic mặc định.</p>
+    <div class="submission-fields"><div><label for="rule-select">Bộ luật</label><select id="rule-select"></select></div><div id="rule-history-field"><label for="rule-version">Lịch sử các lần lưu</label><select id="rule-version"></select></div></div>
+    <div class="admin-actions"><button id="rule-new" type="button">Tạo bộ luật mới</button></div>
+    <form id="rule-form"><label for="rule-name">Tên bộ luật</label><input id="rule-name" maxlength="80" required><label for="rule-json">Cấu hình RuleSet (JSON)</label><textarea id="rule-json" rows="14" spellcheck="false" required aria-describedby="rule-help"></textarea>
+    <p id="rule-help" class="muted">Engine rps-grid-v1 hỗ trợ cấu hình kích thước bàn, nhà, quân, quan hệ ăn quân, hướng di chuyển, vị trí xuất phát và giới hạn hòa. Số vị trí xuất phát mỗi bên phải bằng số quân, nằm trong bàn, không trùng nhau hoặc ô nhà. Nếu randomExtraPiece=true, engine dùng 10 quân R/P/S theo tỷ lệ 3–3–4. ID và version do máy chủ cấp khi lưu. Giữ các trường chưa cần thay đổi.</p>
+    <button type="submit">Lưu bộ luật</button></form><p id="rule-message" role="status"></p>
+    <details><summary>Thêm luật bằng cấu hình hoặc module</summary><p class="muted">Thay đổi tham số và hướng đi dùng cấu hình JSON của engine hiện có. Logic mới ngoài cấu hình cần module GameEngine do người phát triển cài và đăng ký trên máy chủ. JSON trên giao diện không được nạp file JavaScript tùy ý. Trạng thái bổ sung từ module được gửi qua state mà không đổi giao thức JSON v1.</p></details>
+  </section>
   <section id="match-panel" hidden>
-    <div class="panel-heading"><div><div class="eyebrow">TRẬN MẪU · KHÔNG TÍNH ĐIỂM</div><h2>Chạy thử bot mẫu</h2></div><button id="check-sandbox" type="button">Kiểm tra Docker</button></div>
+    <div class="panel-heading"><div><div class="eyebrow">SANDBOX LUẬT · KHÔNG TÍNH ĐIỂM</div><h2>Đấu thử theo bộ luật</h2></div><button id="check-sandbox" type="button">Kiểm tra Docker</button></div>
     <p id="sandbox-status" role="status">Chọn “Kiểm tra Docker” để xác minh máy chủ có thể chạy bot trong môi trường cách ly.</p>
     <form id="match-form" class="match-form">
+      <div class="practice-rule-field"><label for="practice-rule">Bộ luật dùng cho trận thử</label><select id="practice-rule" required><option value='["ottv2-classic",2]'>OTTv2 Classic · v2</option></select></div>
       <div><label for="bot-a">Bot bên 0</label><select id="bot-a"><option value="python-greedy">Python · Greedy</option><option value="cpp-greedy">C++ · Greedy</option></select></div>
       <div><label for="bot-b">Bot bên 1</label><select id="bot-b"><option value="cpp-greedy">C++ · Greedy</option><option value="python-greedy">Python · Greedy</option></select></div>
       <div><label for="match-seed">Chuỗi khởi tạo trận (seed)</label><input id="match-seed" value="arena-2026" maxlength="128" required></div>
       <button id="run-match" type="submit">Chạy trận thử →</button>
     </form>
-    <p class="muted">Trận thử dùng luật Classic, tối đa 500 nước, không tính điểm. Máy chủ biên dịch và chạy bot trong môi trường cách ly Docker. Hiện chỉ chọn được bot mẫu của ban tổ chức.</p>
+    <p class="muted">Chọn một phiên bản luật đã lưu và hai bot trong danh sách. Bot thí sinh phải là phiên bản đã vượt qua kiểm tra; có thể chọn bản cũ hoặc cùng một bot cho hai bên. Bot mẫu được chuẩn bị trong Docker; bot thí sinh dùng chương trình đã biên dịch. Trận thử theo luật không thay đổi điểm, Elo hay phiên bản đang chọn của thí sinh.</p>
     <div id="match-list" aria-live="polite"></div>
   </section>
   <section id="replay-panel" hidden><h2 id="replay-title">Xem lại trận đấu</h2><p id="replay-result"></p>
@@ -137,4 +148,4 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
   </section>
   <p id="message" role="status" aria-live="polite"></p>
   <footer><a href="/portal">Khu vực thí sinh</a><a href="/admin">Khu vực quản trị</a><span>OTTv2 / Nền tảng thi đấu bot</span></footer>
-</main><script src="/assets/admin.js" defer></script></body></html>
+</main><script src="/assets/admin.js" defer></script><script src="/assets/rules.js" defer></script></body></html>

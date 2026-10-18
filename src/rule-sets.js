@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const { DEFAULT_RULES } = require('./game/engine');
-const { validateEngineRules, engineIds } = require('./game/registry');
+const { validateEngineRules, engineIds, createEngine } = require('./game/registry');
 const bad = message => Object.assign(new Error(message), { status: 400 });
 class RuleSetService {
   constructor(db) {
@@ -36,6 +36,12 @@ class RuleSetService {
   }
 }
 function registerRuleSets(app, { ruleSets, requireRole, csrf }) {
+  app.post('/api/admin/rule-sets/preview', requireRole('admin'), csrf, (req,res) => {
+    try {
+      const engine = createEngine({ seed:'editor-preview', rules:{ ...req.body?.rules, id:'editor-preview',version:1 } });
+      res.json({ state:engine.snapshot(), legalMoves:engine.legalMoves().length });
+    } catch (error) { throw bad(error.message); }
+  });
   app.get('/api/admin/rule-sets', requireRole('admin'), (req,res) => res.json({ ruleSets: ruleSets.list(), engines: engineIds() }));
   app.get('/api/admin/rule-sets/:id', requireRole('admin'), (req,res) => {
     const row = ruleSets.get(req.params.id, req.query.version === undefined ? undefined : Number(req.query.version));

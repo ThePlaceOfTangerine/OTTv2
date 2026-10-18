@@ -4,22 +4,37 @@ const clone = value => structuredClone(value);
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 function validateRules(input) {
   const r = clone(input);
-  const fail = () => { throw new Error('Invalid RuleSet'); };
+  const fail = (message = 'Invalid RuleSet') => { throw new Error(message); };
   if (!r || r.engine !== 'rps-grid-v1' || typeof r.id !== 'string' || !r.id || !Number.isInteger(r.version) || r.version < 1) fail();
   if (!Number.isInteger(r.boardSize) || r.boardSize < 2 || r.boardSize > 32) fail();
-  const inside = (row, col) => Number.isInteger(row) && Number.isInteger(col) && row >= 0 && col >= 0 && row < r.boardSize && col < r.boardSize;
+  const rows = r.boardRows ?? r.boardSize, cols = r.boardCols ?? r.boardSize;
+  if (![rows,cols].every(n => Number.isInteger(n) && n >= 2 && n <= 32)) fail('Số hàng/cột phải từ 2 đến 32.');
+  const inside = (row, col) => Number.isInteger(row) && Number.isInteger(col) && row >= 0 && col >= 0 && row < rows && col < cols;
+  const unavailable = new Set();
+  for (const key of ['blockedCells','voidCells']) {
+    if (r[key] !== undefined && (!Array.isArray(r[key]) || r[key].length > rows * cols)) fail('Danh sách ô chặn/ô bỏ không hợp lệ.');
+    for (const p of r[key] || []) {
+      if (!Array.isArray(p) || p.length !== 2 || !inside(...p) || unavailable.has(p.join(','))) fail('Ô chặn/ô bỏ nằm ngoài bàn hoặc bị trùng.');
+      unavailable.add(p.join(','));
+    }
+  }
   if (!Array.isArray(r.homes) || r.homes.length !== 2 || r.homes.some(p => !p || !inside(p.row, p.col)) || (r.homes[0].row === r.homes[1].row && r.homes[0].col === r.homes[1].col)) fail();
-  if (!Array.isArray(r.pieceTypes) || !r.pieceTypes.length || r.pieceTypes.length > 128 || r.pieceTypes.some(t => typeof t !== 'string' || !/^[A-Z0-9]{1,8}$/.test(t))) fail();
-  if (!r.beats || typeof r.beats !== 'object' || r.pieceTypes.some(t => typeof r.beats[t] !== 'string')) fail();
+  if (r.homes.some(h => unavailable.has(`${h.row},${h.col}`))) fail('Nhà không được đặt trên ô chặn hoặc ô bỏ.');
+  const validPool = pool => Array.isArray(pool) && pool.length > 0 && pool.length <= 128 && pool.every(t => typeof t === 'string' && /^[A-Z0-9]{1,8}$/.test(t));
+  if (!validPool(r.pieceTypes)) fail();
+  if (r.playerPieceTypes !== undefined && (!Array.isArray(r.playerPieceTypes) || r.playerPieceTypes.length !== 2 || !r.playerPieceTypes.every(validPool))) fail('Mỗi bên cần từ 1 đến 128 quân.');
+  const allTypes = r.playerPieceTypes ? r.playerPieceTypes.flat() : r.pieceTypes;
+  if (!r.beats || typeof r.beats !== 'object' || allTypes.some(t => typeof r.beats[t] !== 'string')) fail();
   if (r.randomExtraPiece !== undefined && typeof r.randomExtraPiece !== 'boolean') fail();
   if (r.randomExtraPiece && (r.pieceTypes.length !== 10 || ['R','P','S'].some(t => !r.pieceTypes.includes(t)) || r.pieceTypes.some(t => !['R','P','S'].includes(t)))) fail();
+  if (r.randomExtraPiece && r.playerPieceTypes) fail('Tắt chia quân ngẫu nhiên khi đặt số quân riêng cho từng bên.');
   if (!Array.isArray(r.directions) || !r.directions.length || r.directions.length > 8 || r.directions.some(d => !Array.isArray(d) || d.length !== 2 || !d.every(n => Number.isInteger(n) && Math.abs(n) <= 1) || !d.some(Boolean))) fail();
   if (!Array.isArray(r.startingPositions) || r.startingPositions.length !== 2) fail();
   const occupied = new Set();
-  for (const positions of r.startingPositions) {
-    if (!Array.isArray(positions) || positions.length !== r.pieceTypes.length) fail();
+  for (const [player, positions] of r.startingPositions.entries()) {
+    if (!Array.isArray(positions) || positions.length !== (r.playerPieceTypes?.[player] || r.pieceTypes).length) fail(`Số vị trí xuất phát bên ${player} phải bằng số quân của bên đó.`);
     for (const p of positions) {
-      if (!Array.isArray(p) || p.length !== 2 || !inside(...p) || occupied.has(p.join(',')) || r.homes.some(h => h.row === p[0] && h.col === p[1])) fail();
+      if (!Array.isArray(p) || p.length !== 2 || !inside(...p) || occupied.has(p.join(',')) || unavailable.has(p.join(',')) || r.homes.some(h => h.row === p[0] && h.col === p[1])) fail('Quân phải nằm trong bàn, không trùng quân khác, nhà hoặc ô chặn/ô bỏ.');
       occupied.add(p.join(','));
     }
   }
@@ -39,8 +54,12 @@ class GameEngine {
     const random = seededRandom(seed);
     const pool = this.rules.randomExtraPiece ? ['R','R','R','P','P','P','S','S','S', ['R','P','S'][Math.floor(random() * 3)]] : this.rules.pieceTypes;
     const types = shuffle(pool, random);
-    const board = Array.from({ length: this.rules.boardSize }, () => Array(this.rules.boardSize).fill(null));
-    for (const player of [0, 1]) shuffle(this.rules.startingPositions[player], random).forEach(([row, col], i) => { board[row][col] = { player, type: types[i] }; });
+    const board = Array.from({ length: this.rules.boardRows ?? this.rules.boardSize }, () => Array(this.rules.boardCols ?? this.rules.boardSize).fill(null));
+    for (const player of [0, 1]) {
+      const playerTypes = this.rules.playerPieceTypes ? shuffle(this.rules.playerPieceTypes[player], random) : types;
+      shuffle(this.rules.startingPositions[player], random).forEach(([row, col], i) => { board[row][col] = { player, type: playerTypes[i] }; });
+    }
+    this.unavailable = new Set([...(this.rules.blockedCells || []), ...(this.rules.voidCells || [])].map(p => p.join(',')));
     this._state = { board, currentTurn: 0, moveCount: 0, status: 'playing', winner: null, winReason: null, lastMove: null };
     this.seen = new Map([[this.positionKey(), 1]]);
     this.checkTerminal();
@@ -48,12 +67,12 @@ class GameEngine {
   snapshot() { return clone(this._state); }
   positionKey() { return JSON.stringify([this._state.board, this._state.currentTurn]); }
   legalMoves(player = this._state.currentTurn) {
-    const { board } = this._state, moves = [], n = this.rules.boardSize;
-    for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
+    const { board } = this._state, moves = [], rows = board.length, cols = board[0].length;
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
       const piece = board[row][col]; if (!piece || piece.player !== player) continue;
       for (const [dr, dc] of this.rules.directions) {
         const nr = row + dr, nc = col + dc;
-        if (nr < 0 || nc < 0 || nr >= n || nc >= n) continue;
+        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols || this.unavailable.has(`${nr},${nc}`)) continue;
         const target = board[nr][nc];
         if (!target || (target.player !== player && this.rules.beats[piece.type] === target.type)) moves.push({ fromRow: row, fromCol: col, toRow: nr, toCol: nc });
       }

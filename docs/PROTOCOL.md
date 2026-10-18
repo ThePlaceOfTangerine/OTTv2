@@ -22,7 +22,7 @@ Compile và chạy bot hoàn toàn trong Docker Linux. Mỗi bên có container 
 }
 ```
 
-Ví dụ trên rút gọn `rules` và `board`. Request thật chứa **toàn bộ RuleSet**, board là ma trận `boardSize × boardSize`. Ô trống là `null`, quân là `{"player":0,"type":"R"}`. Request chứa đầy đủ các nước hợp lệ của bên đến lượt. Bot có thể chọn từ `legal_moves` hoặc tự tính nhưng engine luôn kiểm tra lại.
+Ví dụ trên rút gọn `rules` và `board`. Request thật chứa **toàn bộ RuleSet**. Số hàng/cột lấy từ `state.board.length` và `state.board[0].length`; nếu có `boardRows`/`boardCols` thì chúng thay cho kích thước vuông `boardSize`. Ô trống là `null`, quân là `{"player":0,"type":"R"}`. `rules.blockedCells` và `rules.voidCells` cũng là ô `null` trên board nhưng không được đi vào. `playerPieceTypes` có thể quy định số quân hai bên khác nhau. Chọn từ `legal_moves` sẽ tự tuân theo địa hình, kích thước và hướng đi của bộ luật; engine luôn kiểm tra lại.
 
 RuleSet có `homes`, `pieceTypes`, `beats`, `directions`, `startingPositions`, `maxMoves`, `repetitionLimit` và trường mở rộng trong tương lai. Không hardcode bàn 9×9 hay số quân nếu muốn thích nghi khi đổi luật. `state` và `rules` có thể thêm trường mà vẫn giữ protocol v1; bỏ qua trường không biết.
 

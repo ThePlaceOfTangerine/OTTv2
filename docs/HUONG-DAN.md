@@ -2,55 +2,78 @@
 
 ## Web này dùng để làm gì?
 
-Thí sinh viết chương trình tự chọn nước đi (bot), nộp lên web; máy chủ chạy bot trong Docker, kiểm tra rồi cho đấu tự động. Người xem chỉ theo dõi bàn cờ, không điều khiển thay bot. Khu vực “Chơi trực tiếp” là game người chơi tự đi quân, dùng luật legacy riêng.
+Bạn viết một chương trình chơi cờ thay mình, gọi là **bot**. Nộp code lên web, hệ thống sẽ cho bot đấu thử và tham gia các vòng thi do ban tổ chức tạo. Bạn không cần điều khiển từng nước đi.
 
-Hiện ứng dụng chạy tại `http://127.0.0.1:3000` trên máy đang bật server. Địa chỉ này chỉ trỏ về chính máy đang mở trình duyệt; chưa cấu hình để máy khác trong mạng truy cập. Máy chủ cần Node.js và Docker Desktop đang hoạt động để xử lý bot. Người dùng không cần tự gõ lệnh Docker cho từng bài.
+Mở `/portal` để tham gia. Khu “Chơi trực tiếp” dành cho hai người tự đi quân, không tính điểm thi bot và có một số quy tắc khác.
 
-## Thí sinh: từ mẫu đến thi đấu
+## Lần đầu: làm theo 4 bước
 
-1. Mở `/portal`, đăng nhập bằng tài khoản ban tổ chức cấp. Lần đầu, nhập mật khẩu được cấp và đặt mật khẩu mới (ít nhất 12 ký tự, tối đa 72 byte, nhập lại khớp). Phải hoàn tất bước này trước khi dùng tài khoản. Sau này có thể bấm “Đổi mật khẩu”; khi admin reset, cần đổi lại mật khẩu tạm.
-2. Tải Mã mẫu Python hoặc Mã mẫu C++. Mẫu đã đọc/ghi dữ liệu đúng giao thức, chọn nước hợp lệ đầu tiên. Có thể nộp nguyên mẫu để tập sử dụng; sau đó sửa phần được chú thích “THAY CHIẾN THUẬT Ở ĐÂY”. Mẫu hợp lệ không có nghĩa là chiến thuật mạnh.
-3. Chọn file `.py` hoặc `.cpp`. Nếu nhiều file, nén ZIP chứa source. File đơn tối đa 1 MiB, ZIP tối đa 5 MiB và 64 file source; không nộp chương trình đã biên dịch hoặc gói cài thư viện.
-4. Với file đơn, để trống “File chạy chính”. Với ZIP, có thể để trống khi có main.py/main.cpp rõ ràng; nếu hệ thống không xác định được, nhập đường dẫn tương đối như `src/main.py`. Các file C++ được liên kết cùng nhau, chỉ nên có một hàm main.
-5. Bấm “Nộp bot”. Trang tự cập nhật; không cần liên tục nộp lại hay tải lại trang. Mỗi lần nộp tạo bản v1, v2…
-6. Đọc trạng thái theo bảng bên dưới. Khi hợp lệ, bấm “Chi tiết & trận thử”, chọn trận rồi bấm “Tự động chạy”; dùng tạm dừng, tốc độ, thanh kéo và “Về đầu” để phân tích nước đi.
-7. Bản hợp lệ mới nhất tự được chọn làm ACTIVE. Muốn dùng bản cũ, bấm “Dùng bản này cho vòng mới”. Bài mới bị từ chối không thay bản ACTIVE trước đó.
-8. Chờ ban tổ chức tạo vòng điểm. Danh sách và bản bot được chốt lúc vòng bắt đầu; đổi ACTIVE sau đó chỉ ảnh hưởng vòng mới. Chọn vòng ở “Bảng xếp hạng” để xem Elo, số ván và thắng/hòa/thua.
+1. **Tải mã mẫu Python hoặc C++.** Chọn ngôn ngữ bạn đang học. Mã mẫu đã làm sẵn phần nhận dữ liệu và gửi nước đi; có thể nộp nguyên file để thử.
+2. **Đăng nhập và đặt mật khẩu riêng.** Dùng tài khoản ban tổ chức cấp. Làm theo hướng dẫn đổi mật khẩu ở lần đầu đăng nhập.
+3. **Mở Bot của tôi, chọn file và bấm Nộp bot.** Nộp `main.py` hoặc `main.cpp` vừa tải. Ô “File chính trong ZIP” để trống.
+4. **Chờ kết quả.** Khi thấy “Sẵn sàng thi đấu”, mở “Chi tiết & trận thử”, chọn một trận rồi bấm “Tự động chạy” để xem bot chơi. Trang tự cập nhật, không cần nộp lại cùng file.
 
-| Trạng thái | Ý nghĩa / việc cần làm |
+Không bắt buộc thắng hai ván thử. Bot chỉ cần chạy đúng luật và trong thời gian cho phép. Vượt qua kiểm tra chưa có nghĩa là chiến thuật đã tốt hoặc bot sẽ không bao giờ lỗi.
+
+## Khi muốn bot chơi tốt hơn
+
+Mở file mẫu, tìm dòng **THAY CHIẾN THUẬT Ở ĐÂY** và sửa phần chọn nước đi. Lưu file rồi nộp bản mới.
+
+Ba tên trong code cần biết trước:
+
+| Tên | Ý nghĩa |
 | --- | --- |
-| Chờ kiểm tra (Queued) | Đã nhận bài, chờ slot máy xử lý. Không cần nộp lại. |
-| Kiểm tra mã (Scanning) | Kiểm tra file, giải nén và thao tác bị cấm. |
-| Chuẩn bị chương trình (Compiling) | Kiểm tra cú pháp Python hoặc biên dịch C++17. |
-| Đấu thử (Test match) | Hai ván đổi bên với bot mẫu. Không tính điểm; không bắt buộc thắng. |
-| Hợp lệ (Accepted) | Chạy đúng trong hai trận thử, có thể chọn cho vòng điểm. Không bảo đảm không bao giờ lỗi trong các tình huống khác. |
-| Cần sửa (Rejected) | Xem lý do và nhật ký, sửa code rồi nộp bản mới. |
-| Lỗi hạ tầng | Máy chủ/Docker gặp sự cố, tự thử tối đa 3 lần; nếu dừng, bấm “Thử lại” hoặc báo ban tổ chức. Không quy thành lỗi bot. |
+| `legal_moves` | Danh sách nước được phép đi. Chọn một nước từ đây để tránh sai luật. |
+| `state.board` | Bàn cờ hiện tại: quân nào đang ở ô nào. |
+| `player_index` | Bên của bạn, đánh số 0 hoặc 1. |
 
-## Bot nhận dữ liệu ra sao?
+Mẫu đang chọn nước đầu tiên. Bạn có thể thử ưu tiên nước ăn quân hoặc tiến gần nhà đối thủ hơn. Giữ nguyên phần nhận và gửi dữ liệu khi chưa cần thay đổi nó.
 
-Mỗi lượt, máy chủ chạy chương trình và đưa một dòng JSON vào stdin. Bot đọc bàn cờ (`state.board`), bên của mình (`player_index`) và danh sách nước được phép (`legal_moves`). Bot trả một dòng JSON qua stdout, gồm `request_id` giữ nguyên và `move` là nước đã chọn. Không có giao diện hay thao tác chuột bên trong bot.
+Bot chạy lại từ đầu mỗi lượt, nên biến của lượt trước không tự được giữ. Ban đầu cứ quyết định từ bàn cờ hiện tại; phần ghi nhớ `userdata` có thể học sau.
 
-Bot khởi động lại mỗi lượt, nên biến toàn cục không giữ được trí nhớ; dùng `userdata` để nhận lại thông tin ở lượt tiếp theo. Ghi debug vào stderr, không in lời chào lên stdout. Giới hạn mặc định: 500 ms CPU/nước, 30 giây CPU/bot/trận, 256 MiB bộ nhớ tiến trình; tổng output stdout + stderr mỗi nước tối đa 64 KiB. Bot không được mở mạng, tạo tiến trình hoặc truy cập file ngoài phạm vi cho phép.
+## Đọc trạng thái bài nộp
 
-Đặc tả đầy đủ và ví dụ: [PROTOCOL.md](PROTOCOL.md).
+| Thông báo | Việc cần làm |
+| --- | --- |
+| Đang chờ / Đang kiểm tra bài / Đang chuẩn bị chạy / Đang đấu thử | Chờ trang tự cập nhật. |
+| Sẵn sàng thi đấu | Có thể dùng bản này để thi đấu và xem lại trận thử. |
+| Cần sửa bài | Mở chi tiết, đọc gợi ý, sửa file rồi nộp lại. |
+| Máy chủ gặp sự cố | Chờ hệ thống thử lại hoặc báo ban tổ chức. Chưa cần sửa code vì thông báo này. |
+
+“Chi tiết kỹ thuật” lưu thông báo gốc để tìm lỗi. Nếu chưa hiểu, gửi phần đó cho giảng viên hoặc ban tổ chức. Đừng in lời chào vào câu trả lời của bot; phần gửi nước đi đã có sẵn trong mẫu.
+
+## Các bản đã nộp và điểm xếp hạng
+
+Mỗi lần nộp là một bản mới: v1 là bản đầu, v2 là bản thứ hai… Bản mới nhất vượt qua kiểm tra sẽ được chọn để thi đấu. Nếu bản mới lỗi, bản trước đang chọn vẫn được giữ. Muốn dùng lại bản cũ, bấm “Chọn bản này thi đấu”.
+
+Vòng đã bắt đầu vẫn dùng bản được chọn lúc tạo vòng. Đổi bản sau đó chỉ ảnh hưởng vòng mới.
+
+Mở **Bảng xếp hạng** để xem kết quả. **Elo** là điểm xếp hạng, bắt đầu từ 1500 ở mỗi vòng, thay đổi theo kết quả và đối thủ. Vì vậy, hai người cùng số trận thắng vẫn có thể có điểm khác nhau.
+
+## Nộp nhiều file và đọc thêm
+
+File đơn tối đa 1 MiB (khoảng 1 MB). Nếu có nhiều file, nén ZIP tối đa 5 MiB, 64 file code cùng ngôn ngữ. Không nộp file `.exe`, thư viện cài thêm hay ZIP có mật khẩu.
+
+ZIP có `main.py` hoặc `main.cpp` rõ ràng thường không cần điền file chính. Nếu cần, nhập đường dẫn như `src/main.py`. Với C++, chỉ nên có một hàm `main`.
+
+Hướng dẫn dành cho người mới nằm tại `/docs/PROTOCOL.md` trên web. [PROTOCOL.md](PROTOCOL.md) trong thư mục tài liệu là đặc tả kỹ thuật đầy đủ, dùng khi cần tra cấu trúc dữ liệu và giới hạn chính xác.
 
 ## Admin: điều hành một vòng điểm
 
 1. Mở `/admin`, đăng nhập tài khoản admin. Tài khoản thí sinh không vào được API quản trị.
-2. Tạo tài khoản qua CSV có dòng đầu `username,password`. Ví dụ:
+2. Tạo tài khoản qua CSV có dòng đầu `username`. Ví dụ:
 
    ```csv
-   username,password
-   team001,
-   team002,
+   username
+   team001
+   team002
    ```
 
-   Mật khẩu để trống được tạo ngẫu nhiên. Lưu phần thông tin trả về rồi bấm “Ẩn mật khẩu”; hệ thống chỉ lưu bản hash. CSV sai hoặc trùng tài khoản bị từ chối toàn bộ. Không dùng import để sửa mật khẩu tài khoản cũ.
+   Mật khẩu ban đầu trùng chính xác tên tài khoản. Thí sinh bắt buộc đổi mật khẩu ngay lần đăng nhập đầu tiên trước khi sử dụng chức năng khác; mật khẩu mới khác mật khẩu cũ, ít nhất 12 ký tự, tối đa 72 byte. CSV cũ username,password vẫn nhận nhưng giá trị cột password không được dùng. Hệ thống chỉ lưu bản hash. CSV sai hoặc trùng tài khoản bị từ chối toàn bộ. Không dùng import để sửa mật khẩu tài khoản cũ.
 3. Dùng “Cấp lại mật khẩu” khi cần cấp mật khẩu mới; “Khóa” khi cần ngăn đăng nhập. Các thao tác này hủy phiên đăng nhập cũ. Khóa sau khi vòng đã bắt đầu không thay lịch đấu đã chốt.
 4. Theo dõi “Bộ xử lý và hàng đợi”: worker là bộ xử lý tự động, slot là số bài/trận có thể chạy cùng lúc. “Xem nhật ký” mở thông tin bài nộp và các trận thử. Khi có trận đang chơi, nút xem trực tiếp xuất hiện.
-5. Cần ít nhất hai tài khoản đang mở có bot ACTIVE Accepted. Nhập seed, số ván mỗi bot và số ván mỗi cặp. Thử ban đầu: 2 ván/bot và 2 ván/cặp. Mỗi cặp chơi đổi bên trên cùng seed; seed quyết định việc ghép cặp và bố trí trận, không phải mật khẩu.
-6. Số ván/bot phải chia hết số ván/cặp; số ván/cặp chẵn từ 2–20; số đối thủ nhỏ hơn số bot. Với số bot lẻ, chọn số đối thủ chẵn, ví dụ 3 bot: 4 ván/bot, 2 ván/cặp.
+5. Cần ít nhất hai tài khoản đang mở có bot đang được chọn và đã Accepted. Mặc định dùng **Lịch đấu tự động**: không cần nhập mã ghép lịch hay tính số ván. Mỗi cặp đấu 6 ván, mỗi bên đi trước 3 ván. Hai ván đổi bên dùng cùng mã trận; ba lượt đổi bên dùng các mã khác nhau. Hai bot tạo 6 ván tổng cộng; ba bot tạo 18 ván. Vòng kết thúc đúng lịch, cho phép bằng điểm và không tự đấu phân định.
+6. Hệ thống ghép tối đa 4 đối thủ cho mỗi bot, giảm khi ít bot hoặc để không vượt 100.000 ván. Mỗi bot gặp cùng số đối thủ và có số lượt đi trước/đi sau bằng nhau. Khi thật sự cần, mở **Tự điều chỉnh lịch (nâng cao)** để dùng cấu hình riêng; đóng lại để về tự động. Ở chế độ nâng cao, số ván/bot phải chia hết số ván/cặp, số ván/cặp chẵn từ 2–20; số đối thủ nhỏ hơn số bot và phải chẵn nếu có số bot lẻ. Mã ghép lịch để trống sẽ được tự tạo.
 7. Bấm “Tạo và chạy vòng điểm”. Chỉ có một vòng chưa hoàn tất tại một thời điểm. Không dùng khu “Kiểm tra đấu trường” để tính điểm: khu đó chạy trận thử theo luật với bot mẫu hoặc bot thí sinh, không ảnh hưởng bảng xếp hạng.
 8. Theo dõi bảng điểm và xem từng trận. Lỗi hạ tầng tự thử lại; sau 3 lần lỗi, bấm “Chạy lại sau lỗi máy chủ” khi đã sửa Docker/máy chủ. Bot chạy lỗi trong trận thực sự thì bị xử thua.
 9. Khi hoàn tất, tải CSV bảng điểm. Mỗi vòng bắt đầu Elo 1500 riêng; xếp theo Elo rồi điểm. Thắng được 1 điểm, hòa 0,5, thua 0. Elo xét thêm sức mạnh đối thủ, nên thứ hạng không chỉ dựa trên số trận thắng.
@@ -66,7 +89,11 @@ Bot khởi động lại mỗi lượt, nên biến toàn cục không giữ đ�
 
 Luật Classic v2: mỗi bên 10 quân Búa/Bao/Kéo theo tỷ lệ 3–3–4. Loại có 4 quân được chọn ngẫu nhiên theo seed; hai bên có cùng cơ cấu, vị trí được xáo trộn riêng. Classic v1 và replay cũ vẫn giữ cơ cấu 3 Búa, 3 Bao, 4 Kéo. Game trực tiếp cũng đã đổi cách chia quân sang 3–3–4 ngẫu nhiên.
 
-Khung “Hướng dẫn và mã mẫu” nằm ở đầu trang thí sinh, có thể đọc trước khi đăng nhập. Chọn “Giao thức và luật chơi” để đọc quy định, hoặc tải một mã mẫu Python/C++. Các đường dẫn đọc và tải mẫu không yêu cầu đổi mật khẩu; thao tác nộp bài vẫn yêu cầu đăng nhập và hoàn tất đổi mật khẩu tạm.
+Trang thí sinh chia thành **Bot của tôi**, **Bảng xếp hạng** và **Hướng dẫn**. Mở Hướng dẫn để đọc giao thức hoặc tải mã mẫu Python/C++. Trang đăng nhập cũng có các liên kết đọc và tải mẫu, không yêu cầu tài khoản. Thao tác nộp bài vẫn yêu cầu đăng nhập và hoàn tất đổi mật khẩu tạm.
+
+Trang admin chia thành **Giám sát**, **Thí sinh**, **Vòng điểm**, **Bộ luật**, **Đấu thử** và **Hướng dẫn**. Phần **Thêm thí sinh** và **Thiết lập vòng đấu** hiển thị trực tiếp. Các lựa chọn dùng nút/thẻ có dấu ✓ cho mục đang chọn: lọc thí sinh, chọn vòng điểm, bộ luật, phiên bản, hình dạng, màu bàn cờ, hướng đi, cách chia quân, bản bot và tốc độ replay. Danh sách dài có tìm kiếm và chuyển trang. JSON và nhật ký kỹ thuật mở bằng nút riêng khi cần. Trên điện thoại, các nút tự xuống hàng và bảng rộng cuộn trong khung.
+
+Trong **Thí sinh**, tìm theo tên hoặc mã #, lọc tài khoản có bot/đã khóa và chuyển trang khi danh sách dài. Bấm **Xóa**, nhập lại đúng tên rồi xác nhận. Tài khoản mất quyền đăng nhập, các bài đang chờ được hủy và bot biến khỏi lựa chọn trận mới. Trận và điểm cũ vẫn giữ để xem lịch sử; tên tài khoản không được dùng lại. Nếu bài đang được kiểm tra, cần chờ kiểm tra xong rồi xóa. Khóa tài khoản dùng khi chỉ muốn tạm ngừng và có thể mở lại.
 
 ## Admin: chọn và sửa luật
 

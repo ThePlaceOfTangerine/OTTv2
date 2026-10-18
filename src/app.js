@@ -51,7 +51,7 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     if (raw) {
       req.sessionHash = digest(raw.slice('ott_session='.length));
       req.auth = db.prepare(`SELECT u.id,u.username,u.role,u.must_change_password,s.csrf_token FROM sessions s
-        JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.locked=0`)
+        JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.locked=0 AND u.deleted_at IS NULL`)
         .get(req.sessionHash, now());
     }
     next();
@@ -88,7 +88,7 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     }
     for (const key of keys) db.prepare(`INSERT INTO login_limits VALUES (?,1,?)
       ON CONFLICT(key) DO UPDATE SET attempts=attempts+1`).run(key, time + 900000);
-    const user = db.prepare('SELECT * FROM users WHERE username=?').get(username);
+    const user = db.prepare('SELECT * FROM users WHERE username=? AND deleted_at IS NULL').get(username);
     const valid = await bcrypt.compare(password, user ? user.password_hash : dummyHash);
     if (!valid || !user || user.locked || !db.prepare('SELECT 1 FROM users WHERE id=? AND password_hash=? AND locked=0').get(user.id, user.password_hash)) return res.status(401).json({ error: 'Tài khoản hoặc mật khẩu không đúng.' });
     const token = random();
@@ -163,8 +163,8 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     res.json({ ok: true });
   });
   app.get('/api/admin/overview', requireRole('admin'), (req, res) => {
-    res.json({ contestants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='contestant'").get().n,
-      locked: db.prepare('SELECT COUNT(*) AS n FROM users WHERE locked=1').get().n, phase: 5 });
+    res.json({ contestants: db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='contestant' AND deleted_at IS NULL").get().n,
+      locked: db.prepare('SELECT COUNT(*) AS n FROM users WHERE locked=1 AND deleted_at IS NULL').get().n, phase: 5 });
   });
   app.get('/api/admin/sandbox', requireRole('admin'), async (req, res) => {
     try { res.json({ ...await matches.manager.check(), samples: Object.keys(SAMPLES) }); }

@@ -24,12 +24,13 @@ function csvRows(text) {
 }
 async function importUsers(db, text) {
   const rows = csvRows(text), header = rows.shift();
-  if (!header || header.join(',') !== 'username,password') throw bad('Dòng đầu CSV phải là username,password.');
+  const columns = header?.join(',');
+  if (!['username','username,password'].includes(columns)) throw bad('Dòng đầu CSV phải là username.');
   if (!rows.length || rows.length > 1000) throw bad('Mỗi lần import từ 1 đến 1000 tài khoản.');
   const seen = new Set(), records = [];
   for (const row of rows) {
-    const [username, supplied] = row, password = supplied || crypto.randomBytes(18).toString('base64url');
-    if (row.length !== 2 || !/^[a-zA-Z0-9_.-]{3,40}$/.test(username) || password.length < 12 || Buffer.byteLength(password) > 72) throw bad('Tên tài khoản 3–40 ký tự chữ/số/_.-; mật khẩu 12 ký tự đến 72 byte.');
+    const [username] = row, password = username;
+    if (row.length !== header.length || !/^[a-zA-Z0-9_.-]{3,40}$/.test(username)) throw bad('Tên tài khoản 3–40 ký tự chữ/số/_.-. Mỗi dòng phải đúng số cột trong tiêu đề.');
     if (seen.has(username.toLowerCase()) || db.prepare('SELECT 1 FROM users WHERE username=?').get(username)) throw bad(`Tài khoản trùng: ${username}`);
     seen.add(username.toLowerCase()); records.push({ username, password });
   }
@@ -42,7 +43,30 @@ async function importUsers(db, text) {
   return records.map(({ username, password }) => ({ username, password }));
 }
 function registerAdmin(app, { db, submissions, requireRole, csrf }) {
-  app.get('/api/admin/users', requireRole('admin'), (req, res) => res.json({ users: db.prepare("SELECT u.id,u.username,u.locked,u.created_at,s.version FROM users u LEFT JOIN active_bots a ON a.user_id=u.id LEFT JOIN bot_submissions s ON s.id=a.submission_id WHERE u.role='contestant' ORDER BY u.username LIMIT 2000").all() }));
+  app.get('/api/admin/users', requireRole('admin'), (req, res) => res.json({ users: db.prepare(`SELECT u.id,u.username,u.locked,u.created_at,s.version,
+    (SELECT COUNT(*) FROM bot_submissions b WHERE b.user_id=u.id) submissions,
+    (SELECT COUNT(*) FROM bot_submissions b WHERE b.user_id=u.id AND b.status='Accepted') accepted
+    FROM users u LEFT JOIN active_bots a ON a.user_id=u.id LEFT JOIN bot_submissions s ON s.id=a.submission_id
+    WHERE u.role='contestant' AND u.deleted_at IS NULL ORDER BY u.username`).all() }));
+  app.delete('/api/admin/users/:id', requireRole('admin'), csrf, (req, res) => {
+    const user = db.prepare("SELECT id,username FROM users WHERE id=? AND role='contestant' AND deleted_at IS NULL").get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy thí sinh.' });
+    if (req.body?.username !== user.username) throw bad('Nhập đúng tên tài khoản để xác nhận xóa.');
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      if (db.prepare("SELECT 1 FROM bot_submissions WHERE user_id=? AND job_status='running'").get(user.id)) {
+        throw Object.assign(new Error('Bot của thí sinh đang được kiểm tra. Chờ kiểm tra xong rồi xóa.'), { status: 409 });
+      }
+      db.prepare('UPDATE users SET deleted_at=?,locked=1 WHERE id=?').run(Date.now(), user.id);
+      db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+      db.prepare('DELETE FROM active_bots WHERE user_id=?').run(user.id);
+      db.prepare('DELETE FROM login_limits WHERE key IN (?,?)').run(`user:${user.username.toLowerCase()}`, `password:${user.id}`);
+      db.prepare(`UPDATE bot_submissions SET status='Rejected',job_status='done',reason_code='account_deleted',
+        reason='Tài khoản đã bị xóa khỏi giải.',error_type=NULL,updated_at=? WHERE user_id=? AND job_status IN ('queued','blocked')`).run(Date.now(), user.id);
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
+    res.json({ ok: true });
+  });
   let importing = false;
   app.post('/api/admin/users/import', requireRole('admin'), csrf, async (req, res) => {
     if (importing) return res.status(429).json({ error: 'Đang import tài khoản khác.' });
@@ -50,7 +74,7 @@ function registerAdmin(app, { db, submissions, requireRole, csrf }) {
     try { res.json({ credentials: await importUsers(db, req.body?.csv) }); } finally { importing = false; }
   });
   for (const action of ['lock', 'reset']) app.post(`/api/admin/users/:id/${action}`, requireRole('admin'), csrf, async (req, res) => {
-    const user = db.prepare("SELECT id,username FROM users WHERE id=? AND role='contestant'").get(req.params.id);
+    const user = db.prepare("SELECT id,username FROM users WHERE id=? AND role='contestant' AND deleted_at IS NULL").get(req.params.id);
     if (!user) return res.status(404).json({ error: 'Không tìm thấy thí sinh.' });
     let password, hash;
     if (action === 'reset') { password = crypto.randomBytes(18).toString('base64url'); hash = await bcrypt.hash(password, 12); }

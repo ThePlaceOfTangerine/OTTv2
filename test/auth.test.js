@@ -33,11 +33,50 @@ after(async () => {
 async function request(url, { cookie, csrf, body, ...options } = {}) {
   return fetch(base + url, { ...options, headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}), ...options.headers }, ...(body ? { body: JSON.stringify(body) } : {}) });
 }
-async function login(username = 'player') {
-  const response = await request('/api/auth/login', { method: 'POST', body: { username, password } });
+async function login(username = 'player', loginPassword = password) {
+  const response = await request('/api/auth/login', { method: 'POST', body: { username, password: loginPassword } });
   assert.equal(response.status, 200);
   return { cookie: response.headers.get('set-cookie').split(';')[0], data: await response.json(), header: response.headers.get('set-cookie') };
 }
+test('admin deletion revokes access, removes choices, cancels pending jobs and preserves history',async()=>{
+ const user=await createUser(db,{username:'delete-me',password,mustChangePassword:false});
+ const uid=db.prepare("SELECT id FROM users WHERE username='delete-me'").get().id;
+ const owner=await login('delete-me'),administrator=await login('admin'),player=await login();
+ const options={method:'DELETE',cookie:administrator.cookie,csrf:administrator.data.csrfToken,body:{username:'delete-me'}};
+ const url=`/api/admin/users/${uid}`;
+ assert.equal((await request(url,{...options,cookie:player.cookie,csrf:player.data.csrfToken})).status,403);
+ assert.equal((await request(url,{...options,csrf:null})).status,403);
+ assert.equal((await request(url,{...options,body:{username:'wrong'}})).status,400);
+ const accepted='33333333-3333-3333-3333-333333333333',pending='44444444-4444-4444-4444-444444444444';
+ for(const [id,version,status,job]of [[accepted,1,'Accepted','done'],[pending,2,'Queued','running']])db.prepare("INSERT INTO bot_submissions(id,user_id,version,filename,entry,language,status,job_status,created_at,updated_at) VALUES (?,?,?,'main.py','main.py','python',?,?,0,0)").run(id,uid,version,status,job);
+ db.prepare('INSERT INTO active_bots VALUES (?,?)').run(uid,accepted);
+ assert.equal((await request(url,options)).status,409);assert.equal(db.prepare('SELECT deleted_at FROM users WHERE id=?').get(uid).deleted_at,null);
+ db.prepare("UPDATE bot_submissions SET job_status='queued' WHERE id=?").run(pending);
+ assert.equal((await request(url,options)).status,200);
+ assert.equal((await request('/api/auth/me',{cookie:owner.cookie})).status,401);
+ assert.equal((await request('/api/auth/login',{method:'POST',body:{username:'delete-me',password}})).status,401);
+ const listed=await (await request('/api/admin/users',{cookie:administrator.cookie})).json();assert.ok(!listed.users.some(u=>u.id===uid));
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM bot_submissions WHERE user_id=?').get(uid).n,2);
+ assert.equal(db.prepare('SELECT status FROM bot_submissions WHERE id=?').get(accepted).status,'Accepted');
+ assert.equal(db.prepare('SELECT reason_code FROM bot_submissions WHERE id=?').get(pending).reason_code,'account_deleted');
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM active_bots WHERE user_id=?').get(uid).n,0);
+ assert.ok(!app.locals.matches.botChoices().some(b=>b.userId===uid));
+ assert.throws(()=>app.locals.matches.resolveBot('submission:'+accepted));
+ assert.throws(()=>app.locals.submissions.activate(accepted,uid),e=>e.status===403);
+ await assert.rejects(app.locals.submissions.submit({userId:uid,filename:'main.py',buffer:Buffer.from('print(1)')}),e=>e.status===403);
+ assert.equal((await request(url,options)).status,404);
+ assert.equal((await request(url+'/lock',{...options,method:'POST',body:{locked:false}})).status,404);
+ assert.equal((await request(`/api/admin/users/${administrator.data.user.id}`,{...options,body:{username:'admin'}})).status,404);
+});
+test('map preview validates rules without creating a stored version',async()=>{
+ const administrator=await login('admin'),player=await login();const options={method:'POST',cookie:administrator.cookie,csrf:administrator.data.csrfToken,body:{rules:require('../rules/default.json')}};
+ const count=db.prepare('SELECT COUNT(*) n FROM rule_versions').get().n;
+ assert.equal((await request('/api/admin/rule-sets/preview',{...options,cookie:player.cookie,csrf:player.data.csrfToken})).status,403);
+ assert.equal((await request('/api/admin/rule-sets/preview',{...options,csrf:null})).status,403);
+ const response=await request('/api/admin/rule-sets/preview',options);assert.equal(response.status,200);assert.equal((await response.json()).state.board.length,9);
+ assert.equal((await request('/api/admin/rule-sets/preview',{...options,body:{rules:{...options.body.rules,blockedCells:[[0,8]]}}})).status,400);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM rule_versions').get().n,count);
+});
 
 test('migrations are repeatable and data persists after reopening SQLite', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ott-db-'));
@@ -45,7 +84,7 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 6);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 7);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
@@ -55,12 +94,15 @@ test('passwords use bcrypt and enforce byte length', async () => {
   assert.match(db.prepare("SELECT password_hash FROM users WHERE username='player'").get().password_hash, /^\$2[aby]\$12\$/);
   await assert.rejects(createUser(db, { username: 'short', password: '123' }));
   await assert.rejects(createUser(db, { username: 'long', password: 'é'.repeat(37) }));
+  await assert.rejects(createUser(db, { username: 'other-admin', password: 'admin', role: 'admin' }));
+  await assert.rejects(createUser(db, { username: 'admin', password: 'short', role: 'admin' }));
 });
 test('seed creates an admin and 20 contestants, then preserves existing passwords', async () => {
   const seeded = openDatabase(':memory:');
   try {
     const credentials = await seed(seeded);
     assert.equal(credentials.length, 21);
+    assert.deepEqual(credentials.find(row => row.role === 'admin'), { username: 'admin', password: 'admin', role: 'admin' });
     assert.equal(seeded.prepare("SELECT COUNT(*) n FROM users WHERE role='contestant'").get().n, 20);
     assert.equal(seeded.prepare("SELECT COUNT(*) n FROM users WHERE role='admin'").get().n, 1);
     assert.equal(new Set(credentials.map(row => row.password)).size, 21);
@@ -212,11 +254,13 @@ test('admin account import, locking/reset revoke sessions and contestant cannot 
   assert.equal((await request('/api/admin/monitor', {cookie:p.cookie})).status,403);
   assert.equal((await request('/api/admin/users/import',{...adminOptions,csrf:undefined,body:{csv:'username,password\nnewteam,'}})).status,403);
   let r=await request('/api/admin/users/import',{...adminOptions,body:{csv:'username,password\nnewteam,TestPassword-2026!'}});assert.equal(r.status,200);
-  const u=db.prepare("SELECT id FROM users WHERE username='newteam'").get(), session=await login('newteam');
+  const u=db.prepare("SELECT id FROM users WHERE username='newteam'").get(), session=await login('newteam','newteam');
+  assert.equal(session.data.user.mustChangePassword,true);
+  assert.equal((await request('/api/portal/overview',{cookie:session.cookie})).status,403);
   r=await request('/api/admin/users/'+u.id+'/lock',{...adminOptions,body:{locked:true}});assert.equal(r.status,200);
   assert.equal((await request('/api/auth/me',{cookie:session.cookie})).status,401);
   await request('/api/admin/users/'+u.id+'/lock',{...adminOptions,body:{locked:false}});
-  const old=await login('newteam');r=await request('/api/admin/users/'+u.id+'/reset',adminOptions);assert.equal(r.status,200);const fresh=await r.json();assert.ok(fresh.password.length>=12);
+  const old=await login('newteam','newteam');r=await request('/api/admin/users/'+u.id+'/reset',adminOptions);assert.equal(r.status,200);const fresh=await r.json();assert.ok(fresh.password.length>=12);
   assert.equal((await request('/api/auth/me',{cookie:old.cookie})).status,401);
   assert.equal((await request('/api/auth/login',{method:'POST',body:{username:'newteam',password}})).status,401);
   assert.equal((await request('/api/auth/login',{method:'POST',body:{username:'newteam',password:fresh.password}})).status,200);
@@ -226,6 +270,9 @@ test('admin account import, locking/reset revoke sessions and contestant cannot 
 });
 test('score and live APIs enforce admin role and require CSRF for mutations', async () => {
  const a=await login('admin'),p=await login();
+ assert.equal((await request('/api/admin/score-plan')).status,401);
+ assert.equal((await request('/api/admin/score-plan',{cookie:p.cookie})).status,403);
+ const plan=await request('/api/admin/score-plan',{cookie:a.cookie});assert.equal(plan.status,200);assert.equal(typeof (await plan.json()).canStart,'boolean');
  assert.equal((await request('/api/scores')).status,401);
  assert.equal((await request('/api/scores',{cookie:p.cookie})).status,200);
  for(const route of ['/api/admin/live','/api/admin/score-matches/missing','/api/admin/scores/missing/export','/api/admin/submissions/missing'])assert.equal((await request(route,{cookie:p.cookie})).status,403);
@@ -266,4 +313,19 @@ test('rule-set APIs isolate admin permissions, enforce CSRF and versioning',asyn
  response=await request('/api/admin/rule-sets/'+first.id+'/clone',{...opts,body:{name:'copy',version:1}});assert.equal(response.status,404);
  assert.equal((await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'stale',rules:base,expectedVersion:1}})).status,409);
  assert.equal((await request('/api/admin/rule-sets',{...opts,body:{name:'bad',rules:{...base,engine:'unknown'}}})).status,400);
+});
+
+test('new contestant uses username as initial password and must change it before using portal',async()=>{
+ const admin=await login('admin');
+ const result=await request('/api/admin/users/import',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{csv:'username\nsv01'}});
+ assert.equal(result.status,200);assert.deepEqual((await result.json()).credentials,[{username:'sv01',password:'sv01'}]);
+ const first=await login('sv01','sv01');assert.equal(first.data.user.mustChangePassword,true);
+ assert.equal((await request('/api/portal/submissions',{cookie:first.cookie})).status,403);
+ const opts={method:'POST',cookie:first.cookie,csrf:first.data.csrfToken};
+ assert.equal((await request('/api/auth/password',{...opts,body:{currentPassword:'sv01',newPassword:'sv01',confirmPassword:'sv01'}})).status,400);
+ const next='StudentPersonal-2026!';
+ assert.equal((await request('/api/auth/password',{...opts,body:{currentPassword:'sv01',newPassword:next,confirmPassword:next}})).status,200);
+ assert.equal((await request('/api/auth/login',{method:'POST',body:{username:'sv01',password:'sv01'}})).status,401);
+ const changed=await login('sv01',next);assert.equal(changed.data.user.mustChangePassword,false);
+ assert.equal((await request('/api/portal/overview',{cookie:changed.cookie})).status,200);
 });

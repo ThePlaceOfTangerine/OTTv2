@@ -65,6 +65,7 @@ class SubmissionService {
       await fs.writeFile(path.join(this.folder(id), 'upload.bin'), buffer, { flag: 'wx', mode: 0o600 });
       this.db.exec('BEGIN IMMEDIATE');
       try {
+        if (!this.db.prepare("SELECT 1 FROM users WHERE id=? AND deleted_at IS NULL AND locked=0").get(userId)) throw Object.assign(new Error('Tài khoản không còn quyền nộp bài.'), { status: 403 });
         if (this.db.prepare("SELECT COUNT(*) n FROM bot_submissions WHERE user_id=? AND job_status IN ('queued','running')").get(userId).n >= 3) throw Object.assign(new Error('Tối đa 3 bài đang chờ kiểm tra. Vui lòng chờ bài hiện tại hoàn tất.'), { status: 429 });
         const version = this.db.prepare('SELECT COALESCE(MAX(version),0)+1 n FROM bot_submissions WHERE user_id=?').get(userId).n;
         const time = this.now();
@@ -76,6 +77,7 @@ class SubmissionService {
     } finally { if (!inserted) await this.clean(id); }
   }
   activate(id, userId) {
+    if (!this.db.prepare('SELECT 1 FROM users WHERE id=? AND deleted_at IS NULL AND locked=0').get(userId)) throw Object.assign(new Error('Tài khoản không còn quyền chọn bot.'), { status: 403 });
     const row = this.owned(id, userId);
     if (!row) return false;
     if (row.status !== 'Accepted') throw Object.assign(new Error('Chỉ có thể chọn phiên bản đã vượt qua kiểm tra (Accepted).'), { status: 409 });

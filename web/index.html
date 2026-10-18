@@ -1,79 +1,81 @@
 <!doctype html>
 <html lang="vi">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OTTv2 · Đấu trường bot</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/replay.css"><link rel="stylesheet" href="/assets/submissions.css"><script src="/assets/app.js" defer></script></head>
-<body><main>
-  <nav><a class="brand" href="/portal">OTTv2 <span>ARENA</span></a><a href="/legacy/">Chơi trực tiếp ↗</a></nav>
-  <div class="eyebrow" id="area">NỀN TẢNG THI ĐẤU BOT</div>
-  <h1 id="heading">Thi đấu bot OTTv2</h1>
-  <p class="intro">Trò chơi chiến thuật Búa · Bao · Kéo trên bàn cờ 9 × 9. Bot là chương trình tự chọn nước đi.</p>
-  <section id="resources-panel" aria-labelledby="resources-heading" hidden>
-    <div class="eyebrow">TÀI LIỆU CHO NGƯỜI THAM GIA</div><h2 id="resources-heading">Hướng dẫn và mã mẫu</h2>
-    <p class="muted">Đọc hướng dẫn để hiểu luật và cách bot nhận, trả dữ liệu. Sau đó chọn mã mẫu theo ngôn ngữ bạn sử dụng; mỗi bài chỉ cần một ngôn ngữ.</p>
+<link rel="icon" href="/assets/favicon.svg"><title>OTTv2 · Đấu trường bot</title><link rel="stylesheet" href="/assets/replay.css"><link rel="stylesheet" href="/assets/minimal.css"><link rel="stylesheet" href="/assets/admin-editor.css"><link rel="stylesheet" href="/assets/admin-console.css"><script src="/assets/workspace.js" defer></script><script src="/assets/app.js" defer></script></head>
+<body data-session="guest">
+<a class="skip-link" href="#main-content">Đến nội dung chính</a>
+<div class="app-shell">
+  <aside class="workspace-sidebar" aria-label="Điều hướng chính">
+    <a class="brand" href="/portal"><span class="brand-symbol" aria-hidden="true">o.</span> OTTv2<span class="brand-label">ARENA</span></a>
+    <p class="sidebar-caption" id="area">ĐẤU TRƯỜNG BOT</p>
+    <nav id="workspace-nav" aria-label="Chức năng" hidden></nav>
+    <div class="sidebar-bottom">
+      <div id="dashboard" class="account" hidden><strong id="welcome"></strong><div id="overview"></div>
+        <p id="dashboard-help" hidden></p>
+        <button id="open-password" class="text-button" type="button" hidden>Đổi mật khẩu</button>
+        <button id="logout" class="text-button" type="button">Đăng xuất</button>
+      </div>
+      <a class="legacy-link" href="/legacy/">Chơi trực tiếp <span aria-hidden="true">↗</span></a>
+    </div>
+  </aside>
+  <main id="main-content">
+    <header class="page-header"><div><p class="eyebrow">ĐẤU TRƯỜNG CHIẾN THUẬT</p><h1 id="heading" tabindex="-1">Chào mừng trở lại.</h1>
+      <p id="page-description">Đăng nhập để nộp bot và tham gia thi đấu.</p></div><span class="edition-label">BÚA / BAO / KÉO</span></header>
+  <section data-view="help" id="resources-panel" aria-labelledby="resources-heading" hidden>
+    <h2 id="resources-heading">Bắt đầu từ mã mẫu</h2>
+    <p class="muted">Bot là chương trình chơi cờ thay bạn. Tải một mẫu, nộp thử, rồi sửa cách chọn nước đi để bot chơi tốt hơn.</p>
     <div class="resource-grid">
-      <a class="resource-card" href="/docs/PROTOCOL.md"><span class="resource-tag">01 · ĐỌC HƯỚNG DẪN</span><h3>Giao thức và luật chơi</h3><p>Cấu trúc dữ liệu, nước đi hợp lệ, giới hạn chạy và cách xử lý lỗi.</p><span class="resource-action">Mở tài liệu →</span></a>
-      <a class="resource-card" href="/templates/python.py"><span class="resource-tag">02 · CHỌN NGÔN NGỮ</span><h3>Mã mẫu Python</h3><p>File main.py có chú thích và phần đọc, trả dữ liệu. Sửa phần chọn nước đi để xây dựng chiến thuật.</p><span class="resource-action">Tải file .py ↓</span></a>
-      <a class="resource-card" href="/templates/cpp.cpp"><span class="resource-tag">02 · CHỌN NGÔN NGỮ</span><h3>Mã mẫu C++</h3><p>File main.cpp dùng chuẩn C++17 và thư viện JSON có sẵn trên máy chủ.</p><span class="resource-action">Tải file .cpp ↓</span></a>
-    </div><p class="muted">Mã mẫu chọn nước hợp lệ đầu tiên để minh họa giao thức, chưa có chiến thuật tối ưu. Bạn có thể nộp nguyên mẫu để làm quen với quy trình kiểm tra.</p>
+      <a class="resource-card" href="/docs/PROTOCOL.md"><span class="resource-tag">CHƯA BIẾT BẮT ĐẦU TỪ ĐÂU?</span><h3>Hướng dẫn từng bước</h3><p>Cách nộp bài, luật chơi và chỗ cần sửa trong mã mẫu.</p><span class="resource-action">Đọc hướng dẫn →</span></a>
+      <a class="resource-card" href="/templates/python.py"><span class="resource-tag">NẾU BẠN HỌC PYTHON</span><h3>Mẫu Python</h3><p>Tải file main.py. Có thể nộp nguyên file để làm thử.</p><span class="resource-action">Tải mẫu Python ↓</span></a>
+      <a class="resource-card" href="/templates/cpp.cpp"><span class="resource-tag">NẾU BẠN HỌC C++</span><h3>Mẫu C++</h3><p>Tải file main.cpp. Có sẵn phần nhận dữ liệu và trả lời.</p><span class="resource-action">Tải mẫu C++ ↓</span></a>
+    </div>
+    <p class="muted">Chỉ cần chọn một ngôn ngữ. Mã mẫu đi đúng luật nhưng chưa có chiến thuật tốt.</p>
   </section>
-  <section id="login-panel"><h2>Đăng nhập</h2>
+  <section id="login-panel"><div class="login-mark" aria-hidden="true">o.</div><h2>Đăng nhập</h2><p class="muted">Sử dụng tài khoản do ban tổ chức cấp.</p>
     <form id="login-form"><label for="username">Tài khoản</label><input id="username" name="username" autocomplete="username" required maxlength="40">
     <label for="password">Mật khẩu</label><input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button id="submit" type="submit">Đăng nhập →</button></form>
-    <p class="muted">Đăng nhập bằng tài khoản do ban tổ chức cấp. Lần đầu sử dụng hoặc sau khi được cấp lại mật khẩu, bạn cần đặt mật khẩu riêng.</p>
+    <button id="submit" type="submit">Đăng nhập</button></form>
+    <p class="login-note">Lần đầu tham gia? Bạn sẽ được hướng dẫn đặt mật khẩu riêng sau khi đăng nhập.</p><div class="login-resources"><a href="/docs/PROTOCOL.md">Hướng dẫn viết bot ↗</a><a href="/templates/python.py">Mẫu Python</a><a href="/templates/cpp.cpp">Mẫu C++</a></div>
   </section>
-  <section id="dashboard" hidden><h2 id="welcome"></h2><div id="overview"></div>
-    <p id="dashboard-help" class="muted">Nộp chương trình bot, theo dõi kết quả kiểm tra và xem lại trận đấu. Bảng xếp hạng hiển thị kết quả các vòng do ban tổ chức tạo.</p>
-    <button id="open-password" type="button" hidden>Đổi mật khẩu</button>
-    <button id="logout" type="button">Đăng xuất</button>
-  </section>
-  <section id="password-panel" hidden><h2>Đổi mật khẩu của bạn</h2><p id="password-explanation">Tài khoản đang dùng mật khẩu do ban tổ chức cấp. Bạn cần đổi sang mật khẩu riêng trước khi nộp bot hoặc xem bảng xếp hạng.</p>
+  <section id="password-panel" hidden><div class="panel-heading"><h2>Đổi mật khẩu</h2><button id="close-password" type="button" class="secondary-button">Hủy</button></div><p id="password-explanation">Tài khoản đang dùng mật khẩu do ban tổ chức cấp. Bạn cần đổi sang mật khẩu riêng trước khi nộp bot hoặc xem bảng xếp hạng.</p>
     <form id="password-form"><label for="current-password">Mật khẩu hiện tại</label><input id="current-password" type="password" autocomplete="current-password" required>
     <label for="new-password">Mật khẩu mới</label><input id="new-password" type="password" autocomplete="new-password" minlength="12" required aria-describedby="password-help">
     <label for="confirm-password">Nhập lại mật khẩu mới</label><input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
     <p id="password-help" class="muted">Mật khẩu mới phải khác mật khẩu hiện tại, có ít nhất 12 ký tự và tối đa 72 byte. Ký tự có dấu có thể chiếm nhiều byte. Sau khi đổi, các phiên đăng nhập khác sẽ hết hiệu lực.</p><button type="submit">Lưu mật khẩu mới</button><p id="password-message" role="status"></p></form>
   </section>
-  <section id="submission-panel" hidden>
-    <div class="eyebrow">BOT CỦA BẠN</div><h2>Nộp phiên bản bot</h2>
-    <div class="contestant-guide"><h3>Quy trình tham gia</h3>
-      <ol><li><strong>Tải mã mẫu:</strong> chọn <a href="/templates/python.py">Python</a> hoặc <a href="/templates/cpp.cpp">C++</a>. Mã mẫu đã có phần đọc và trả dữ liệu. Bạn có thể nộp thử, sau đó sửa phần chọn nước đi để xây dựng chiến thuật.</li>
-      <li><strong>Nộp mã nguồn:</strong> chọn file bên dưới và bấm “Nộp bot”. Mỗi lần nộp tạo bản mới (v1, v2…); không cần tự chạy lệnh Docker, máy chủ xử lý việc chạy bot.</li>
-      <li><strong>Chờ kiểm tra:</strong> trang tự cập nhật. Khi thấy “Hợp lệ (Accepted)”, chọn “Chi tiết &amp; trận thử” để xem bot đã chơi thế nào.</li>
-      <li><strong>Thi đấu tính điểm:</strong> ban tổ chức tạo vòng đấu. Hệ thống dùng bản đang được chọn tại thời điểm bắt đầu vòng; xem kết quả ở bảng xếp hạng bên dưới.</li></ol>
-      <p><strong>Bản đang chọn (ACTIVE)</strong> là bot đại diện cho bạn ở vòng mới. Phiên bản mới nhất vượt qua kiểm tra được tự động chọn. Nếu bản mới bị từ chối, bản đang chọn trước đó vẫn được giữ. Đổi bản sau khi vòng đã bắt đầu chỉ có tác dụng với vòng tiếp theo.</p>
-      <details><summary>Trạng thái bài nộp và cách xử lý</summary><dl>
-        <dt>Chờ kiểm tra (Queued)</dt><dd>Hệ thống đã nhận bài và đang chờ bộ xử lý. Không cần nộp lại cùng một file.</dd>
-        <dt>Kiểm tra mã (Scanning)</dt><dd>Kiểm tra file và các thao tác bị cấm, như mở mạng hoặc tạo tiến trình.</dd>
-        <dt>Chuẩn bị chương trình (Compiling)</dt><dd>Kiểm tra cú pháp Python hoặc biên dịch C++17. Nếu lỗi, mở “Nhật ký kiểm tra” để xem chi tiết.</dd>
-        <dt>Đấu thử (Test match)</dt><dd>Bot chơi hai ván đổi bên với bot mẫu. Hai ván này không tính điểm xếp hạng. Bài nộp đạt yêu cầu nếu bot không gặp lỗi, đi đúng luật và đáp ứng giới hạn chạy; không cần thắng bot mẫu.</dd>
-        <dt>Hợp lệ / Cần sửa (Accepted / Rejected)</dt><dd>Hợp lệ: bot đã vượt qua hai ván kiểm tra và có thể được chọn thi đấu. Kết quả này không bảo đảm bot luôn hoạt động đúng trong mọi thế cờ. Cần sửa: đọc lý do, sửa mã nguồn rồi nộp phiên bản mới. Lỗi máy chủ được thử lại và không quy thành lỗi của bot.</dd>
-      </dl></details>
-      <details><summary>Dữ liệu bot nhận và gửi</summary><p>Mỗi lượt, bot đọc một dòng JSON từ đầu vào chuẩn (stdin). Dữ liệu có bàn cờ, bên của bạn và danh sách nước hợp lệ <code>legal_moves</code>. Chọn một nước trong danh sách rồi in đúng một dòng JSON ra đầu ra chuẩn (stdout), giữ nguyên <code>request_id</code>. Mẫu tải về đã làm sẵn phần đọc/ghi này.</p><p>Không in lời chào hoặc thông tin gỡ lỗi ra stdout; ghi thông tin gỡ lỗi vào stderr (luồng nhật ký). Chương trình được khởi động lại mỗi lượt: muốn nhớ thông tin, dùng trường <code>userdata</code> (dữ liệu ghi nhớ). Giới hạn mặc định: 500 ms CPU mỗi nước, 30 giây CPU mỗi bot/trận, 256 MiB không gian địa chỉ của tiến trình. Python dùng thư viện chuẩn; C++ có sẵn thư viện JSON trong mẫu.</p><p>Đọc <a href="/docs/PROTOCOL.md">hướng dẫn lập trình bot</a> nếu cần cấu trúc dữ liệu và giới hạn đầy đủ.</p></details>
-      <details><summary>Luật chơi và cách xem lại trận</summary><p>Bàn 9 × 9, mỗi bên có 10 quân chia theo tỷ lệ 3–3–4 giữa Búa, Bao và Kéo. Loại có 4 quân được chọn ngẫu nhiên mỗi ván; hai bên có cùng cơ cấu quân, vị trí quân được xáo trộn riêng. Mỗi lượt di chuyển một quân sang ô liền kề theo chiều ngang, dọc hoặc chéo. Có thể đi vào ô trống hoặc ô có quân đối thủ mà quân đang đi ăn được: Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa. Không đi vào ô có quân cùng bên hoặc quân đối thủ cùng loại/khắc chế quân đang đi. Thắng khi chiếm nhà đối thủ, ăn hết quân đối thủ hoặc đối thủ hết nước hợp lệ. Hòa khi đạt 500 nước tổng cộng hoặc lặp cùng bàn cờ và bên đến lượt ba lần. Điều kiện thắng được xét trước điều kiện hòa. Hai ô có dấu ★ là nhà của hai bên; chiếm nhà nghĩa là đưa quân vào ô nhà đối thủ.</p><p>Bấm “Xem trận thử”, rồi “Tự động chạy” để xem lần lượt các nước; có thể tạm dừng, đổi tốc độ hoặc kéo thanh “Nước đi”. Bên 0 đi trước. “Bạn ở bên 0/1” cho biết bot nào là của bạn trong ván đó. Nút “Chơi trực tiếp” mở khu vực người chơi tự điều khiển quân, không tính điểm bot và chưa áp dụng điều kiện hòa sau 500 nước hoặc lặp thế cờ ba lần.</p></details>
-    </div>
+  <section data-view="bots" id="submission-panel" hidden>
+    <div class="panel-heading"><div><h2>Nộp bài mới</h2><p class="muted">Chọn file code của bạn. Bản mới nhất vượt qua kiểm tra sẽ được dùng thi đấu.</p></div><span class="small-tag">.py / .cpp / .zip</span></div>
+    <details class="contestant-guide"><summary>Lần đầu nộp bài? Xem 4 bước</summary>
+      <ol><li><strong>Tải mã mẫu:</strong> chọn <a href="/templates/python.py">Python</a> hoặc <a href="/templates/cpp.cpp">C++</a>. Chưa cần sửa gì, bạn có thể nộp nguyên file.</li>
+      <li><strong>Chọn file và bấm Nộp bot.</strong> Nếu nộp một file, để trống ô “File chính trong ZIP”.</li>
+      <li><strong>Chờ trang báo Sẵn sàng thi đấu.</strong> Hệ thống tự kiểm tra và cho bot chơi hai ván thử. Không bắt buộc thắng.</li>
+      <li><strong>Xem bot chơi:</strong> bấm “Chi tiết &amp; trận thử”, chọn một trận rồi bấm “Tự động chạy”.</li></ol>
+      <p>Mỗi lần nộp tạo một bản mới: v1, v2… Bản mới nhất vượt qua kiểm tra được chọn thi đấu. Nếu bản mới lỗi, bản đang chọn trước đó vẫn được giữ.</p>
+      <p>Muốn bot chơi tốt hơn? Mở file mẫu, tìm “THAY CHIẾN THUẬT Ở ĐÂY”, sửa cách chọn nước rồi nộp lại. <a href="/docs/PROTOCOL.md">Xem ví dụ và luật chơi →</a></p>
+    </details>
     <form id="submission-form">
-      <div class="submission-fields"><div><label for="bot-file">Mã nguồn bot (.py, .cpp hoặc .zip)</label><input id="bot-file" name="bot" type="file" accept=".py,.cpp,.zip" required></div>
-      <div><label for="bot-entry">Đường dẫn file chính trong ZIP (nếu cần)</label><input id="bot-entry" name="entry" placeholder="Ví dụ: main.py hoặc src/main.cpp" maxlength="180" aria-describedby="entry-help"><p id="entry-help" class="muted">Nộp một file .py/.cpp: để trống. Nộp ZIP có nhiều file: nhập đường dẫn file chính nếu hệ thống không tự nhận ra, ví dụ src/main.py.</p></div></div>
-      <p class="muted">Một file mã nguồn tối đa 1 MiB; ZIP tối đa 5 MiB và 64 file mã nguồn. Chỉ nộp mã Python hoặc C++; không nộp chương trình đã biên dịch, gói cài thư viện hay ZIP có mật khẩu. Máy chủ chạy bot trong môi trường cách ly Docker.</p>
-      <button id="submit-bot" type="submit">Nộp bot →</button>
+      <div class="submission-fields"><div><label for="bot-file">File code của bạn (.py, .cpp hoặc .zip)</label><input id="bot-file" name="bot" type="file" accept=".py,.cpp,.zip" required></div>
+      <div><label for="bot-entry">File chính trong ZIP <span class="optional">· thường để trống</span></label><input id="bot-entry" name="entry" placeholder="Ví dụ: main.py hoặc src/main.cpp" maxlength="180" aria-describedby="entry-help"><p id="entry-help" class="muted">Để trống nếu nộp file đơn hoặc ZIP có main.py / main.cpp.</p></div></div>
+      <p class="muted">Một file tối đa 1 MiB (khoảng 1 MB). Nếu có nhiều file, nén thành ZIP tối đa 5 MiB, 64 file cùng ngôn ngữ.</p>
+      <button id="submit-bot" type="submit">Nộp bot</button>
     </form>
     <p id="submission-message" role="status" aria-live="polite"></p>
-    <h2>Lịch sử phiên bản</h2><div id="submission-list" aria-live="polite"></div>
+    <h2 class="section-heading">Các bản đã nộp</h2><div id="submission-list" aria-live="polite"></div>
     <div id="submission-detail" hidden><h2 id="submission-title"></h2><p id="submission-reason" role="status"></p>
       <ol id="submission-pipeline" class="pipeline"></ol><div id="submission-tests"></div>
-      <details><summary>Nhật ký kiểm tra (log)</summary><p class="muted">Tìm dòng báo lỗi cuối cùng để biết bước cần sửa. Nếu có thông báo lỗi biên dịch, xem thêm tên file và dòng lỗi trong phần chi tiết.</p><pre id="submission-events"></pre></details>
+      <details><summary>Chi tiết kỹ thuật (khi cần tìm lỗi)</summary><p class="muted">Thông báo gốc của hệ thống nằm ở đây. Nếu chưa hiểu lỗi, bạn có thể gửi phần này cho giảng viên hoặc ban tổ chức.</p><pre id="submission-error" hidden></pre><pre id="submission-events"></pre></details>
     </div>
   </section>
-  <section id="admin-guide" hidden aria-labelledby="admin-guide-title">
+  <section data-view="help" id="admin-guide" hidden aria-labelledby="admin-guide-title">
     <div class="eyebrow">HƯỚNG DẪN CHO BAN TỔ CHỨC</div><h2 id="admin-guide-title">Khởi động, chạy thử và điều hành giải</h2>
     <p class="muted">Trang quản trị dùng để cấp tài khoản, theo dõi bài nộp và tổ chức vòng tính điểm. Các nút chạy trận yêu cầu máy chủ Node.js và Docker đang hoạt động.</p>
     <ol class="admin-steps">
       <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Đấu thử theo bộ luật</a>, bấm “Kiểm tra Docker”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
-      <li><strong>Cấp tài khoản.</strong> Dán danh sách tại <a href="#admin-users">Tài khoản thí sinh</a> rồi chọn “Tạo tài khoản từ CSV”. Lưu và gửi riêng mật khẩu tạm cho từng thí sinh. Không gửi toàn bộ danh sách cho mọi người.</li>
-      <li><strong>Chờ bot hợp lệ.</strong> Thí sinh đăng nhập, đổi mật khẩu tạm và nộp mã nguồn. Theo dõi tại <a href="#admin-monitor">Bộ xử lý và hàng đợi</a>. Mỗi tài khoản cần một phiên bản đã vượt qua kiểm tra và đang được chọn.</li>
+      <li><strong>Cấp tài khoản.</strong> Dán danh sách tại <a href="#admin-users">Tài khoản thí sinh</a> rồi chọn “Tạo tài khoản”. Mật khẩu ban đầu trùng tên tài khoản. Gửi tên tài khoản cho từng thí sinh và yêu cầu đổi mật khẩu ngay lần đăng nhập đầu tiên.</li>
+      <li><strong>Chờ bot hợp lệ.</strong> Thí sinh đăng nhập, đổi mật khẩu tạm và nộp mã nguồn. Theo dõi tại <a href="#admin-monitor">Bài nộp và hàng đợi</a>. Mỗi tài khoản cần một phiên bản đã vượt qua kiểm tra và đang được chọn.</li>
       <li><strong>Chạy thử khi cần.</strong> Trong <a href="#rule-panel">Quản lý bộ luật</a>, tạo hoặc chọn bộ luật. Sau đó chọn hai bot mẫu hoặc phiên bản bot thí sinh đã hợp lệ và bấm “Chạy trận thử”. Trận này không thay đổi điểm, Elo hay bot đang chọn.</li>
       <li><strong>Sửa luật.</strong> Chọn bộ luật, sửa cấu hình rồi bấm “Lưu bộ luật”. Mỗi lần lưu được đánh số tự động để trận cũ vẫn giữ đúng luật. Ví dụ: bản 1 giới hạn 500 nước, bản 2 đổi thành 100 nước; replay đã chơi theo bản 1 vẫn giữ giới hạn 500. Chỉ cần chọn bản mới nhất khi chạy thử, trừ khi muốn kiểm tra lại luật cũ.</li>
-      <li><strong>Tạo vòng tính điểm.</strong> Khi có ít nhất hai bot đủ điều kiện, nhập seed và số ván tại <a href="#admin-create-round">Tạo vòng tính điểm</a>, rồi bấm “Tạo và chạy vòng điểm”. Ví dụ hai bot: 2 ván mỗi bot, 2 ván mỗi cặp. Vòng Elo hiện dùng Classic mặc định; chỉnh luật ở khu đấu thử không đổi luật vòng Elo. Danh sách, luật và phiên bản bot được chốt lúc tạo.</li>
+      <li><strong>Tạo vòng tính điểm.</strong> Khi có ít nhất hai bot sẵn sàng, mở <a href="#admin-create-round">Vòng điểm</a>, xem lịch tự động rồi bấm “Tạo và chạy vòng điểm”. Hệ thống tự ghép đối thủ và cho mỗi cặp đấu 6 ván, mỗi bên đi trước 3 ván. Không tự đấu thêm khi bằng điểm. Vòng điểm dùng luật Classic; các bot và phiên bản được chốt lúc tạo.</li>
       <li><strong>Theo dõi và xuất kết quả.</strong> Mở <a href="#scores-panel">Bảng xếp hạng</a> để xem tiến độ, Elo, replay và tải CSV. Khi vòng hoàn tất, kiểm tra tổng số ván trước khi công bố kết quả.</li>
     </ol>
     <details><summary>Các lệnh khởi động trên máy chủ</summary><p class="muted">Thực hiện trong terminal tại thư mục dự án sau khi cài Node.js và Docker. Đây là hướng dẫn lệnh; trang web không tự thực thi lệnh terminal.</p><pre>npm ci
@@ -83,56 +85,92 @@ npm run sandbox:check
 npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy lại seed không đổi mật khẩu đã có. Giữ terminal chạy npm start; dừng bằng Ctrl+C. Hướng dẫn cài đặt chi tiết nằm trong README.md của dự án.</p></details>
     <details><summary>Xử lý lỗi và tài khoản trong lúc thi đấu</summary><ul class="muted"><li><strong>Bot lỗi:</strong> xem nhật ký và lý do từ chối; thí sinh sửa mã nguồn rồi nộp phiên bản mới. Bot gặp lỗi khi thi đấu được xử thua theo quy định.</li><li><strong>Máy chủ lỗi:</strong> hệ thống chạy lại tối đa 3 lần tổng cộng, sau đó tạm dừng. Kiểm tra Docker, dung lượng và nhật ký máy chủ; khi đã khắc phục, chọn nút chạy lại. Lỗi máy chủ không tính thua bot.</li><li><strong>Cấp lại mật khẩu:</strong> hủy phiên cũ và yêu cầu thí sinh đổi mật khẩu tạm ở lần đăng nhập tiếp theo. Khóa tài khoản ngăn đăng nhập; không xóa lịch đấu hoặc thay phiên bản của vòng đã tạo.</li><li><strong>Elo:</strong> bắt đầu 1500 riêng cho mỗi vòng, cập nhật sau từng ván với K = 32. Cùng số trận thắng/thua có thể có Elo khác nhau do đối thủ và thứ tự cập nhật.</li></ul></details>
   </section>
-  <section id="admin-tools" hidden>
+  <section data-view="users" id="admin-tools" hidden>
     <div class="eyebrow">DÀNH CHO BAN TỔ CHỨC</div><h2 id="admin-users">Tài khoản thí sinh</h2>
-    <form id="import-users"><label for="users-csv">Danh sách tài khoản CSV (username,password)</label><textarea id="users-csv" rows="4" placeholder="username,password&#10;team001,&#10;team002," required></textarea><p class="muted">Dòng đầu phải là username,password. Mỗi dòng sau tạo một tài khoản thí sinh. Để trống password để hệ thống tạo mật khẩu tạm. Tối đa 1000 tài khoản mỗi lần; nếu có dòng không hợp lệ hoặc trùng tài khoản, toàn bộ danh sách bị từ chối. Lưu mật khẩu được trả về trước khi ẩn; thí sinh phải đổi mật khẩu tạm khi đăng nhập.</p><button>Tạo tài khoản từ CSV</button></form>
+    <div class="setup-panel"><h3>Thêm thí sinh</h3><form id="import-users"><label for="users-csv">Danh sách tài khoản</label><textarea id="users-csv" rows="4" placeholder="username&#10;team001&#10;team002" required></textarea><p class="muted">Dòng đầu là username, mỗi dòng sau là một tài khoản. Tối đa 1000 tài khoản/lần. Mật khẩu ban đầu trùng tên tài khoản; thí sinh phải đổi ở lần đăng nhập đầu tiên.</p><button>Tạo tài khoản</button></form></div>
     <pre id="credentials" hidden></pre><button id="clear-credentials" hidden type="button">Ẩn mật khẩu</button>
-    <div id="users-list" class="admin-scroll"></div>
-    <h2 id="admin-monitor">Bộ xử lý và hàng đợi</h2><p class="muted">Bộ xử lý tự động kiểm tra bài nộp hoặc chạy trận. Số vị trí xử lý cho biết số tác vụ có thể chạy cùng lúc. Hàng đợi chứa các bài đang chờ; “Tạm dừng” nghĩa là hệ thống cần xử lý lỗi máy chủ trước khi chạy lại.</p><p id="worker-status"></p><button id="refresh-monitor" type="button">Làm mới giám sát</button><div id="live-list"></div><div id="jobs-list" class="admin-scroll"></div><details><summary>Chi tiết bài nộp và nhật ký</summary><pre id="admin-job-detail"></pre><div id="admin-job-tests"></div></details>
-    <h2 id="admin-create-round">Tạo vòng tính điểm</h2><p class="muted">Vòng mới sử dụng phiên bản bot đang được chọn và đã vượt qua kiểm tra của các tài khoản không bị khóa. Danh sách và phiên bản được giữ nguyên trong suốt vòng. Mỗi cặp chơi đổi bên trên cùng bố trí ban đầu. Elo bắt đầu từ 1500 ở mỗi vòng, hệ số cập nhật K = 32; lỗi máy chủ không tính thua.</p><p class="muted">Seed là chuỗi dùng để xác định lịch ghép cặp và bố trí trận. Số ván mỗi cặp phải chẵn (2–20); số ván mỗi bot phải chia hết cho số ván mỗi cặp. Số đối thủ = số ván mỗi bot ÷ số ván mỗi cặp, phải nhỏ hơn số bot. Nếu số bot lẻ, chọn số đối thủ chẵn.</p>
+    <div class="participant-filters"><div><label for="user-search">Tìm thí sinh</label><input id="user-search" type="search" placeholder="Tên tài khoản hoặc mã thí sinh…"></div><div><label for="user-filter">Lọc danh sách</label><select id="user-filter"><option value="all">Tất cả</option><option value="ready">Có bot sẵn sàng</option><option value="empty">Chưa có bot hợp lệ</option><option value="locked">Đã khóa</option></select></div></div><p id="user-count" class="muted" role="status"></p>
+    <div id="users-list" class="admin-scroll"></div><div id="user-pagination" class="pagination"></div>
+  </section>
+  <section id="admin-monitor-panel" data-view="monitor" hidden>
+    <h2 id="admin-monitor">Bài nộp và hàng đợi</h2><p class="muted">Bộ xử lý tự động kiểm tra bài nộp hoặc chạy trận. Số vị trí xử lý cho biết số tác vụ có thể chạy cùng lúc. Hàng đợi chứa các bài đang chờ; “Tạm dừng” nghĩa là hệ thống cần xử lý lỗi máy chủ trước khi chạy lại.</p><div id="monitor-summary" class="monitor-summary" aria-label="Tóm tắt giám sát"></div><p id="worker-status"></p><button id="refresh-monitor" type="button">Làm mới giám sát</button><div id="live-list"></div><div id="jobs-list" class="admin-scroll"></div><details><summary>Chi tiết bài nộp và nhật ký</summary><pre id="admin-job-detail"></pre><div id="admin-job-tests"></div></details>
+  </section>
+  <section id="admin-round-panel" data-view="scores" hidden>
+    <h2 id="admin-create-round">Tạo vòng tính điểm</h2><p class="muted">Hệ thống tự chọn bot sẵn sàng và ghép lịch. Mỗi cặp đấu 6 ván, đổi bên công bằng; bằng điểm vẫn được giữ trên bảng xếp hạng.</p>
     <p id="score-eligibility" class="muted"></p>
-    <form id="score-form" class="match-form"><div><label for="score-seed">Chuỗi ghép cặp (seed)</label><input id="score-seed" value="ranking-2026" maxlength="100" required></div><div><label for="score-games">Số ván mỗi bot</label><input id="score-games" type="number" min="2" step="2" value="2" required></div><div><label for="score-pair">Số ván mỗi cặp</label><input id="score-pair" type="number" min="2" max="20" step="2" value="2" required></div><button>Tạo và chạy vòng điểm</button></form><p id="score-message" role="status"></p>
+    <form id="score-form">
+      <div class="setup-panel"><h3>Lịch đấu tự động</h3><div id="score-plan" class="score-plan" aria-live="polite"><p>Đang tính lịch đấu…</p></div><p id="score-plan-note" class="muted"></p><button id="refresh-score-plan" type="button" class="secondary-button">Cập nhật danh sách bot</button></div>
+      <details id="score-advanced"><summary>Tự điều chỉnh lịch (nâng cao)</summary><p class="muted">Thông thường không cần sửa. Khi mở phần này, vòng mới sẽ dùng các số bạn nhập thay cho lịch tự động. Đóng lại để dùng tự động.</p><div class="match-form"><div><label for="score-seed">Mã ghép lịch (có thể để trống)</label><input id="score-seed" maxlength="100" placeholder="Hệ thống tự tạo nếu để trống" disabled></div><div><label for="score-games">Tổng số ván mỗi bot</label><input id="score-games" type="number" min="2" step="2" value="6" required disabled></div><div><label for="score-pair">Số ván hai bot đấu với nhau</label><input id="score-pair" type="number" min="2" max="20" step="2" value="6" required disabled></div></div><p class="muted">Số đối thủ = tổng số ván mỗi bot ÷ số ván mỗi cặp. Mỗi bot cần gặp cùng số đối thủ; nếu có số bot lẻ thì số đối thủ phải chẵn.</p></details>
+      <div class="editor-save"><button id="create-score-round" type="submit" disabled>Tạo và chạy vòng điểm</button><span id="score-mode-note" class="muted">Dùng lịch tự động · 6 ván mỗi cặp</span></div>
+    </form><p id="score-message" role="status"></p>
   </section>
-  <section id="scores-panel" hidden><h2>Bảng xếp hạng</h2><p class="muted">Chọn vòng để xem thứ hạng. Elo là điểm đánh giá sức mạnh: bắt đầu 1500 ở mỗi vòng, tăng/giảm theo kết quả và sức mạnh đối thủ. Thắng được 1 điểm, hòa 0,5 điểm, thua 0 điểm; xếp theo Elo trước, rồi điểm. Cột Bot ghi phiên bản đã được chốt cho vòng đó. Khi vòng đang chạy, bảng điểm còn có thể thay đổi.</p><label for="score-round">Vòng điểm</label><select id="score-round"></select><button id="refresh-scores" type="button">Làm mới bảng điểm</button><p id="score-status" role="status"></p><div id="score-actions"></div><div id="standings" class="admin-scroll"></div><div id="score-matches" class="admin-scroll"></div></section>
-  <section id="rule-panel" hidden aria-labelledby="rule-panel-title"><div class="eyebrow">CẤU HÌNH LUẬT CHƠI</div><h2 id="rule-panel-title">Quản lý bộ luật</h2>
-    <p class="muted">Tạo, đặt tên và sửa cấu hình luật. Mỗi lần lưu được đánh số tự động (bản 1, bản 2…) để giữ lại luật đã dùng trong trận cũ. Ví dụ: đổi giới hạn từ 500 thành 100 nước chỉ áp dụng cho trận mới chọn bản vừa lưu. Vòng Elo hiện vẫn dùng Classic mặc định.</p>
-    <div class="submission-fields"><div><label for="rule-select">Bộ luật</label><select id="rule-select"></select></div><div id="rule-history-field"><label for="rule-version">Lịch sử các lần lưu</label><select id="rule-version"></select></div></div>
-    <div class="admin-actions"><button id="rule-new" type="button">Tạo bộ luật mới</button></div>
-    <form id="rule-form"><label for="rule-name">Tên bộ luật</label><input id="rule-name" maxlength="80" required><label for="rule-json">Cấu hình RuleSet (JSON)</label><textarea id="rule-json" rows="14" spellcheck="false" required aria-describedby="rule-help"></textarea>
-    <p id="rule-help" class="muted">Engine rps-grid-v1 hỗ trợ cấu hình kích thước bàn, nhà, quân, quan hệ ăn quân, hướng di chuyển, vị trí xuất phát và giới hạn hòa. Số vị trí xuất phát mỗi bên phải bằng số quân, nằm trong bàn, không trùng nhau hoặc ô nhà. Nếu randomExtraPiece=true, engine dùng 10 quân R/P/S theo tỷ lệ 3–3–4. ID và version do máy chủ cấp khi lưu. Giữ các trường chưa cần thay đổi.</p>
-    <button type="submit">Lưu bộ luật</button></form><p id="rule-message" role="status"></p>
-    <details><summary>Thêm luật bằng cấu hình hoặc module</summary><p class="muted">Thay đổi tham số và hướng đi dùng cấu hình JSON của engine hiện có. Logic mới ngoài cấu hình cần module GameEngine do người phát triển cài và đăng ký trên máy chủ. JSON trên giao diện không được nạp file JavaScript tùy ý. Trạng thái bổ sung từ module được gửi qua state mà không đổi giao thức JSON v1.</p></details>
+  <section data-view="scores" id="scores-panel" hidden><h2>Bảng xếp hạng</h2><p class="muted">Điểm xếp hạng (Elo) bắt đầu từ 1500 ở mỗi vòng, tăng hoặc giảm theo kết quả và đối thủ. Bảng xếp theo điểm này trước; nếu bằng nhau thì xét điểm thắng/hòa.</p><label for="score-round">Vòng điểm</label><select id="score-round"></select><button id="refresh-scores" type="button">Làm mới bảng điểm</button><p id="score-status" role="status"></p><div id="score-actions"></div><div id="standings" class="admin-scroll"></div><div id="score-matches" class="admin-scroll"></div></section>
+  <section data-view="rules" id="rule-panel" hidden aria-labelledby="rule-panel-title">
+    <div class="panel-heading"><div><h2 id="rule-panel-title">Thiết kế bàn cờ</h2><p class="muted">Chỉnh bản đồ và quân cờ. Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa luôn giữ nguyên trong trình chỉnh trực quan.</p></div><div class="admin-actions"><button id="rule-new" type="button">Tạo luật mới</button><button id="rule-clone" type="button" class="secondary-button">Nhân bản</button></div></div>
+    <div class="submission-fields"><div><label for="rule-select">Bộ luật đã lưu</label><select id="rule-select"></select></div><div id="rule-history-field"><label for="rule-version">Phiên bản</label><select id="rule-version"></select></div></div>
+    <form id="rule-form">
+      <label for="rule-name">Tên bộ luật</label><input id="rule-name" maxlength="80" required>
+      <div class="editor-layout">
+        <div class="editor-settings">
+          <h3>1. Kích thước &amp; hình dạng</h3>
+          <div class="compact-fields"><div><label for="rule-rows">Số hàng</label><input id="rule-rows" type="number" min="2" max="32" required></div><div><label for="rule-cols">Số cột</label><input id="rule-cols" type="number" min="2" max="32" required></div></div>
+          <label for="rule-shape">Hình dạng nhanh</label><select id="rule-shape"><option value="rectangle">Vuông / chữ nhật</option><option value="diamond">Hình thoi</option><option value="cross">Hình chữ thập</option><option value="custom">Tự vẽ bằng công cụ bên cạnh</option></select>
+          <button id="rule-layout" type="button" class="secondary-button">Cập nhật bản đồ</button>
+          <label for="rule-theme">Màu bàn cờ</label><select id="rule-theme"><option value="classic">Cơ bản</option><option value="forest">Xanh lá</option><option value="sand">Cát</option><option value="slate">Xanh xám</option></select>
+          <h3>2. Điều kiện hòa</h3><label for="rule-max-moves">Số nước tối đa (cả hai bên)</label><input id="rule-max-moves" type="number" min="1" max="5000" required>
+          <label for="rule-repetition">Hòa khi lặp thế cờ mấy lần?</label><input id="rule-repetition" type="number" min="2" max="10" required>
+          <label for="rule-directions">Hướng di chuyển</label><select id="rule-directions"><option value="eight">8 hướng, có đường chéo</option><option value="four">4 hướng, không có đường chéo</option><option value="custom">Giữ hướng đã lưu</option></select>
+        </div>
+        <div>
+          <h3>3. Vẽ trực tiếp trên bàn cờ</h3>
+          <p class="muted">Chọn công cụ rồi bấm một ô. A là bên đi trước; B là bên còn lại.</p>
+          <div id="map-tools" class="map-tools" role="group" aria-label="Công cụ sửa bàn cờ">
+            <button type="button" data-tool="floor" aria-pressed="true">Ô trống / Xóa</button><button type="button" data-tool="blocked" aria-pressed="false">Ô chặn</button><button type="button" data-tool="void" aria-pressed="false">Bỏ ô khỏi map</button>
+            <button type="button" data-tool="home0" aria-pressed="false">Nhà A</button><button type="button" data-tool="home1" aria-pressed="false">Nhà B</button><button type="button" data-tool="spawn0" aria-pressed="false">Vị trí quân A</button><button type="button" data-tool="spawn1" aria-pressed="false">Vị trí quân B</button>
+          </div>
+          <div class="map-scroll"><div id="rule-board" class="rule-board" role="group" aria-label="Bàn cờ có thể chỉnh sửa"></div></div>
+          <p id="rule-board-summary" class="muted" role="status"></p>
+          <div class="admin-actions"><button id="rule-auto-place" type="button" class="secondary-button">Xếp quân tự động</button><button id="rule-preview" type="button" class="secondary-button">Xem thử bàn cờ đầu trận</button></div>
+          <p class="muted">“Vị trí quân” là ô xuất phát, loại quân sẽ được xáo theo mã trận. Ô chặn không đi vào được; ô bỏ là khoảng trống ngoài bản đồ.</p>
+        </div>
+      </div>
+      <h3>4. Số quân của từng bên</h3><p class="muted">Chọn chế độ tự đặt để tăng/giảm quân riêng cho A và B, rồi bấm “Xếp quân tự động” hoặc tự đánh dấu đủ vị trí trên bàn.</p>
+      <label for="rule-piece-mode">Cách chia quân</label><select id="rule-piece-mode"><option value="random">Classic: mỗi bên 10 quân, chia ngẫu nhiên 3–3–4</option><option value="custom">Tự đặt số Búa / Bao / Kéo</option></select>
+      <div id="rule-piece-counts" class="piece-count-grid"></div>
+      <details><summary>Nhập / xem JSON (nâng cao)</summary><p class="muted">Thông thường không cần sửa phần này. Nếu dán JSON có sẵn, bấm Áp dụng JSON trước khi lưu. Trình chỉnh trực quan giữ quy tắc ăn quân cốt lõi.</p><label for="rule-json">Dữ liệu bộ luật</label><textarea id="rule-json" rows="12" spellcheck="false"></textarea><button id="rule-import-json" type="button" class="secondary-button">Áp dụng JSON</button></details>
+      <div class="editor-save"><button type="submit">Lưu bộ luật</button><span class="muted">Lưu tạo phiên bản mới; các trận cũ giữ nguyên. Luật mới dùng cho Đấu thử.</span></div>
+    </form><p id="rule-message" role="status" aria-live="polite"></p>
   </section>
-  <section id="match-panel" hidden>
+  <section data-view="practice" id="match-panel" hidden>
     <div class="panel-heading"><div><div class="eyebrow">SANDBOX LUẬT · KHÔNG TÍNH ĐIỂM</div><h2>Đấu thử theo bộ luật</h2></div><button id="check-sandbox" type="button">Kiểm tra Docker</button></div>
     <p id="sandbox-status" role="status">Chọn “Kiểm tra Docker” để xác minh máy chủ có thể chạy bot trong môi trường cách ly.</p>
     <form id="match-form" class="match-form">
-      <div class="practice-rule-field"><label for="practice-rule">Bộ luật dùng cho trận thử</label><select id="practice-rule" required><option value='["ottv2-classic",2]'>OTTv2 Classic · v2</option></select></div>
-      <div><label for="bot-a">Bot bên 0</label><select id="bot-a"><option value="python-greedy">Python · Greedy</option><option value="cpp-greedy">C++ · Greedy</option></select></div>
-      <div><label for="bot-b">Bot bên 1</label><select id="bot-b"><option value="cpp-greedy">C++ · Greedy</option><option value="python-greedy">Python · Greedy</option></select></div>
-      <div><label for="match-seed">Chuỗi khởi tạo trận (seed)</label><input id="match-seed" value="arena-2026" maxlength="128" required></div>
-      <button id="run-match" type="submit">Chạy trận thử →</button>
+      <div class="practice-rule-field"><label for="practice-rule">Bộ luật</label><select id="practice-rule" required><option value='["ottv2-classic",2]'>OTTv2 Classic · v2</option></select></div>
+      <div class="bot-slot" data-side="0"><span class="eyebrow">BÊN A · ĐI TRƯỚC</span><div id="bot-a-summary" class="bot-selection-summary"></div><button type="button" id="choose-bot-a" class="secondary-button">Chọn thí sinh / bot</button><label class="sr-only" for="bot-a">Bot bên 0</label><select id="bot-a" hidden><option value="python-greedy">Python · Greedy</option><option value="cpp-greedy">C++ · Greedy</option></select></div>
+      <div class="bot-slot" data-side="1"><span class="eyebrow">BÊN B</span><div id="bot-b-summary" class="bot-selection-summary"></div><button type="button" id="choose-bot-b" class="secondary-button">Chọn thí sinh / bot</button><label class="sr-only" for="bot-b">Bot bên 1</label><select id="bot-b" hidden><option value="cpp-greedy">C++ · Greedy</option><option value="python-greedy">Python · Greedy</option></select></div>
+      <div><label for="match-seed">Seed của trận</label><input id="match-seed" value="arena-2026" maxlength="128" required></div>
+      <button id="run-match" type="submit">Chạy trận thử</button>
     </form>
-    <p class="muted">Chọn một phiên bản luật đã lưu và hai bot trong danh sách. Bot thí sinh phải là phiên bản đã vượt qua kiểm tra; có thể chọn bản cũ hoặc cùng một bot cho hai bên. Bot mẫu được chuẩn bị trong Docker; bot thí sinh dùng chương trình đã biên dịch. Trận thử theo luật không thay đổi điểm, Elo hay phiên bản đang chọn của thí sinh.</p>
+    <p class="muted">Có thể chọn bot mẫu hoặc bất kỳ phiên bản Accepted nào. Trận thử không đổi điểm hay bot đang chọn.</p>
     <div id="match-list" aria-live="polite"></div>
   </section>
-  <section id="replay-panel" hidden><h2 id="replay-title">Xem lại trận đấu</h2><p id="replay-result"></p>
+  <section id="replay-panel" hidden><div class="panel-heading"><h2 id="replay-title">Xem lại trận đấu</h2><button id="close-replay" type="button" class="secondary-button">Đóng</button></div><p id="replay-result"></p>
       <div class="replay-controls">
-        <button id="replay-play" type="button" aria-pressed="false" disabled>▶ Tự động chạy</button>
-        <button id="replay-restart" type="button" disabled>↺ Về đầu</button>
+        <button id="replay-play" type="button" aria-pressed="false" disabled>Tự động chạy</button>
+        <button id="replay-restart" type="button" disabled>Về đầu</button>
         <div><label for="replay-speed">Tốc độ</label><select id="replay-speed"><option value="1600">0,5× · Chậm</option><option value="800" selected>1× · Bình thường</option><option value="400">2× · Nhanh</option><option value="200">4× · Rất nhanh</option></select></div>
       </div>
       <label for="replay-turn">Nước đi <span id="replay-turn-label">0</span></label><input id="replay-turn" type="range" min="0" max="0" value="0">
       <div id="replay-stage" class="replay-stage" hidden>
         <div class="board-col">
-          <div id="replay-banner-0" class="player-banner p0"><div id="replay-name-0" class="banner-name"></div><div id="replay-pieces-0" class="banner-pieces"></div><span id="replay-turn-0" class="banner-turn">▶ Lượt đi</span></div>
+          <div id="replay-banner-0" class="player-banner p0"><div id="replay-name-0" class="banner-name"></div><div id="replay-pieces-0" class="banner-pieces"></div><span id="replay-turn-0" class="banner-turn">Lượt đi</span></div>
           <p id="replay-status" class="status-msg" role="status"></p>
           <div id="replay-chess-wrap" class="chess-wrap">
             <div></div><div id="replay-col-top" class="col-strip"></div><div></div>
             <div id="replay-row-left" class="row-strip"></div><div id="replay-board" class="game-board" aria-label="Bàn cờ replay"></div><div id="replay-row-right" class="row-strip"></div>
             <div></div><div id="replay-col-bottom" class="col-strip"></div><div></div>
           </div>
-          <div id="replay-banner-1" class="player-banner p1"><div id="replay-name-1" class="banner-name"></div><div id="replay-pieces-1" class="banner-pieces"></div><span id="replay-turn-1" class="banner-turn">▶ Lượt đi</span></div>
+          <div id="replay-banner-1" class="player-banner p1"><div id="replay-name-1" class="banner-name"></div><div id="replay-pieces-1" class="banner-pieces"></div><span id="replay-turn-1" class="banner-turn">Lượt đi</span></div>
         </div>
         <aside class="replay-sidebar">
           <div class="sidebar-card"><div class="sidebar-title">THỐNG KÊ</div><div class="stats-row">
@@ -143,9 +181,17 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
           <div class="sidebar-card move-log-card"><div class="sidebar-title">LỊCH SỬ NƯỚC ĐI</div><div id="replay-move-log" class="log-entries"></div></div>
         </aside>
       </div>
-      <p class="muted">Bên 0: tím · Bên 1: hồng · ★: nhà. Ô viền nét đứt là ô xuất phát của nước vừa đi; viền xanh là ô đích. “Nước đi” đếm tổng lượt của cả hai bên. CPU là thời gian chương trình thực sự tính toán; số liệu hiển thị lần lượt cho bên 0 và bên 1.</p>
+      <p class="muted">Bên 0 màu tím, bên 1 màu hồng. Ô ★ là nhà. Viền nét đứt chỉ nơi quân vừa rời đi, viền xanh chỉ nơi quân đến. Kéo thanh “Nước đi” để xem từng bước.</p>
       <details><summary>Nhật ký và dữ liệu kỹ thuật của trận</summary><pre id="replay-log"></pre></details>
   </section>
+  <dialog id="delete-user-dialog" aria-labelledby="delete-user-title"><form id="delete-user-form"><h2 id="delete-user-title">Xóa tài khoản thí sinh</h2><p id="delete-user-description"></p><p class="muted">Tài khoản sẽ không thể đăng nhập hay được chọn cho vòng mới. Các trận, điểm và mã bot đã lưu được giữ để xem lại lịch sử. Tên tài khoản này không thể đăng ký lại.</p><label for="delete-user-name">Nhập lại tên tài khoản để xác nhận</label><input id="delete-user-name" autocomplete="off" required><p id="delete-user-error" role="status"></p><div class="dialog-actions"><button id="delete-user-cancel" type="button" class="secondary-button">Hủy</button><button id="delete-user-confirm" type="submit" class="danger-button">Xóa tài khoản</button></div></form></dialog>
+  <dialog id="bot-picker" aria-labelledby="bot-picker-title"><div class="panel-heading"><div><h2 id="bot-picker-title">Chọn bot cho bên A</h2><p class="muted">Chọn thí sinh, sau đó chọn bản bot muốn dùng.</p></div><button id="bot-picker-close" type="button" class="secondary-button">Đóng</button></div>
+    <label for="bot-search">Tìm theo tài khoản, mã thí sinh hoặc tên file</label><input id="bot-search" type="search" placeholder="Ví dụ: contestant12 hoặc #12…">
+    <div id="bot-kind-filter" class="map-tools" role="group" aria-label="Loại bot"><button type="button" data-kind="contestant" aria-pressed="true">Thí sinh</button><button type="button" data-kind="sample" aria-pressed="false">Bot mẫu</button></div>
+    <p id="bot-picker-count" class="muted" role="status"></p><div id="bot-candidates" class="bot-candidates"></div><div id="bot-pagination" class="pagination"></div>
+    <div id="bot-version-panel" hidden><label for="bot-version">Bản bot của thí sinh đã chọn</label><select id="bot-version"></select><p id="bot-version-info" class="muted"></p></div>
+    <p id="bot-picker-error" role="status"></p><div class="dialog-actions"><button id="bot-picker-use" type="button" disabled>Sử dụng bot này</button></div>
+  </dialog>
   <p id="message" role="status" aria-live="polite"></p>
-  <footer><a href="/portal">Khu vực thí sinh</a><a href="/admin">Khu vực quản trị</a><span>OTTv2 / Nền tảng thi đấu bot</span></footer>
-</main><script src="/assets/admin.js" defer></script><script src="/assets/rules.js" defer></script></body></html>
+  <footer><a href="/portal">Khu vực thí sinh</a><a href="/admin">Khu vực quản trị</a><a class="footer-legacy" href="/legacy/">Chơi trực tiếp ↗</a><span>OTTv2 / Nền tảng thi đấu bot</span></footer>
+</main></div><script src="/assets/admin.js" defer></script><script src="/assets/bot-picker.js" defer></script><script src="/assets/rules.js" defer></script><script src="/assets/admin-choices.js" defer></script></body></html>

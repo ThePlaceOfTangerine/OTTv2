@@ -2,11 +2,11 @@
 
 ## Dành cho admin
 
-1. Đăng nhập `/admin`, tìm **Quản lý bộ luật**.
-2. Bấm **Tạo bộ luật mới** để lấy cấu hình Classic làm mẫu. Đặt tên dễ nhận biết. Ví dụ, đổi `maxMoves` từ 500 thành 100 để giới hạn trận ở 100 nước tổng cộng.
+1. Đăng nhập `/admin`, mở **Bộ luật → Thiết kế bàn cờ**.
+2. Bấm **Tạo luật mới**, đặt tên. Chọn số hàng/cột, hình vuông/chữ nhật, hình thoi hoặc chữ thập rồi bấm **Cập nhật bản đồ** (xếp lại nhà và quân). Chọn công cụ rồi bấm từng ô để thêm ô chặn, bỏ ô khỏi bản đồ, đặt nhà A/B hoặc vị trí quân A/B. Chỉnh số nước tối đa, số lần lặp và hướng đi. Mục **Số quân của từng bên** cho phép tăng/giảm từng loại Búa/Bao/Kéo riêng cho hai bên; sau đó bấm **Xếp quân tự động** hoặc tự đặt đủ vị trí. Bấm **Xem thử bàn cờ đầu trận** để kiểm tra trước khi lưu. Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa luôn giữ nguyên trong trình chỉnh trực quan. Có bốn màu bàn cờ để chọn.
 3. Bấm **Lưu bộ luật**. Máy chủ kiểm tra cấu hình rồi cấp ID và phiên bản. JSON sai sẽ được báo lỗi, không lưu một phần.
 4. Chọn bộ luật hiện có để sửa. Mỗi lần lưu tạo phiên bản kế tiếp. Phiên bản cũ giữ nguyên; đổi tên cũng không sửa tên trong cấu hình lịch sử. Chọn phiên bản cũ để xem lại cấu hình.
-5. Trong **Đấu thử theo bộ luật**, chọn phiên bản cụ thể, hai bot và seed. Danh sách gồm bot mẫu và mọi bản nộp Accepted của thí sinh. Có thể chọn cùng một bot cho cả hai bên.
+5. Trong **Đấu thử**, chọn phiên bản luật. Ở mỗi bên A/B, bấm **Chọn thí sinh / bot**, tìm tài khoản hoặc mã thí sinh, chọn thẻ thí sinh rồi phiên bản bot. Bản đang dùng được ưu tiên; vẫn có thể chọn bản hợp lệ cũ. Thí sinh bị khóa hoặc chưa có bot hợp lệ không chọn được. Tab **Bot mẫu** có bot Python/C++ để thử nhanh. Có thể chọn cùng bot cho hai bên.
 6. Bấm **Chạy trận thử**, rồi **Xem trận**. Replay hỗ trợ tự chạy và tải nhật ký. Trận thử không cộng điểm, không cập nhật Elo và không đổi bot active.
 
 Trận lưu ID, phiên bản, toàn bộ JSON luật, seed và thông tin phiên bản bot. Sửa luật sau khi tạo trận không thay cấu hình của trận đó. Seed quyết định bố trí ban đầu; để chạy lại chính xác cần giữ cùng cấu hình, engine, phiên bản bot và môi trường chạy. Bot dùng nguồn ngẫu nhiên riêng không bảo đảm cho cùng kết quả khi chạy lại. Kiểm tra replay tái dựng trạng thái từ các nước đi đã lưu.
@@ -20,6 +20,10 @@ Hiện vòng Elo sử dụng Classic mặc định. Việc lưu luật không t�
 | `id`, `version`, `name` | Máy chủ cấp ID, tăng phiên bản và lấy tên từ ô tên bộ luật khi lưu. |
 | `engine` | Tên module đã cài trên máy chủ; mặc định `rps-grid-v1`. |
 | `boardSize` | Số hàng và cột, số nguyên 2–32. |
+| `boardRows`, `boardCols` | Số hàng và cột riêng, 2–32. Nếu không có thì dùng `boardSize`, giữ nguyên hành vi luật cũ. |
+| `blockedCells`, `voidCells` | Mảng tọa độ `[row,col]`: ô chặn và ô ngoài bản đồ. Cả hai đều không thể đi vào; không được trùng nhau, trùng nhà hoặc vị trí quân. |
+| `playerPieceTypes` | Hai danh sách quân riêng cho A/B, mỗi bên 1–128 quân, dùng khi `randomExtraPiece=false`. Nếu không có thì dùng chung `pieceTypes` như luật cũ. |
+| `boardTheme` | Màu hiển thị `classic`, `forest`, `sand`, `slate`; không tác động luật thắng hoặc nước đi. |
 | `homes` | Hai ô nhà dạng `{row, col}`, trong bàn và khác nhau. Tọa độ bắt đầu từ 0. |
 | `pieceTypes` | Danh sách quân mỗi bên, 1–128 quân; mã quân gồm 1–8 chữ hoa hoặc chữ số. |
 | `randomExtraPiece` | Nếu `true`, dùng 10 quân R/P/S theo tỷ lệ 3–3–4, loại có 4 quân chọn theo seed và dùng chung cho hai bên. Muốn dùng đúng danh sách `pieceTypes`, đặt `false`. |

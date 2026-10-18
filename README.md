@@ -29,7 +29,7 @@ npm run sandbox:check
 npm start
 ```
 
-**Lưu mật khẩu do `npm run seed` in ra.** Lệnh này tạo `admin` và `contestant01` đến `contestant20`, mỗi tài khoản có mật khẩu ngẫu nhiên. Mật khẩu chỉ hiển thị khi tài khoản được tạo; chạy lại seed không đổi mật khẩu đã tồn tại. Không có tài khoản/mật khẩu dùng chung được đóng gói trong repo.
+**Tài khoản quản trị mặc định: `admin` / `admin`.** Lệnh `npm run seed` tạo admin và `contestant01` đến `contestant20`. Thí sinh có mật khẩu ban đầu trùng tên tài khoản và bắt buộc đổi ở lần đăng nhập đầu tiên. Chạy lại seed không đổi mật khẩu tài khoản đã tồn tại. Thông tin admin mặc định dùng cho bản chạy localhost.
 
 Giữ terminal `npm start` hoạt động. Mở:
 
@@ -54,15 +54,15 @@ Docker cần đang hoạt động để xử lý bot. Không cần seed/build l�
 
 ## 3. Quy trình cho ban tổ chức
 
-Trang `/admin` có khung **Khởi động, chạy thử và điều hành giải** cùng các liên kết đến từng thao tác.
+Trang `/admin` chia chức năng qua menu. Mục **Hướng dẫn** có phần **Khởi động, chạy thử và điều hành giải** cùng các liên kết đến từng thao tác.
 
 1. Đăng nhập bằng tài khoản `admin` đã tạo. Bấm **Kiểm tra Docker**, có thể chạy một trận giữa hai bot mẫu để xác minh môi trường. Trận mẫu không tính Elo.
-2. Cấp tài khoản thí sinh qua CSV. Dòng đầu bắt buộc là `username,password`. Để trống mật khẩu để hệ thống tạo mật khẩu tạm:
+2. Cấp tài khoản thí sinh qua CSV. Dòng đầu là `username`. Mật khẩu ban đầu luôn trùng tên tài khoản và bắt buộc đổi khi đăng nhập lần đầu. CSV cũ `username,password` vẫn được nhận nhưng cột password không được dùng:
 
    ```csv
-   username,password
-   team001,
-   team002,
+   username
+   team001
+   team002
    ```
 
    Tối đa 1000 tài khoản/lần; nếu có dòng sai hoặc trùng tên, toàn bộ danh sách bị từ chối. Lưu mật khẩu trả về rồi chọn **Ẩn mật khẩu**. Gửi riêng thông tin cho từng thí sinh.

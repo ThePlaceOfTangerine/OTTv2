@@ -11,6 +11,19 @@ function setup() {
   const rules=new RuleSetService(db);return{db,rules};
 }
 function manager() { return { disposed:0, async check(){},async prepare(source){return{hash:source.id,image:'test',compile_cpu_ms:1};},async start(){return{move:async r=>({stdout:JSON.stringify({request_id:r.request_id,move:r.legal_moves[0]}),cpu_ms:1}),async close(){}};},async dispose(){this.disposed++;} }; }
+function terrainRules(){return {...DEFAULT_RULES,boardSize:6,boardRows:4,boardCols:6,homes:[{row:0,col:5},{row:3,col:0}],randomExtraPiece:false,pieceTypes:['R'],playerPieceTypes:[['R'],['S','P']],startingPositions:[[[1,1]],[[2,4],[3,4]]],blockedCells:[[1,2]],voidCells:[[0,0]],maxMoves:8};}
+test('rectangular terrain and different armies enforce movement, preserve core captures and replay',async()=>{
+ const rules=terrainRules(),engine=new GameEngine({rules,seed:'terrain'}),state=engine.snapshot();
+ assert.equal(state.board.length,4);assert.equal(state.board[0].length,6);
+ assert.deepEqual(state.board.flat().filter(Boolean).map(p=>p.player).sort(),[0,1,1]);
+ assert.ok(engine.legalMoves().every(m=>!(m.toRow===1&&m.toCol===2)&&!(m.toRow===0&&m.toCol===0)));
+ assert.throws(()=>engine.apply({fromRow:1,fromCol:1,toRow:1,toCol:2}),/Illegal/);
+ const replay=await runMatch({rules,seed:'terrain',bots:['a','b'],choose:async(p,r)=>({cpu_ms:1,stdout:JSON.stringify({request_id:r.request_id,move:r.legal_moves[0]})})});
+ assert.ok(verifyReplay(replay));assert.ok(replay.turns.length<=8);
+ const capture=new GameEngine({rules:{...rules,playerPieceTypes:[['R'],['S']],startingPositions:[[[1,1]],[[2,1]]]},seed:'capture'});
+ assert.equal(capture.apply({fromRow:1,fromCol:1,toRow:2,toCol:1}).winner,0);
+ for(const invalid of [{boardRows:1},{boardCols:3},{blockedCells:[[0,5]]},{blockedCells:[[1,1]]},{voidCells:[[0,0],[0,0]]},{blockedCells:[[0,0]]},{playerPieceTypes:[[],['R']]},{randomExtraPiece:true}])assert.throws(()=>validateRules({...rules,...invalid}));
+});
 test('rule sets create, rename by new version and keep old versions immutable',()=>{
  const {db,rules}=setup();try{
   const a=rules.save({name:'Luật nhanh',rules:{...DEFAULT_RULES,maxMoves:12},userId:1});assert.equal(a.version,1);

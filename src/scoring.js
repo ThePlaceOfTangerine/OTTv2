@@ -24,18 +24,35 @@ function pairings(ids, { seed, gamesPerBot, gamesPerPair }) {
 }
 function elo(a, b, score) { const delta = 32 * (score - 1 / (1 + 10 ** ((b - a) / 400))); return [a + delta, b - delta]; }
 function csvCell(value) { return '"' + String(value).replace(/^[=+@\-]/, "'$&").replaceAll('"', '""') + '"'; }
+function automaticConfig(count, seed) {
+  if(count<2)throw bad('Cần ít nhất 2 thí sinh có bot sẵn sàng để tạo vòng.');
+  let opponents=Math.min(4,count-1,Math.floor(100000/(count*3)));
+  if(count%2)opponents-=opponents%2;
+  if(opponents<1)throw bad('Số bot quá lớn cho một vòng. Giảm số thí sinh tham gia rồi thử lại.');
+  return {mode:'auto',seed:seed||`vong-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,gamesPerPair:6,gamesPerBot:opponents*6};
+}
 class ScoringService {
   constructor(db, submissions, { managerFactory = () => new SandboxManager(), retryDelayMs = 3000, play } = {}) {
     this.db = db; this.submissions = submissions; this.managerFactory = managerFactory; this.retryDelayMs = retryDelayMs; this.playOverride = play;
     this.workerId = crypto.randomUUID(); this.active = null; this.started = false;
   }
-  create(userId, config) {
+  entrants() {
+    return this.db.prepare("SELECT u.id,u.username,s.id submission_id,s.version FROM users u JOIN active_bots a ON a.user_id=u.id JOIN bot_submissions s ON s.id=a.submission_id WHERE u.role='contestant' AND u.locked=0 AND u.deleted_at IS NULL AND s.status='Accepted' ORDER BY u.id").all();
+  }
+  preview() {
+    const count=this.entrants().length,running=this.db.prepare("SELECT id FROM score_rounds WHERE status='running'").get();
+    if(count<2)return {eligible:count,canStart:false,message:'Cần ít nhất 2 thí sinh có bot sẵn sàng. Hiện chưa đủ bot để tạo vòng.'};
+    const config=automaticConfig(count);
+    return {eligible:count,gamesPerPair:config.gamesPerPair,gamesPerBot:config.gamesPerBot,opponents:config.gamesPerBot/config.gamesPerPair,total:count*config.gamesPerBot/2,canStart:!running,message:running?'Vòng trước chưa hoàn tất. Chờ thi đấu xong hoặc xử lý các trận bị tạm dừng.':null};
+  }
+  create(userId, config = {}) {
     if (this.db.prepare("SELECT 1 FROM score_rounds WHERE status='running'").get()) throw Object.assign(new Error('Vòng tính điểm trước chưa hoàn tất. Chờ các trận kết thúc hoặc xử lý các trận đang tạm dừng.'), { status: 409 });
-    const entrants = this.db.prepare("SELECT u.id,u.username,s.id submission_id,s.version FROM users u JOIN active_bots a ON a.user_id=u.id JOIN bot_submissions s ON s.id=a.submission_id WHERE u.role='contestant' AND u.locked=0 AND s.status='Accepted' ORDER BY u.id").all();
+    const entrants = this.entrants();
+    if(config.mode==='auto')config=automaticConfig(entrants.length);
     const plan = pairings(entrants.map(e => e.id), config), id = crypto.randomUUID();
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      this.db.prepare('INSERT INTO score_rounds(id,created_by,created_at,seed,config_json,rules_json) VALUES (?,?,?,?,?,?)').run(id, userId, Date.now(), config.seed, JSON.stringify({ gamesPerBot: config.gamesPerBot, gamesPerPair: config.gamesPerPair, ratingStart: 1500, eloK: 32 }), JSON.stringify(DEFAULT_RULES));
+      this.db.prepare('INSERT INTO score_rounds(id,created_by,created_at,seed,config_json,rules_json) VALUES (?,?,?,?,?,?)').run(id, userId, Date.now(), config.seed, JSON.stringify({ mode:config.mode==='auto'?'auto':'manual',gamesPerBot: config.gamesPerBot, gamesPerPair: config.gamesPerPair, ratingStart: 1500, eloK: 32 }), JSON.stringify(DEFAULT_RULES));
       for (const e of entrants) this.db.prepare('INSERT INTO score_entrants(round_id,user_id,username,submission_id,version) VALUES (?,?,?,?,?)').run(id, e.id, e.username, e.submission_id, e.version);
       plan.forEach((m, sequence) => this.db.prepare('INSERT INTO score_matches(id,round_id,sequence,player0,player1,seed) VALUES (?,?,?,?,?,?)').run(crypto.randomUUID(), id, sequence, ...m.players, m.seed));
       this.db.exec('COMMIT');
@@ -112,6 +129,7 @@ class ScoringService {
   async close() { this.closing = true; clearInterval(this.timer); await this.active; }
 }
 function registerScoring(app, { db, scoring, requireRole, csrf }) {
+  app.get('/api/admin/score-plan', requireRole('admin'), (req,res)=>res.json(scoring.preview()));
   app.get('/api/scores', requireRole(), (req, res) => res.json({ rounds: scoring.list() }));
   app.get('/api/scores/:id', requireRole(), (req, res) => { const page = Number(req.query.page || 0); if (!Number.isInteger(page) || page < 0 || page > 500) throw bad('Trang không hợp lệ.'); const round = scoring.detail(req.params.id, page); if (!round) return res.status(404).json({ error: 'Không tìm thấy vòng tính điểm.' }); if (req.auth.role !== 'admin') delete round.matches; res.json(round); });
   app.get('/api/admin/scores/:id/export', requireRole('admin'), (req, res) => { const csv = scoring.export(req.params.id); if (!csv) return res.sendStatus(404); res.attachment('standings.csv').type('text/csv').send(csv); });
@@ -126,4 +144,4 @@ function registerScoring(app, { db, scoring, requireRole, csrf }) {
     const replay = JSON.parse(row.replay_json); res.json({ replay, seed: replay.seed, status: live && !replay.result ? 'running' : 'finished' });
   });
 }
-module.exports = { pairings, elo, csvCell, ScoringService, registerScoring };
+module.exports = { pairings, elo, csvCell, automaticConfig, ScoringService, registerScoring };

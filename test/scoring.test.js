@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { pairings, elo, ScoringService, csvCell } = require('../src/scoring');
+const { pairings, elo, ScoringService, csvCell, automaticConfig } = require('../src/scoring');
 const { csvRows, importUsers } = require('../src/admin');
 const { openDatabase } = require('../src/db');
 const { runMatch, verifyReplay } = require('../src/game/match');
@@ -19,6 +19,26 @@ function setup(options = {}) {
 }
 const legalGame = row => runMatch({ seed: row.seed, bots: ['a', 'b'], choose: async (p, r) => ({ cpu_ms: 1, stdout: JSON.stringify({ request_id: r.request_id, move: r.legal_moves[0] }) }) });
 async function drain(service) { const end = Date.now() + 10000; while (service.active || service.db.prepare("SELECT 1 FROM score_matches WHERE status='queued'").get()) { if (Date.now() > end) throw new Error('Queue timeout'); service.pump(); await new Promise(resolve => setTimeout(resolve, 10)); } }
+test('automatic scheduling balances sides and odd/even entrant counts within the round limit',()=>{
+ for(const count of [2,3,4,5,6,19,20,1000]){
+  const config=automaticConfig(count,'auto-test'),plan=pairings(Array.from({length:count},(_,i)=>i),config);
+  assert.equal(config.gamesPerPair,6);assert.equal(plan.length,count*config.gamesPerBot/2);assert.ok(plan.length<=100000);
+  const totals=Array.from({length:count},()=>[0,0]);for(const m of plan){totals[m.players[0]][0]++;totals[m.players[1]][1]++;}
+  assert.ok(totals.every(([a,b])=>a===b&&a+b===config.gamesPerBot));
+ }
+ assert.equal(automaticConfig(2).gamesPerBot,6);assert.equal(automaticConfig(3).gamesPerBot,12);
+ assert.throws(()=>automaticConfig(1),/ít nhất 2/);assert.throws(()=>automaticConfig(100001),/quá lớn/);
+});
+test('automatic round uses current eligible bots, stores its schedule and finishes without extra tiebreak games',async()=>{
+ const {db,service}=setup({play:legalGame});
+ try{
+  const preview=service.preview();assert.equal(preview.eligible,2);assert.equal(preview.total,6);assert.equal(preview.canStart,true);
+  const id=service.create(1,{mode:'auto',gamesPerBot:100,gamesPerPair:2});assert.equal(service.preview().canStart,false);
+  assert.equal(service.detail(id).config.mode,'auto');assert.equal(service.detail(id).config.gamesPerPair,6);assert.equal(service.detail(id).total,preview.total);
+  service.start();await drain(service);assert.equal(service.detail(id).status,'finished');assert.ok(service.detail(id).standings.every(e=>e.played===6));assert.equal(service.detail(id).total,6);
+  db.prepare('UPDATE users SET locked=1 WHERE id=2').run();assert.equal(service.preview().canStart,false);assert.equal(service.preview().eligible,1);
+ }finally{await service.close();db.close();}
+});
 test('seeded sparse pairing gives exact games per bot, no duplicate opponents and swapped sides', () => {
   for (const [n, opponents] of [[2,1],[5,2],[6,5],[1000,10]]) {
     const ids = Array.from({ length: n }, (_, i) => i), cfg = { seed: 'seed', gamesPerBot: opponents * 2, gamesPerPair: 2 }, plan = pairings(ids, cfg);
@@ -37,8 +57,8 @@ test('CSV parses quotes/BOM/CRLF and imports atomically without overwriting acco
   const db = openDatabase(':memory:');
   try {
     await assert.rejects(importUsers(db, 'username,password\nvalid1,\ninvalid name,')); assert.equal(db.prepare('SELECT COUNT(*) n FROM users').get().n, 0);
-    const imported = await importUsers(db, 'username,password\nteam001,\nteam002,MyPassword-2026'); assert.equal(imported.length, 2); assert.ok(imported[0].password.length >= 12);
-    const user = db.prepare("SELECT * FROM users WHERE username='team001'").get(); assert.ok(await require('bcryptjs').compare(imported[0].password, user.password_hash)); assert.equal(user.role, 'contestant');
+    const imported = await importUsers(db, 'username,password\nteam001,\nteam002,MyPassword-2026'); assert.equal(imported.length, 2); assert.equal(imported[0].password,'team001'); assert.equal(imported[1].password,'team002');
+    const user = db.prepare("SELECT * FROM users WHERE username='team001'").get(); assert.ok(await require('bcryptjs').compare(imported[0].password, user.password_hash)); assert.equal(user.role, 'contestant'); assert.equal(user.must_change_password,1);
     await assert.rejects(importUsers(db, 'username,password\nteam003,\nTEAM001,')); assert.equal(db.prepare('SELECT COUNT(*) n FROM users').get().n, 2);
     assert.equal(csvCell('=SUM(A1)'), '"\'=SUM(A1)"');
   } finally { db.close(); }

@@ -92,6 +92,10 @@ function openDatabase(filename) {
     ALTER TABLE practice_matches ADD COLUMN bot_snapshots_json TEXT;
     UPDATE practice_matches SET rule_set_id=json_extract(rules_json,'$.id'),rule_set_version=json_extract(rules_json,'$.version');
     INSERT INTO migrations VALUES(6); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=7').get()) db.exec(`BEGIN;
+    ALTER TABLE users ADD COLUMN deleted_at INTEGER;
+    CREATE INDEX users_visible ON users(role,deleted_at);
+    INSERT INTO migrations VALUES(7); COMMIT;`);
   return db;
 }
 module.exports = { openDatabase };

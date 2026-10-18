@@ -1,5 +1,4 @@
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { openDatabase } = require('../src/db');
 const { createUser } = require('../src/users');
 
@@ -7,7 +6,7 @@ async function seed(db) {
   const credentials = [];
   for (const [username, role] of [['admin', 'admin'], ...Array.from({ length: 20 }, (_, i) => [`contestant${String(i + 1).padStart(2, '0')}`, 'contestant'])]) {
     if (db.prepare('SELECT 1 FROM users WHERE username=?').get(username)) continue;
-    const password = crypto.randomBytes(15).toString('base64url');
+    const password = username;
     await createUser(db, { username, password, role });
     credentials.push({ username, password, role });
   }

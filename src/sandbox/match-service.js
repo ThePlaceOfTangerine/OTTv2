@@ -14,7 +14,7 @@ class MatchService {
       .run(JSON.stringify({ code: 'server_restarted', message: 'Server restarted during a practice match; no bot forfeit.' }), Date.now());
   }
   list() {
-    return this.db.prepare('SELECT id,created_at,status,seed,bots_json,attempts,error_json,rule_set_id,rule_set_version FROM practice_matches ORDER BY created_at DESC LIMIT 30').all()
+    return this.db.prepare("SELECT id,created_at,status,seed,bots_json,attempts,error_json,rule_set_id,rule_set_version,json_extract(rules_json,'$.name') rule_set_name FROM practice_matches ORDER BY created_at DESC LIMIT 30").all()
       .map(row => ({ ...row, bots: JSON.parse(row.bots_json), error: row.error_json ? JSON.parse(row.error_json) : null, bots_json: undefined, error_json: undefined }));
   }
   get(id) {
@@ -26,15 +26,17 @@ class MatchService {
       error: row.error_json ? JSON.parse(row.error_json) : null };
   }
   botChoices() {
-    return [...Object.keys(SAMPLES).map(id => ({ id, label: `Bot mẫu · ${id}` })),
-      ...this.db.prepare("SELECT s.id,s.version,s.filename,u.username FROM bot_submissions s JOIN users u ON u.id=s.user_id WHERE s.status='Accepted' ORDER BY u.username,s.version DESC").all()
-        .map(s => ({ id: `submission:${s.id}`, label: `${s.username} · v${s.version} · ${s.filename}` }))];
+    return [...Object.entries(SAMPLES).map(([id, sample]) => ({ id, kind:'sample', username:'Bot mẫu', language:sample.language, label: `Bot mẫu · ${id}` })),
+      ...this.db.prepare(`SELECT s.id,s.version,s.filename,s.language,u.id userId,u.username,u.locked,
+        CASE WHEN a.submission_id=s.id THEN 1 ELSE 0 END active FROM bot_submissions s JOIN users u ON u.id=s.user_id
+        LEFT JOIN active_bots a ON a.user_id=u.id WHERE s.status='Accepted' AND u.deleted_at IS NULL ORDER BY u.username,s.version DESC`).all()
+        .map(s => ({ ...s, id: `submission:${s.id}`, kind:'contestant', label: `${s.username} · v${s.version} · ${s.filename}` }))];
   }
   resolveBot(id) {
     if (typeof id !== 'string') throw Object.assign(new Error('Chọn bot từ danh sách.'), { status: 400 });
     if (Object.hasOwn(SAMPLES, id)) return { kind: 'sample', id };
     const match = /^submission:([0-9a-f-]{36})$/.exec(id);
-    const row = match && this.db.prepare("SELECT s.*,u.username FROM bot_submissions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.status='Accepted'").get(match[1]);
+    const row = match && this.db.prepare("SELECT s.*,u.username FROM bot_submissions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.status='Accepted' AND u.deleted_at IS NULL AND u.locked=0").get(match[1]);
     if (!row || !this.submissions) throw Object.assign(new Error('Bot không tồn tại hoặc chưa vượt qua kiểm tra.'), { status: 400 });
     return { kind: 'submission', id: row.id, label: `${row.username} · v${row.version}`, version:row.version, language:row.language,entry:row.entry,image:row.image,source_hash:row.source_hash };
   }

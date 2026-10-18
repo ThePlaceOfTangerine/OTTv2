@@ -14,11 +14,15 @@ async function start({ dbPath = process.env.DB_PATH || path.join(__dirname, 'dat
   } catch (error) { detachLegacy(); db.close(); throw error; }
   app.locals.submissions.start();
   app.locals.scoring.start();
+  app.locals.swiss.start();
+  app.locals.bracketRunner.start();
   const close = () => new Promise(resolve => {
     detachLegacy();
     const stopSubmissions = app.locals.submissions.close();
     const stopScoring = app.locals.scoring.close();
-    server.close(async () => { await Promise.all([app.locals.matches.active, stopSubmissions, stopScoring]); db.close(); resolve(); });
+    const stopSwiss = app.locals.swiss.close();
+    const stopBracket = app.locals.bracketRunner.close();
+    server.close(async () => { await Promise.all([app.locals.matches.active, stopSubmissions, stopScoring, stopSwiss, stopBracket]); db.close(); resolve(); });
     server.closeIdleConnections();
   });
   return { server, db, close };

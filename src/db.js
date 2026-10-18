@@ -96,6 +96,193 @@ function openDatabase(filename) {
     ALTER TABLE users ADD COLUMN deleted_at INTEGER;
     CREATE INDEX users_visible ON users(role,deleted_at);
     INSERT INTO migrations VALUES(7); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=8').get()) db.exec(`BEGIN;
+    CREATE TABLE tournaments (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','submissions_open','closing','locked','running','provisional','finished','cancelled')),
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_by INTEGER NOT NULL REFERENCES users(id), created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      rule_set_id TEXT NOT NULL, rule_set_version INTEGER NOT NULL,
+      config_json TEXT NOT NULL, opens_at INTEGER, closes_at INTEGER,
+      FOREIGN KEY(rule_set_id,rule_set_version) REFERENCES rule_versions(rule_set_id,version),
+      CHECK(opens_at IS NULL OR closes_at IS NULL OR opens_at < closes_at)
+    );
+    CREATE TABLE tournament_entrants (
+      tournament_id TEXT NOT NULL REFERENCES tournaments(id), user_id INTEGER NOT NULL REFERENCES users(id),
+      username TEXT NOT NULL, joined_at INTEGER NOT NULL,
+      PRIMARY KEY(tournament_id,user_id)
+    );
+    CREATE INDEX tournament_user ON tournament_entrants(user_id,tournament_id);
+    CREATE TABLE tournament_events (
+      id INTEGER PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES tournaments(id),
+      actor_id INTEGER NOT NULL REFERENCES users(id), created_at INTEGER NOT NULL,
+      kind TEXT NOT NULL, details_json TEXT NOT NULL
+    );
+    CREATE INDEX tournament_history ON tournament_events(tournament_id,id);
+    INSERT INTO migrations VALUES(8); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=9').get()) db.exec(`BEGIN;
+    CREATE TABLE tournament_stages (
+      id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES tournaments(id),
+      kind TEXT NOT NULL CHECK(kind='qualifier'), status TEXT NOT NULL CHECK(status IN ('open','closing','locked')),
+      opens_at INTEGER NOT NULL, closes_at INTEGER NOT NULL, locked_at INTEGER,
+      rules_json TEXT NOT NULL, config_json TEXT NOT NULL,
+      UNIQUE(tournament_id,kind), CHECK(opens_at<closes_at)
+    );
+    ALTER TABLE bot_submissions ADD COLUMN stage_id TEXT REFERENCES tournament_stages(id);
+    ALTER TABLE bot_submissions ADD COLUMN idempotency_key TEXT;
+    ALTER TABLE bot_submissions ADD COLUMN upload_hash TEXT;
+    CREATE UNIQUE INDEX stage_receipt_key ON bot_submissions(stage_id,user_id,idempotency_key);
+    CREATE INDEX stage_submission_queue ON bot_submissions(stage_id,job_status,user_id);
+    CREATE TABLE tournament_stage_entrants (
+      stage_id TEXT NOT NULL REFERENCES tournament_stages(id), user_id INTEGER NOT NULL REFERENCES users(id),
+      username TEXT NOT NULL, preferred_submission_id TEXT, locked_submission_id TEXT,
+      snapshot_json TEXT, exclusion_reason TEXT,
+      PRIMARY KEY(stage_id,user_id),
+      FOREIGN KEY(preferred_submission_id,user_id) REFERENCES bot_submissions(id,user_id),
+      FOREIGN KEY(locked_submission_id,user_id) REFERENCES bot_submissions(id,user_id)
+    );
+    CREATE TRIGGER stage_rules_immutable BEFORE UPDATE OF rules_json,config_json,opens_at ON tournament_stages
+      BEGIN SELECT RAISE(ABORT,'Stage configuration is immutable'); END;
+    CREATE TRIGGER locked_stage_entrants_update BEFORE UPDATE ON tournament_stage_entrants
+      WHEN (SELECT status FROM tournament_stages WHERE id=OLD.stage_id)='locked'
+      BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+    CREATE TRIGGER locked_stage_entrants_delete BEFORE DELETE ON tournament_stage_entrants
+      WHEN (SELECT status FROM tournament_stages WHERE id=OLD.stage_id)='locked'
+      BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+    CREATE TRIGGER locked_stage_entrants_insert BEFORE INSERT ON tournament_stage_entrants
+      WHEN (SELECT status FROM tournament_stages WHERE id=NEW.stage_id)='locked'
+      BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+    INSERT INTO migrations VALUES(9); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=10').get()) db.exec(`BEGIN;
+    CREATE TABLE swiss_sessions (
+      stage_id TEXT PRIMARY KEY REFERENCES tournament_stages(id), seed TEXT NOT NULL,
+      rounds INTEGER NOT NULL, games_per_pair INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL CHECK(status IN ('running','finished')), created_at INTEGER NOT NULL
+    );
+    CREATE TABLE swiss_rounds (
+      id TEXT PRIMARY KEY, stage_id TEXT NOT NULL REFERENCES swiss_sessions(stage_id),
+      number INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('running','finished')),
+      UNIQUE(stage_id,number)
+    );
+    CREATE TABLE swiss_pairs (
+      id TEXT PRIMARY KEY, round_id TEXT NOT NULL REFERENCES swiss_rounds(id),
+      user0 INTEGER NOT NULL REFERENCES users(id), user1 INTEGER REFERENCES users(id),
+      status TEXT NOT NULL CHECK(status IN ('queued','finished')),
+      result0_units INTEGER, result1_units INTEGER, game0_units INTEGER, game1_units INTEGER,
+      CHECK(user1 IS NULL OR user0<>user1)
+    );
+    CREATE INDEX swiss_pair_round ON swiss_pairs(round_id);
+    CREATE TABLE swiss_games (
+      id TEXT PRIMARY KEY, pair_id TEXT NOT NULL REFERENCES swiss_pairs(id), number INTEGER NOT NULL,
+      player0 INTEGER NOT NULL REFERENCES users(id), player1 INTEGER NOT NULL REFERENCES users(id), seed TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','finished','blocked')),
+      attempts INTEGER NOT NULL DEFAULT 0, worker_id TEXT, lease_until INTEGER, available_at INTEGER NOT NULL DEFAULT 0,
+      replay_json TEXT, live_json TEXT, error TEXT, UNIQUE(pair_id,number)
+    );
+    CREATE INDEX swiss_job_queue ON swiss_games(status,available_at);
+    INSERT INTO migrations VALUES(10); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=11').get()) db.exec(`BEGIN;
+    CREATE TABLE tournament_qualifications (
+      tournament_id TEXT PRIMARY KEY REFERENCES tournaments(id), stage_id TEXT NOT NULL REFERENCES tournament_stages(id),
+      approved_by INTEGER NOT NULL REFERENCES users(id), approved_at INTEGER NOT NULL,
+      top_n INTEGER NOT NULL CHECK(top_n>=2), swiss_revision INTEGER NOT NULL,
+      reason TEXT NOT NULL, snapshot_json TEXT NOT NULL
+    );
+    CREATE TRIGGER qualifications_immutable_update BEFORE UPDATE ON tournament_qualifications
+      BEGIN SELECT RAISE(ABORT,'Qualification is immutable'); END;
+    CREATE TRIGGER qualifications_immutable_delete BEFORE DELETE ON tournament_qualifications
+      BEGIN SELECT RAISE(ABORT,'Qualification is immutable'); END;
+    INSERT INTO migrations VALUES(11); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=12').get()) db.exec(`BEGIN;
+    CREATE TABLE tournament_brackets (
+      tournament_id TEXT PRIMARY KEY REFERENCES tournament_qualifications(tournament_id),
+      created_by INTEGER NOT NULL REFERENCES users(id), created_at INTEGER NOT NULL,
+      reason TEXT NOT NULL, plan_json TEXT NOT NULL
+    );
+    CREATE TRIGGER bracket_plan_immutable_update BEFORE UPDATE ON tournament_brackets
+      BEGIN SELECT RAISE(ABORT,'Bracket plan is immutable'); END;
+    CREATE TRIGGER bracket_plan_immutable_delete BEFORE DELETE ON tournament_brackets
+      BEGIN SELECT RAISE(ABORT,'Bracket plan is immutable'); END;
+    INSERT INTO migrations VALUES(12); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=13').get()) db.exec(`BEGIN;
+    CREATE TABLE bracket_runs (
+      tournament_id TEXT PRIMARY KEY REFERENCES tournament_brackets(tournament_id),
+      status TEXT NOT NULL CHECK(status IN ('running','finished')), revision INTEGER NOT NULL,
+      state_json TEXT NOT NULL, source_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+      published_at INTEGER, published_by INTEGER REFERENCES users(id)
+    );
+    CREATE TABLE bracket_games (
+      id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES bracket_runs(tournament_id), match_id TEXT NOT NULL,
+      number INTEGER NOT NULL, player0 INTEGER NOT NULL REFERENCES users(id), player1 INTEGER NOT NULL REFERENCES users(id), seed TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','finished','blocked')),
+      attempts INTEGER NOT NULL DEFAULT 0, worker_id TEXT, lease_until INTEGER, available_at INTEGER NOT NULL DEFAULT 0,
+      replay_json TEXT, live_json TEXT, error TEXT, UNIQUE(tournament_id,match_id,number)
+    );
+    CREATE INDEX bracket_job_queue ON bracket_games(status,available_at);
+    CREATE TRIGGER bracket_source_immutable BEFORE UPDATE OF source_json ON bracket_runs
+      BEGIN SELECT RAISE(ABORT,'Bracket source is immutable'); END;
+    INSERT INTO migrations VALUES(13); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=14').get()) db.exec(`BEGIN;
+    CREATE TABLE tournament_final_rules (
+      tournament_id TEXT PRIMARY KEY REFERENCES tournament_qualifications(tournament_id),
+      rule_set_id TEXT NOT NULL, rule_set_version INTEGER NOT NULL,
+      rules_json TEXT NOT NULL, requires_resubmission INTEGER NOT NULL CHECK(requires_resubmission IN (0,1)),
+      pinned_by INTEGER NOT NULL REFERENCES users(id), pinned_at INTEGER NOT NULL, reason TEXT NOT NULL,
+      FOREIGN KEY(rule_set_id,rule_set_version) REFERENCES rule_versions(rule_set_id,version)
+    );
+    CREATE TRIGGER final_rules_immutable_update BEFORE UPDATE ON tournament_final_rules
+      BEGIN SELECT RAISE(ABORT,'Final rules are immutable'); END;
+    CREATE TRIGGER final_rules_immutable_delete BEFORE DELETE ON tournament_final_rules
+      BEGIN SELECT RAISE(ABORT,'Final rules are immutable'); END;
+    INSERT INTO migrations VALUES(14); COMMIT;`);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=15').get()) {
+    // Rebuild the checked stage table without renaming its referenced identity.
+    db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE;');
+    try {
+      db.exec(`DROP TRIGGER stage_rules_immutable;
+        DROP TRIGGER locked_stage_entrants_update; DROP TRIGGER locked_stage_entrants_delete; DROP TRIGGER locked_stage_entrants_insert;
+        CREATE TABLE tournament_stages_new (
+          id TEXT PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES tournaments(id),
+          kind TEXT NOT NULL CHECK(kind IN ('qualifier','final')), status TEXT NOT NULL CHECK(status IN ('open','closing','locked')),
+          opens_at INTEGER NOT NULL, closes_at INTEGER NOT NULL, locked_at INTEGER,
+          rules_json TEXT NOT NULL, config_json TEXT NOT NULL,
+          UNIQUE(tournament_id,kind), CHECK(opens_at<closes_at)
+        );
+        INSERT INTO tournament_stages_new SELECT * FROM tournament_stages;
+        DROP TABLE tournament_stages;
+        ALTER TABLE tournament_stages_new RENAME TO tournament_stages;
+        CREATE TRIGGER stage_rules_immutable BEFORE UPDATE OF rules_json,config_json,opens_at ON tournament_stages
+          BEGIN SELECT RAISE(ABORT,'Stage configuration is immutable'); END;
+        CREATE TRIGGER locked_stage_entrants_update BEFORE UPDATE ON tournament_stage_entrants
+          WHEN (SELECT status FROM tournament_stages WHERE id=OLD.stage_id)='locked'
+          BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+        CREATE TRIGGER locked_stage_entrants_delete BEFORE DELETE ON tournament_stage_entrants
+          WHEN (SELECT status FROM tournament_stages WHERE id=OLD.stage_id)='locked'
+          BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+        CREATE TRIGGER locked_stage_entrants_insert BEFORE INSERT ON tournament_stage_entrants
+          WHEN (SELECT status FROM tournament_stages WHERE id=NEW.stage_id)='locked'
+          BEGIN SELECT RAISE(ABORT,'Locked bots are immutable'); END;
+        CREATE TABLE tournament_final_intakes (
+          tournament_id TEXT PRIMARY KEY REFERENCES tournament_final_rules(tournament_id),
+          stage_id TEXT NOT NULL UNIQUE REFERENCES tournament_stages(id),
+          announced_by INTEGER NOT NULL REFERENCES users(id), announced_at INTEGER NOT NULL,
+          announcement TEXT NOT NULL, fallback_policy TEXT NOT NULL CHECK(fallback_policy='require_valid_final_submission')
+        );`);
+      if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('Stage migration would break existing references');
+      db.exec('INSERT INTO migrations VALUES(15); COMMIT;');
+    } catch (error) { db.exec('ROLLBACK;'); throw error; }
+    finally { db.exec('PRAGMA foreign_keys=ON;'); }
+  }
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=16').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE swiss_controls (
+      stage_id TEXT PRIMARY KEY REFERENCES swiss_sessions(stage_id),
+      status TEXT NOT NULL CHECK(status IN ('paused','cancelled')),
+      reason TEXT NOT NULL, changed_at INTEGER NOT NULL
+    );
+    INSERT INTO migrations VALUES(16);
+    COMMIT;
+  `);
   return db;
 }
 module.exports = { openDatabase };

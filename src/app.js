@@ -10,22 +10,41 @@ const { UPLOAD_LIMIT } = require('./submissions/source');
 const { registerAdmin } = require('./admin');
 const { ScoringService, registerScoring } = require('./scoring');
 const { RuleSetService, registerRuleSets } = require('./rule-sets');
+const { TournamentService, registerTournaments } = require('./tournaments');
+const { TournamentStages } = require('./tournament-stages');
+const { FinalIntakes, registerFinalIntakes } = require('./final-intakes');
+const { SwissService, registerSwiss } = require('./swiss');
+const { BracketService, registerBrackets } = require('./brackets');
+const { BracketRunner } = require('./bracket-runner');
 
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const random = () => crypto.randomBytes(32).toString('hex');
 const TTL = 8 * 60 * 60 * 1000;
 
-async function createApp({ db, secureCookies = false, now = Date.now, loginMax = 10, matchService, submissionService, submissionOptions } = {}) {
+async function createApp({ db, secureCookies = false, now = Date.now, loginMax = 10, matchService, submissionService, submissionOptions, swissOptions, bracketOptions } = {}) {
   const app = express();
   const matches = matchService || new MatchService(db);
   app.locals.matches = matches;
   const ruleSets = matches.ruleSets || new RuleSetService(db);
   app.locals.ruleSets = ruleSets;
-  const submissions = submissionService || new SubmissionService(db, submissionOptions);
+  const tournaments = new TournamentService(db, { ruleSets, now });
+  app.locals.tournaments = tournaments;
+  const stages = new TournamentStages(db, { tournaments, now });
+  tournaments.stages = stages;
+  const finalIntakes = new FinalIntakes(db, { tournaments, stages, now });
+  app.locals.finalIntakes = finalIntakes;
+  const submissions = submissionService || new SubmissionService(db, { now, ...submissionOptions, stages });
   app.locals.submissions = submissions;
   matches.submissions = submissions;
   const scoring = new ScoringService(db, submissions);
   app.locals.scoring = scoring;
+  const swiss = new SwissService(db, { tournaments, submissions, now, ...swissOptions });
+  app.locals.swiss = swiss;
+  const brackets = new BracketService(db, { tournaments, now });
+  app.locals.brackets = brackets;
+  const bracketRunner = new BracketRunner(db, { tournaments, brackets, submissions, now, ...bracketOptions });
+  app.locals.bracketRunner = bracketRunner;
+  brackets.runner = bracketRunner;
   const upload = multer({ storage: multer.memoryStorage(), preservePath: true, limits: { fileSize: UPLOAD_LIMIT, files: 1, fields: 1, fieldSize: 180, parts: 2 } });
   let uploadsInFlight = 0;
   const uploadingUsers = new Set();
@@ -142,6 +161,18 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     res.json({ username: req.auth.username, phase: 5 });
   });
   app.get('/api/portal/submissions', requireRole('contestant'), (req, res) => res.json({ submissions: submissions.list(req.auth.id) }));
+  app.get('/api/portal/tournaments', requireRole('contestant'), (req, res) => res.json({ stages: stages.listForUser(req.auth.id), serverNow: now() }));
+  app.get('/api/portal/stages/:stageId/submissions', requireRole('contestant'), (req, res) => {
+    const stage = stages.forUser(req.params.stageId, req.auth.id);
+    if (!stage) return res.status(404).json({ error: 'Không tìm thấy giai đoạn của bạn.' });
+    res.json({ stage, submissions: submissions.list(req.auth.id, req.params.stageId) });
+  });
+  app.post('/api/portal/stages/:stageId/submissions', requireRole('contestant'), csrf, limitUploads, upload.single('bot'), async (req, res) => {
+    if (!req.file || Object.keys(req.body || {}).some(key => key !== 'entry')) return res.status(400).json({ error: 'Nộp một file bot và trường entry nếu cần.' });
+    const submission = await submissions.submit({ userId: req.auth.id, stageId: req.params.stageId, filename: req.file.originalname,
+      buffer: req.file.buffer, entry: req.body.entry || '', idempotencyKey: req.get('Idempotency-Key') || null });
+    res.status(202).json(submission);
+  });
   app.post('/api/portal/submissions', requireRole('contestant'), csrf, limitUploads, upload.single('bot'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Hãy chọn một file .py, .cpp hoặc .zip.' });
     if (Object.keys(req.body || {}).some(key => key !== 'entry')) return res.status(400).json({ error: 'Trường upload không hợp lệ.' });
@@ -184,12 +215,17 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
   registerAdmin(app, { db, submissions, requireRole, csrf });
   registerRuleSets(app, { ruleSets, requireRole, csrf });
   registerScoring(app, { db, scoring, requireRole, csrf });
+  registerTournaments(app, { tournaments, requireRole, csrf });
+  registerSwiss(app, { swiss, stages, requireRole, csrf });
+  registerBrackets(app, { brackets, stages, requireRole, csrf });
+  registerFinalIntakes(app, { finalIntakes, requireRole, csrf });
   const web = path.join(__dirname, '../web');
   app.get('/', (req, res) => res.redirect('/portal'));
   for (const role of ['portal', 'admin']) app.get(`/${role}`, (req, res) => {
     if (req.auth && req.auth.role !== (role === 'admin' ? 'admin' : 'contestant')) return res.status(403).send('Không có quyền truy cập.');
     res.set('Cache-Control', 'no-store').sendFile(path.join(web, 'index.html'));
   });
+  app.get('/assets/movement.js',(req,res)=>res.sendFile(path.join(__dirname,'game/movement.js')));
   app.use('/assets', express.static(web));
   app.get(['/docs/PROTOCOL.md', '/docs/protocol'], (req, res) => res.sendFile(path.join(web, 'protocol.html')));
   app.get('/docs/PROTOCOL.raw.md', (req, res) => res.type('text/plain').sendFile(path.join(__dirname, '../docs/PROTOCOL.md')));
@@ -201,7 +237,7 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
   app.use('/api', (req, res) => res.status(404).json({ error: 'Không tìm thấy API.' }));
   app.use((error, req, res, next) => {
     if (error instanceof multer.MulterError) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'File vượt giới hạn 5 MiB.' : 'Mỗi lần nộp chỉ nhận một file và một đường dẫn file chính (entry).' });
-    const status = [400, 409, 413, 429].includes(error.status) ? error.status : 500;
+    const status = [400, 403, 409, 413, 429].includes(error.status) ? error.status : 500;
     if (status === 500) console.error(error);
     res.status(status).json({ error: status === 500 ? 'Lỗi hệ thống.' : error.type === 'entity.parse.failed' ? 'Dữ liệu yêu cầu không hợp lệ.' : error.message || 'Dữ liệu yêu cầu không hợp lệ.' });
   });

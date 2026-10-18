@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const DEFAULT_RULES = require('../../rules/default.json');
+const Movement = require('./movement');
 const clone = value => structuredClone(value);
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 function validateRules(input) {
@@ -24,6 +25,16 @@ function validateRules(input) {
   if (!validPool(r.pieceTypes)) fail();
   if (r.playerPieceTypes !== undefined && (!Array.isArray(r.playerPieceTypes) || r.playerPieceTypes.length !== 2 || !r.playerPieceTypes.every(validPool))) fail('Mỗi bên cần từ 1 đến 128 quân.');
   const allTypes = r.playerPieceTypes ? r.playerPieceTypes.flat() : r.pieceTypes;
+  if(r.symmetricArmies!==undefined&&typeof r.symmetricArmies!=='boolean')fail();
+  if(r.symmetricArmies&&r.playerPieceTypes){
+    const counts=pool=>JSON.stringify([...new Set(allTypes)].sort().map(t=>pool.filter(p=>p===t).length));
+    if(counts(r.playerPieceTypes[0])!==counts(r.playerPieceTypes[1]))fail('Hai bên phải có cùng số lượng từng loại quân.');
+  }
+  if(r.movementByType!==undefined){
+    if(!r.movementByType||typeof r.movementByType!=='object'||Array.isArray(r.movementByType))fail('Cấu hình di chuyển không hợp lệ.');
+    for(const [type,config]of Object.entries(r.movementByType)){if(!allTypes.includes(type))fail('Loại quân di chuyển không có trong bộ luật.');Movement.validate(config);}
+  }
+  if(r.powerUps!==undefined&&typeof r.powerUps!=='boolean')fail('Tùy chọn power-up phải là có/không.');
   if (!r.beats || typeof r.beats !== 'object' || allTypes.some(t => typeof r.beats[t] !== 'string')) fail();
   if (r.randomExtraPiece !== undefined && typeof r.randomExtraPiece !== 'boolean') fail();
   if (r.randomExtraPiece && (r.pieceTypes.length !== 10 || ['R','P','S'].some(t => !r.pieceTypes.includes(t)) || r.pieceTypes.some(t => !['R','P','S'].includes(t)))) fail();
@@ -39,6 +50,7 @@ function validateRules(input) {
     }
   }
   if (!Number.isInteger(r.maxMoves) || r.maxMoves < 1 || r.maxMoves > 5000 || !Number.isInteger(r.repetitionLimit) || r.repetitionLimit < 2 || r.repetitionLimit > 10 || r.noLegalMoves !== 'loss') fail();
+  if(r.powerUps&&rows*cols-unavailable.size-occupied.size-2<1)fail('Cần ít nhất một ô trống để đặt power-up.');
   return freeze(r);
 }
 function seededRandom(seed) {
@@ -48,9 +60,9 @@ function seededRandom(seed) {
 function shuffle(values, random) { const out = clone(values); for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; } return out; }
 
 class GameEngine {
-  constructor({ seed = '0', rules = DEFAULT_RULES } = {}) {
+  constructor({ seed = '0', rules = DEFAULT_RULES, legacyMovement = false } = {}) {
     if (typeof seed !== 'string' || seed.length > 128) throw new Error('Seed must be a string of at most 128 characters');
-    this.rules = validateRules(rules); this.seed = seed;
+    this.rules = validateRules(rules); this.seed = seed; this.legacyMovement=legacyMovement;
     const random = seededRandom(seed);
     const pool = this.rules.randomExtraPiece ? ['R','R','R','P','P','P','S','S','S', ['R','P','S'][Math.floor(random() * 3)]] : this.rules.pieceTypes;
     const types = shuffle(pool, random);
@@ -61,20 +73,46 @@ class GameEngine {
     }
     this.unavailable = new Set([...(this.rules.blockedCells || []), ...(this.rules.voidCells || [])].map(p => p.join(',')));
     this._state = { board, currentTurn: 0, moveCount: 0, status: 'playing', winner: null, winReason: null, lastMove: null };
+    if(this.rules.powerUps){
+      const free=[];
+      for(let row=0;row<board.length;row++)for(let col=0;col<board[0].length;col++)if(!board[row][col]&&!this.unavailable.has(`${row},${col}`)&&!this.rules.homes.some(h=>h.row===row&&h.col===col))free.push([row,col]);
+      const count=1+Math.floor(random()*Math.min(3,free.length));
+      this._state.powerUps=shuffle(free,random).slice(0,count);
+    }
     this.seen = new Map([[this.positionKey(), 1]]);
     this.checkTerminal();
   }
   snapshot() { return clone(this._state); }
-  positionKey() { return JSON.stringify([this._state.board, this._state.currentTurn]); }
+  positionKey() { return JSON.stringify(this._state.powerUps?[this._state.board,this._state.currentTurn,this._state.powerUps]:[this._state.board, this._state.currentTurn]); }
   legalMoves(player = this._state.currentTurn) {
     const { board } = this._state, moves = [], rows = board.length, cols = board[0].length;
     for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
       const piece = board[row][col]; if (!piece || piece.player !== player) continue;
-      for (const [dr, dc] of this.rules.directions) {
-        const nr = row + dr, nc = col + dc;
-        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols || this.unavailable.has(`${nr},${nc}`)) continue;
-        const target = board[nr][nc];
-        if (!target || (target.player !== player && this.rules.beats[piece.type] === target.type)) moves.push({ fromRow: row, fromCol: col, toRow: nr, toCol: nc });
+      const config=this.rules.movementByType?.[piece.type],movement=Movement.resolve(config,this.rules.directions);
+      for (const [vr, vc] of movement.directions) {
+        const dr=movement.relative&&player===1?-vr:vr,dc=movement.relative&&player===1?-vc:vc;
+        for(let step=1;step<=movement.maxSteps;step++){
+          const nr=row+dr*step,nc=col+dc*step;
+          if(nr<0||nc<0||nr>=rows||nc>=cols||this.unavailable.has(`${nr},${nc}`))break;
+          if(!this.legacyMovement){
+            const steps=Math.max(Math.abs(dr),Math.abs(dc));let obstructed=false;
+            for(let k=1;k<steps;k++){
+              const rr=row+dr*(step-1)+Math.trunc(dr*k/steps),cc=col+dc*(step-1)+Math.trunc(dc*k/steps);
+              if(board[rr][cc]||this.unavailable.has(`${rr},${cc}`)){obstructed=true;break;}
+            }
+            if(obstructed)break;
+          }else if(!movement.jump){
+            const gcd=(a,b)=>b?gcd(b,a%b):a,segments=gcd(Math.abs(dr),Math.abs(dc));let obstructed=false;
+            for(let k=1;k<segments;k++){const rr=row+dr*(step-1)+dr*k/segments,cc=col+dc*(step-1)+dc*k/segments;if(board[rr][cc]||this.unavailable.has(`${rr},${cc}`)){obstructed=true;break;}}
+            if(obstructed)break;
+          }
+          const target=board[nr][nc],pawn=config?.kind==='pawn';
+          if(!target){if(!pawn||dc===0)moves.push({fromRow:row,fromCol:col,toRow:nr,toCol:nc});}
+          else{
+            if(target.player!==player&&(!pawn||dc!==0)&&(this.rules.beats[piece.type]===target.type||(piece.powered&&piece.type===target.type)))moves.push({fromRow:row,fromCol:col,toRow:nr,toCol:nc});
+            break;
+          }
+        }
       }
     }
     return moves;
@@ -96,6 +134,10 @@ class GameEngine {
     const { fromRow: fr, fromCol: fc, toRow: tr, toCol: tc } = move;
     const captured = !!this._state.board[tr][tc], playerIndex = this._state.currentTurn;
     this._state.board[tr][tc] = this._state.board[fr][fc]; this._state.board[fr][fc] = null;
+    if(this._state.powerUps?.some(p=>p[0]===tr&&p[1]===tc)){
+      this._state.board[tr][tc].powered=true;
+      this._state.powerUps=this._state.powerUps.filter(p=>p[0]!==tr||p[1]!==tc);
+    }
     this._state.currentTurn = 1 - playerIndex; this._state.moveCount++;
     this._state.lastMove = { playerIndex, fromRow: fr, fromCol: fc, toRow: tr, toCol: tc, captured };
     const key = this.positionKey(); this.seen.set(key, (this.seen.get(key) || 0) + 1);

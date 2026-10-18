@@ -6,43 +6,89 @@ const ruleNotice = error => { el('rule-message').textContent = error.message; };
 const sameCell = (p, row, col) => p[0] === row && p[1] === col;
 const editorRows = () => ruleDraft.boardRows ?? ruleDraft.boardSize;
 const editorCols = () => ruleDraft.boardCols ?? ruleDraft.boardSize;
+let movementDraft={};
+const movementNames={king:'Vua · 1 ô, 8 hướng',rook:'Xe · ngang/dọc',bishop:'Tượng · đường chéo',queen:'Hậu · ngang/dọc/chéo',knight:'Mã · chữ L, bị cản chân',pawn:'Tốt · tiến, ăn chéo',custom:'Tự chỉnh'};
+function loadMovementFields(rules){
+  const eight=JSON.stringify([...rules.directions].map(d=>d.join(',')).sort())===JSON.stringify(RpsMovement.PRESETS.king.directions.map(d=>d.join(',')).sort());
+  movementDraft=Object.fromEntries(['R','P','S'].map(type=>[type,structuredClone(rules.movementByType?.[type]||(eight?{kind:'king'}:{kind:'custom',directions:rules.directions,maxSteps:1,jump:false}))]));
+  renderMovementFields();
+}
+function renderMovementFields(){
+  el('rule-movement-editor').hidden=el('rule-directions').value!=='custom';
+  const host=el('rule-movement-fields');host.replaceChildren();
+  for(const type of ['R','P','S']){
+    const config=movementDraft[type],card=textNode('fieldset','');card.append(textNode('legend',pieceNames[type]));
+    const choices=document.createElement('div');choices.className='movement-choices';
+    for(const [kind,label]of Object.entries(movementNames)){
+      const button=textNode('button',label);button.type='button';button.setAttribute('aria-pressed',String(config.kind===kind));
+      button.onclick=()=>{movementDraft[type]=kind==='custom'?{...structuredClone(RpsMovement.resolve(config,ruleDraft.directions)),kind:'custom'}:{kind};renderMovementFields();};choices.append(button);
+    }
+    card.append(choices);
+    if(config.kind==='custom'){
+      const directions=document.createElement('textarea');directions.rows=5;directions.value=config.directions.map(d=>d.join(',')).join('\n');
+      const label=textNode('label','Các hướng: mỗi dòng là thay đổi hàng, cột (−8 đến 8). Ví dụ −1,0 = lên; 0,1 = phải.');label.append(directions);card.append(label);
+      directions.oninput=()=>{config.directions=directions.value.trim().split(/\n/).map(line=>line.trim().split(',').map(value=>value.trim()===''?NaN:Number(value)));};
+      const range=document.createElement('input');range.type='number';range.min=1;range.max=32;range.value=config.maxSteps;range.oninput=()=>config.maxSteps=Number(range.value);
+      const rangeLabel=textNode('label','Số bước tối đa theo mỗi hướng');rangeLabel.append(range);card.append(rangeLabel);
+      for(const [key,title]of [['relative','Đảo hướng cho bên B (hai bên tiến về nhau)']]){
+        const check=document.createElement('input');check.type='checkbox';check.checked=!!config[key];check.onchange=()=>config[key]=check.checked;
+        const checkLabel=textNode('label',title);checkLabel.className='check-label';checkLabel.prepend(check);card.append(checkLabel);
+      }
+    }
+    if(config.kind==='pawn')card.append(textNode('p','A tiến xuống, B tiến lên; đi thẳng 1 ô, ăn chéo 1 ô. Không có đi 2 ô, phong cấp hay bắt qua đường.'));
+    host.append(card);
+  }
+}
+function readMovementFields(types){
+  const result={};for(const type of new Set(types)){try{RpsMovement.validate(movementDraft[type]);}catch(error){throw Error(`${pieceNames[type]}: ${error.message}`);}result[type]=structuredClone(movementDraft[type]);}return result;
+}
 function countFields() {
-  for (const side of [0,1]) {
-    const group = document.createElement('fieldset'), legend = textNode('legend', `Bên ${side === 0 ? 'A' : 'B'}`);
+    const group = document.createElement('fieldset'), legend = textNode('legend', 'Áp dụng giống nhau cho A và B');
     group.append(legend);
     for (const type of ['R','P','S']) {
       const label = textNode('label', pieceNames[type]), input = document.createElement('input');
-      input.id = `rule-count-${side}-${type}`; input.type='number'; input.min='0'; input.max='128'; input.required=true;
+      input.id = `rule-count-${type}`; input.type='number'; input.min='0'; input.max='128'; input.required=true;
       label.htmlFor=input.id; group.append(label,input);
       input.addEventListener('input', () => { previewBoard=null; renderRuleBoard(); });
+      input.addEventListener('change',()=>{
+        if(!ruleDraft||el('rule-piece-mode').value==='random')return;
+        try{for(const side of [0,1]){
+          const limit=expectedPieces(side);
+          if(limit>=1&&limit<=128&&ruleDraft.startingPositions[side].length>limit){
+            ruleDraft.startingPositions[side]=ruleDraft.startingPositions[side].slice(0,limit);
+            renderRuleBoard();boardNotice(`Đã giảm vị trí quân bên ${side===0?'A':'B'} còn ${limit} theo số quân mới. Bạn có thể bỏ quân rồi đặt lại vị trí.`);
+          }
+        }}catch{/* Keep invalid input editable; saving still validates it. */}
+      });
     }
     el('rule-piece-counts').append(group);
-  }
 }
 countFields();
 function piecePool(side) {
   return ['R','P','S'].flatMap(type => {
-    const n = Number(el(`rule-count-${side}-${type}`).value);
+    const n = Number(el(`rule-count-${type}`).value);
     if (!Number.isInteger(n) || n < 0 || n > 128) throw new Error('Số quân mỗi loại phải từ 0 đến 128.');
     return Array(n).fill(type);
   });
 }
 function expectedPieces(side) { return el('rule-piece-mode').value === 'random' ? 10 : piecePool(side).length; }
+function boardNotice(message){el('rule-board-feedback').textContent=message;el('rule-message').textContent=message;}
 function loadRuleDraft(rules) {
   if (rules.engine !== 'rps-grid-v1' || (rules.playerPieceTypes || [rules.pieceTypes]).flat().some(t => !Object.hasOwn(pieceNames,t))) throw new Error('Trình chỉnh bàn cờ hỗ trợ quân Búa/Bao/Kéo của rps-grid-v1.');
   ruleDraft = structuredClone(rules); previewBoard = null;
   ruleDraft.blockedCells ||= []; ruleDraft.voidCells ||= [];
   el('rule-rows').value=editorRows(); el('rule-cols').value=editorCols();
-  el('rule-shape').value=ruleDraft.voidCells.length ? 'custom' : 'rectangle';
+  el('rule-shape').value=['rectangle','diamond','cross','custom'].includes(ruleDraft.boardShape)?ruleDraft.boardShape:ruleDraft.voidCells.length ? 'custom' : 'rectangle';
   el('rule-max-moves').value=rules.maxMoves; el('rule-repetition').value=rules.repetitionLimit;
   el('rule-theme').value=['classic','forest','sand','slate'].includes(rules.boardTheme) ? rules.boardTheme : 'classic';
   const dirs = rules.directions.map(d=>d.join(',')).sort().join(';');
   const eight = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
   const four = [[-1,0],[0,-1],[0,1],[1,0]];
-  el('rule-directions').value = dirs===eight.map(d=>d.join(',')).sort().join(';') ? 'eight' : dirs===four.map(d=>d.join(',')).sort().join(';') ? 'four' : 'custom';
+  el('rule-directions').value = rules.movementByType?'custom':dirs===eight.map(d=>d.join(',')).sort().join(';') ? 'eight' : dirs===four.map(d=>d.join(',')).sort().join(';') ? 'four' : 'custom';
   el('rule-piece-mode').value=rules.randomExtraPiece ? 'random' : 'custom';
-  for (const side of [0,1]) for (const type of ['R','P','S']) el(`rule-count-${side}-${type}`).value=(rules.playerPieceTypes?.[side] || rules.pieceTypes).filter(t=>t===type).length;
-  updatePieceMode(); renderRuleBoard();
+  for (const type of ['R','P','S']) el(`rule-count-${type}`).value=(rules.playerPieceTypes?.[0] || rules.pieceTypes).filter(t=>t===type).length;
+  el('rule-power-ups').checked=!!rules.powerUps;
+  loadMovementFields(rules);updatePieceMode(); renderRuleBoard();
 }
 function updatePieceMode() {
   const random=el('rule-piece-mode').value==='random';
@@ -51,17 +97,19 @@ function updatePieceMode() {
 }
 function buildEditorRules() {
   if (!ruleDraft) throw new Error('Chọn hoặc tạo một bộ luật trước.');
-  if (Number(el('rule-rows').value)!==editorRows() || Number(el('rule-cols').value)!==editorCols()) throw new Error('Bấm “Cập nhật bản đồ” để áp dụng số hàng/cột trước khi lưu.');
+  if (Number(el('rule-rows').value)!==editorRows() || Number(el('rule-cols').value)!==editorCols()) throw new Error('Nhập xong số hàng/cột rồi chuyển sang ô khác để áp dụng bản đồ.');
   const r=structuredClone(ruleDraft);
   Object.assign(r,{boardSize:Math.max(editorRows(),editorCols()),boardRows:editorRows(),boardCols:editorCols(),maxMoves:Number(el('rule-max-moves').value),repetitionLimit:Number(el('rule-repetition').value),boardTheme:el('rule-theme').value,beats:coreBeats});
   r.randomExtraPiece=el('rule-piece-mode').value==='random';
+  r.symmetricArmies=true;r.powerUps=el('rule-power-ups').checked;delete r.playerPieceTypes;
   if (r.randomExtraPiece) { r.pieceTypes=['R','R','R','P','P','P','S','S','S','S']; delete r.playerPieceTypes; }
   else {
-    r.playerPieceTypes=[piecePool(0),piecePool(1)]; r.pieceTypes=[...r.playerPieceTypes[0]];
-    if (r.playerPieceTypes.some(pool=>!pool.length || pool.length>128)) throw new Error('Mỗi bên cần từ 1 đến 128 quân tổng cộng.');
+    r.pieceTypes=piecePool(0);
+    if (!r.pieceTypes.length || r.pieceTypes.length>128) throw new Error('Mỗi bên cần từ 1 đến 128 quân tổng cộng.');
   }
   if (el('rule-directions').value!=='custom') r.directions=el('rule-directions').value==='four' ? [[-1,0],[0,-1],[0,1],[1,0]] : [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-  for (const side of [0,1]) if(r.startingPositions[side].length!==expectedPieces(side)) throw new Error(`Bên ${side===0?'A':'B'} có ${expectedPieces(side)} quân nhưng đã đặt ${r.startingPositions[side].length} vị trí. Bấm “Xếp quân tự động” hoặc đánh dấu đủ ô.`);
+  if(el('rule-directions').value==='custom')r.movementByType=readMovementFields(r.pieceTypes);else delete r.movementByType;
+  for (const side of [0,1]) if(r.startingPositions[side].length!==expectedPieces(side)) throw new Error(`Bên ${side===0?'A':'B'} cần ${expectedPieces(side)} quân nhưng đã đặt ${r.startingPositions[side].length} vị trí. Thêm hoặc bỏ vị trí quân trên bàn để đủ số lượng.`);
   return r;
 }
 function renderRuleBoard() {
@@ -83,25 +131,59 @@ function renderRuleBoard() {
     cell.setAttribute('aria-label',`Hàng ${row+1}, cột ${col+1}: ${meaning}`);cell.title=`Hàng ${row+1}, cột ${col+1} · ${meaning}`;
     cell.addEventListener('click',()=>paintCell(row,col)); board.append(cell);
   }
-  let counts;
-  try{counts=[0,1].map(side=>`${side===0?'A':'B'}: ${ruleDraft.startingPositions[side].length}/${expectedPieces(side)} vị trí`).join(' · ');}catch{counts='Nhập số quân hợp lệ.';}
-  el('rule-board-summary').textContent=`${rows} × ${cols} · ${blocked.size} ô chặn · ${voids.size} ô bỏ · ${counts}${previewBoard?' · Đang xem mẫu chia quân':''}`;
+  const summary=el('rule-board-summary');summary.replaceChildren();
+  const terrain=document.createElement('div');terrain.className='board-facts';
+  for(const [label,value]of [['Kích thước',`${rows} hàng × ${cols} cột`],['Ô chặn',`${blocked.size} ô không thể đi vào`],['Ngoài bản đồ',`${voids.size} ô đã bỏ`]]){
+    const item=document.createElement('div');item.append(textNode('span',label),textNode('strong',value));terrain.append(item);
+  }
+  const armies=document.createElement('div');armies.className='board-armies';
+  for(const side of [0,1]){
+    const item=document.createElement('div');item.className=`army-count side-${side}`;
+    const placed=ruleDraft.startingPositions[side].length;item.append(textNode('strong',`Quân bên ${side===0?'A':'B'}`));
+    try{
+      const limit=expectedPieces(side),valid=limit>=1&&limit<=128;
+      item.dataset.state=valid&&placed===limit?'complete':'incomplete';
+      item.append(textNode('span',`Đã đặt ${placed} / ${limit} quân`),textNode('small',!valid?'Nhập tổng số quân từ 1 đến 128.':placed===limit?'Đã đủ quân':placed<limit?`Còn thiếu ${limit-placed} quân`:`Cần bỏ bớt ${placed-limit} quân`));
+    }catch{item.append(textNode('span',`Đã đặt ${placed} quân`),textNode('small','Nhập số quân hợp lệ.'));}
+    armies.append(item);
+  }
+  summary.append(terrain,armies);
+  summary.append(textNode('p','Ô nhà ★ không tính vào số quân của mỗi bên.'));
+  if(previewBoard)summary.append(textNode('p','Đang xem một cách chia loại quân mẫu ở đầu trận.'));
+  const spawnSide=mapTool.startsWith('spawn')?Number(mapTool.slice(-1)):null;
+  let full=false;
+  if(spawnSide!==null)try{const limit=expectedPieces(spawnSide);full=limit>=1&&limit<=128&&ruleDraft.startingPositions[spawnSide].length>=limit;}catch{}
+  const positions=spawnSide===null?new Set():new Set(ruleDraft.startingPositions[spawnSide].map(p=>p.join(',')));
+  if(full)for(const [index,cell]of [...board.children].entries())if(!positions.has(`${Math.floor(index/cols)},${index%cols}`))cell.setAttribute('aria-disabled','true');
+  const toolHints={floor:'Ô cờ: bấm ô đang có để xóa khỏi bản đồ; bấm ô đã bỏ để thêm lại. Quân hoặc ô chặn trên ô bị xóa cũng được bỏ.',blocked:'Ô chặn: bấm để thêm chướng ngại vật; bấm lại ô chặn để bỏ chướng ngại vật.',home0:'Nhà A: bấm ô mới để chuyển nhà A đến đó. Nhà luôn có đúng một ô.',home1:'Nhà B: bấm ô mới để chuyển nhà B đến đó. Nhà luôn có đúng một ô.',spawn0:'Quân A: bấm ô để thêm quân A; bấm lại quân A để bỏ.',spawn1:'Quân B: bấm ô để thêm quân B; bấm lại quân B để bỏ.'};
+  el('rule-board-feedback').textContent=full?`Bên ${spawnSide===0?'A':'B'} đã đủ quân. Bấm lại một quân cùng bên để bỏ, rồi chọn ô mới. Muốn tăng quân, đổi số lượng ở mục 4.`:toolHints[mapTool];
 }
 function paintCell(row,col) {
-  if(!ruleDraft)return; previewBoard=null;
+  if(!ruleDraft)return;
   const home=ruleDraft.homes.findIndex(h=>h.row===row&&h.col===col);
-  if(home>=0 && mapTool!==`home${home}`){ruleNotice(new Error('Ô này là nhà. Chọn công cụ Nhà tương ứng rồi đặt nhà sang ô khác trước.'));return;}
+  if(home>=0 && mapTool!==`home${home}`){boardNotice('Ô này là nhà. Chọn công cụ Nhà tương ứng rồi đặt nhà sang ô khác trước.');return;}
+  const wasOwn=mapTool.startsWith('spawn') && ruleDraft.startingPositions[Number(mapTool.slice(-1))].some(p=>sameCell(p,row,col));
+  if(mapTool.startsWith('spawn')&&!wasOwn){
+    const side=Number(mapTool.slice(-1));
+    try{
+      const limit=expectedPieces(side);
+      if(limit<1||limit>128)throw new Error('Mỗi bên cần từ 1 đến 128 quân.');
+      if(ruleDraft.startingPositions[side].length>=limit){boardNotice(`Bên ${side===0?'A':'B'} đã đủ ${limit}/${limit} quân, không thể thêm. Bỏ một quân cùng bên trước khi đặt ô mới, hoặc tăng số quân ở mục 4.`);return;}
+    }catch(error){boardNotice(error.message);return;}
+  }
+  previewBoard=null;
   const key=[row,col];
+  const wasBlocked=ruleDraft.blockedCells.some(p=>sameCell(p,row,col));
+  const wasVoid=ruleDraft.voidCells.some(p=>sameCell(p,row,col));
   if(mapTool.startsWith('home')) {
     const side=Number(mapTool.slice(-1));ruleDraft.homes[side]={row,col};
   }
-  const wasOwn=mapTool.startsWith('spawn') && ruleDraft.startingPositions[Number(mapTool.slice(-1))].some(p=>sameCell(p,row,col));
   ruleDraft.blockedCells=ruleDraft.blockedCells.filter(p=>!sameCell(p,row,col));ruleDraft.voidCells=ruleDraft.voidCells.filter(p=>!sameCell(p,row,col));
   ruleDraft.startingPositions=ruleDraft.startingPositions.map(positions=>positions.filter(p=>!sameCell(p,row,col)));
-  if(mapTool==='blocked')ruleDraft.blockedCells.push(key);
-  if(mapTool==='void')ruleDraft.voidCells.push(key);
+  if(mapTool==='blocked'&&!wasBlocked)ruleDraft.blockedCells.push(key);
+  if(mapTool==='floor'&&!wasVoid)ruleDraft.voidCells.push(key);
   if(mapTool.startsWith('spawn')&&!wasOwn)ruleDraft.startingPositions[Number(mapTool.slice(-1))].push(key);
-  el('rule-shape').value='custom'; renderRuleBoard(); el('rule-message').textContent='Đã chỉnh bàn cờ. Bấm Lưu bộ luật để lưu thay đổi.';
+  ruleDraft.boardShape='custom';el('rule-shape').value='custom'; renderRuleBoard(); el('rule-message').textContent='Đã chỉnh bàn cờ. Bấm Lưu bộ luật để lưu thay đổi.';
 }
 function autoPlace() {
   if(!ruleDraft)return;
@@ -123,7 +205,7 @@ function applyLayout() {
   const shape=el('rule-shape').value;
   const old=structuredClone(ruleDraft);
   try {
-    Object.assign(ruleDraft,{boardRows:rows,boardCols:cols,boardSize:Math.max(rows,cols)});
+    Object.assign(ruleDraft,{boardRows:rows,boardCols:cols,boardSize:Math.max(rows,cols),boardShape:shape});
     const inside=([r,c])=>r>=0&&c>=0&&r<rows&&c<cols;
     ruleDraft.blockedCells=ruleDraft.blockedCells.filter(inside);ruleDraft.voidCells=shape==='custom'?ruleDraft.voidCells.filter(inside):[];
     if(shape!=='custom')for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) {
@@ -138,7 +220,7 @@ function applyLayout() {
     cells.sort((a,b)=>(a.row+(cols-1-a.col))-(b.row+(cols-1-b.col))||a.row-b.row);
     ruleDraft.homes=[cells[0],cells[cells.length-1]];autoPlace();
     el('rule-message').textContent='Đã cập nhật bản đồ và xếp quân. Có thể sửa từng ô trước khi lưu.';
-  }catch(error){ruleDraft=old;el('rule-rows').value=editorRows();el('rule-cols').value=editorCols();renderRuleBoard();throw error;}
+  }catch(error){ruleDraft=old;el('rule-rows').value=editorRows();el('rule-cols').value=editorCols();el('rule-shape').value=old.boardShape||(old.voidCells.length?'custom':'rectangle');renderRuleBoard();throw error;}
 }
 async function loadRuleList(preferId,preferVersion) {
   const data=await api('/api/admin/rule-sets'),id=preferId||el('rule-select').value;
@@ -163,16 +245,17 @@ el('rule-select').onchange=()=>loadRuleSelection().catch(ruleNotice);
 el('rule-version').onchange=()=>loadRuleSelection(Number(el('rule-version').value)).catch(ruleNotice);
 el('rule-new').onclick=()=>{if(!ruleTemplate)return;ruleSelection=null;el('rule-history-field').hidden=true;el('rule-name').value='Bộ luật mới';loadRuleDraft(ruleTemplate);el('rule-message').textContent='Đang tạo luật mới. Chỉnh bản đồ rồi lưu.';};
 el('rule-clone').onclick=()=>{try{const r=buildEditorRules();ruleSelection=null;el('rule-history-field').hidden=true;el('rule-name').value=(el('rule-name').value+' (bản sao)').slice(0,80);loadRuleDraft(r);el('rule-message').textContent='Đang tạo bản sao độc lập. Bấm Lưu để tạo bộ luật mới.';}catch(e){ruleNotice(e);}};
-el('rule-layout').onclick=()=>{try{applyLayout();}catch(e){ruleNotice(e);}};
-el('rule-auto-place').onclick=()=>{try{autoPlace();el('rule-message').textContent='Đã xếp quân ở gần nhà của từng bên.';}catch(e){ruleNotice(e);}};
-el('rule-piece-mode').onchange=()=>{previewBoard=null;updatePieceMode();renderRuleBoard();};
+for(const id of ['rule-shape','rule-rows','rule-cols'])el(id).addEventListener('change',()=>{if(!ruleDraft)return;try{applyLayout();}catch(e){boardNotice(e.message);}});
+el('rule-piece-mode').onchange=()=>{
+  previewBoard=null;updatePieceMode();let reduced=false;
+  for(const side of [0,1])try{const limit=expectedPieces(side);if(limit>=1&&limit<=128&&ruleDraft.startingPositions[side].length>limit){ruleDraft.startingPositions[side]=ruleDraft.startingPositions[side].slice(0,limit);reduced=true;}}catch{}
+  renderRuleBoard();if(reduced)boardNotice('Đã bỏ bớt các vị trí thừa để khớp số quân của chế độ vừa chọn.');
+};
 el('rule-theme').onchange=renderRuleBoard;
+el('rule-directions').onchange=renderMovementFields;
+el('rule-power-ups').onchange=()=>{renderRuleBoard();boardNotice(el('rule-power-ups').checked?'Mỗi trận sẽ có 1–3 power-up ở ô trống ngẫu nhiên. Dấu + trên quân cho biết quân đã được nâng cấp.':'Đã tắt power-up.');};
 el('rule-json').closest('details').addEventListener('toggle',event=>{if(event.target.open)try{el('rule-json').value=JSON.stringify(buildEditorRules(),null,2);}catch{el('rule-json').value=JSON.stringify(ruleDraft,null,2);}});
 el('rule-import-json').onclick=()=>{try{const rules=JSON.parse(el('rule-json').value);loadRuleDraft(rules);el('rule-message').textContent='Đã áp dụng JSON vào bản đang chỉnh. Xem thử trước khi lưu.';}catch(e){ruleNotice(e);}};
-el('rule-preview').onclick=async event=>{
-  event.target.disabled=true;
-  try{const result=await postAdmin('/api/admin/rule-sets/preview',{rules:buildEditorRules()});previewBoard=result.state.board;renderRuleBoard();el('rule-message').textContent=result.state.status==='finished'?'Bàn cờ này kết thúc ngay từ đầu. Kiểm tra lại đường đi và vị trí quân.':'Bàn cờ hợp lệ. Đây là một cách chia quân mẫu; loại quân có thể thay đổi theo mã trận.';}catch(e){ruleNotice(e);}finally{event.target.disabled=false;}
-};
 el('rule-form').onsubmit=async event=>{
   event.preventDefault();event.submitter.disabled=true;
   try {

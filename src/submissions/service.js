@@ -9,10 +9,11 @@ const { BotFault, InfrastructureError, LIMITS } = require('../game/protocol');
 const { UPLOAD_LIMIT, FILE_LIMIT, safeName, extractSource, scanSource } = require('./source');
 
 class SubmissionService {
-  constructor(db, { storageRoot = process.env.SUBMISSIONS_PATH || path.resolve(__dirname, '../../data/submissions'), workers = Number(process.env.BOT_WORKERS || 2), managerFactory = () => new SandboxManager(), extraScanner, retryDelayMs = 3000, now = Date.now } = {}) {
+  constructor(db, { storageRoot = process.env.SUBMISSIONS_PATH || path.resolve(__dirname, '../../data/submissions'), workers = Number(process.env.BOT_WORKERS || 2), managerFactory = () => new SandboxManager(), extraScanner, retryDelayMs = 3000, now = Date.now, stages } = {}) {
     if (!Number.isInteger(workers) || workers < 1 || workers > 4) throw new Error('BOT_WORKERS must be 1–4');
     this.db = db; this.root = path.resolve(storageRoot); this.workers = workers; this.managerFactory = managerFactory;
     this.extraScanner = extraScanner; this.retryDelayMs = retryDelayMs; this.now = now;
+    this.stages = stages;
     this.workerId = crypto.randomUUID(); this.active = new Map(); this.started = false; this.closing = false;
   }
   folder(id, part = '') {
@@ -32,15 +33,17 @@ class SubmissionService {
       .run(id, this.now(), stage, message.slice(0, 65536), details ? JSON.stringify(details) : null);
   }
   owned(id, userId) { return this.db.prepare('SELECT * FROM bot_submissions WHERE id=? AND user_id=?').get(id, userId); }
-  list(userId) {
-    return this.db.prepare(`SELECT s.id,s.version,s.filename,s.entry,s.language,s.status,s.job_status,s.attempts,s.created_at,
+  list(userId, stageId = null) {
+    const rows = this.db.prepare(`SELECT s.id,s.stage_id,s.version,s.filename,s.entry,s.language,s.status,s.job_status,s.attempts,s.created_at,
       s.error_type,s.reason_code,s.reason,CASE WHEN a.submission_id=s.id THEN 1 ELSE 0 END AS active
-      FROM bot_submissions s LEFT JOIN active_bots a ON a.user_id=s.user_id WHERE s.user_id=? ORDER BY s.version DESC LIMIT 100`).all(userId);
+      FROM bot_submissions s LEFT JOIN active_bots a ON a.user_id=s.user_id WHERE s.user_id=? AND s.stage_id IS ? ORDER BY s.version DESC LIMIT 100`).all(userId, stageId);
+    if (stageId) for (const row of rows) row.active = Number(this.stages.selectedId(stageId, userId) === row.id);
+    return rows;
   }
   detail(id, userId) {
     const row = this.owned(id, userId); if (!row) return null;
-    const active = this.db.prepare('SELECT 1 FROM active_bots WHERE user_id=? AND submission_id=?').get(userId, id);
-    return { id: row.id, version: row.version, filename: row.filename, entry: row.entry, language: row.language,
+    const active = row.stage_id ? this.stages?.selectedId(row.stage_id, userId) === id : this.db.prepare('SELECT 1 FROM active_bots WHERE user_id=? AND submission_id=?').get(userId, id);
+    return { id: row.id, stage_id: row.stage_id, received_at: row.created_at, version: row.version, filename: row.filename, entry: row.entry, language: row.language,
       status: row.status, job_status: row.job_status, attempts: row.attempts, active: !!active, created_at: row.created_at,
       error_type: row.error_type, reason_code: row.reason_code, reason: row.reason, source_hash: row.source_hash, image: row.image,
       events: this.db.prepare('SELECT created_at,stage,message,details_json FROM submission_events WHERE submission_id=? ORDER BY id').all(id)
@@ -54,22 +57,37 @@ class SubmissionService {
     const replay = JSON.parse(row.replay_json);
     return { id: row.id, seed: row.seed, status: 'finished', replay, bots: replay.bots, rules: replay.rules };
   }
-  async submit({ userId, filename, buffer, entry = '' }) {
+  async submit({ userId, filename, buffer, entry = '', stageId = null, idempotencyKey = null }) {
     let safe;
     try { safe = safeName(filename); } catch (error) { error.status = 400; throw error; }
     if (safe.includes('/') || !/\.(py|cpp|zip)$/.test(safe) || typeof entry !== 'string' || entry.length > 180) throw Object.assign(new Error('Chỉ nhận .py, .cpp hoặc .zip; file chạy chính tối đa 180 ký tự.'), { status: 400 });
     if (!Buffer.isBuffer(buffer) || buffer.length > UPLOAD_LIMIT || (!safe.endsWith('.zip') && buffer.length > FILE_LIMIT)) throw Object.assign(new Error('Một file mã nguồn tối đa 1 MiB; file ZIP tối đa 5 MiB.'), { status: 413 });
+    if (stageId !== null && (typeof stageId !== 'string' || !this.stages)) throw Object.assign(new Error('Giai đoạn không hợp lệ.'), { status: 400 });
+    if (idempotencyKey !== null && (!stageId || typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,100}$/.test(idempotencyKey))) throw Object.assign(new Error('Idempotency-Key cần 16–100 ký tự chữ, số, _ hoặc - và chỉ dùng khi nộp theo giải.'), { status: 400 });
+    const uploadHash = crypto.createHash('sha256').update(JSON.stringify([safe, entry])).update(buffer).digest('hex');
+    const previous = () => {
+      if (!idempotencyKey) return null;
+      const receipt = this.db.prepare('SELECT id,upload_hash FROM bot_submissions WHERE stage_id=? AND user_id=? AND idempotency_key=?').get(stageId, userId, idempotencyKey);
+      if (receipt && receipt.upload_hash !== uploadHash) throw Object.assign(new Error('Khóa yêu cầu đã dùng cho bài khác.'), { status: 409 });
+      return receipt;
+    };
+    const receipt = previous(); if (receipt) return this.detail(receipt.id, userId);
+    if (stageId) this.stages.checkSubmission(stageId, userId);
     const id = crypto.randomUUID(); await fs.mkdir(this.folder(id), { recursive: true, mode: 0o755 });
     let inserted = false;
     try {
-      await fs.writeFile(path.join(this.folder(id), 'upload.bin'), buffer, { flag: 'wx', mode: 0o600 });
+      const file = await fs.open(path.join(this.folder(id), 'upload.bin'), 'wx', 0o600);
+      try { await file.writeFile(buffer); await file.sync(); } finally { await file.close(); }
       this.db.exec('BEGIN IMMEDIATE');
       try {
         if (!this.db.prepare("SELECT 1 FROM users WHERE id=? AND deleted_at IS NULL AND locked=0").get(userId)) throw Object.assign(new Error('Tài khoản không còn quyền nộp bài.'), { status: 403 });
+        const duplicate = previous();
+        if (duplicate) { this.db.exec('COMMIT'); return this.detail(duplicate.id, userId); }
+        const time = this.now();
+        if (stageId) this.stages.checkSubmission(stageId, userId, time);
         if (this.db.prepare("SELECT COUNT(*) n FROM bot_submissions WHERE user_id=? AND job_status IN ('queued','running')").get(userId).n >= 3) throw Object.assign(new Error('Tối đa 3 bài đang chờ kiểm tra. Vui lòng chờ bài hiện tại hoàn tất.'), { status: 429 });
         const version = this.db.prepare('SELECT COALESCE(MAX(version),0)+1 n FROM bot_submissions WHERE user_id=?').get(userId).n;
-        const time = this.now();
-        this.db.prepare('INSERT INTO bot_submissions(id,user_id,version,filename,entry,created_at,updated_at) VALUES (?,?,?,?,?,?,?)').run(id, userId, version, safe, entry || null, time, time);
+        this.db.prepare('INSERT INTO bot_submissions(id,user_id,version,filename,entry,created_at,updated_at,stage_id,idempotency_key,upload_hash) VALUES (?,?,?,?,?,?,?,?,?,?)').run(id, userId, version, safe, entry || null, time, time, stageId, idempotencyKey, uploadHash);
         this.event(id, 'Queued', 'Đã nhận bài, đang chờ bộ xử lý.');
         this.db.exec('COMMIT'); inserted = true;
       } catch (error) { this.db.exec('ROLLBACK'); throw error; }
@@ -80,6 +98,7 @@ class SubmissionService {
     if (!this.db.prepare('SELECT 1 FROM users WHERE id=? AND deleted_at IS NULL AND locked=0').get(userId)) throw Object.assign(new Error('Tài khoản không còn quyền chọn bot.'), { status: 403 });
     const row = this.owned(id, userId);
     if (!row) return false;
+    if (row.stage_id) return this.stages.select(row.stage_id, userId, id);
     if (row.status !== 'Accepted') throw Object.assign(new Error('Chỉ có thể chọn phiên bản đã vượt qua kiểm tra (Accepted).'), { status: 409 });
     this.db.prepare('INSERT INTO active_bots VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET submission_id=excluded.submission_id').run(userId, id);
     return true;
@@ -123,6 +142,8 @@ class SubmissionService {
   }
   async process(row) {
     const manager = this.managerFactory(), artifacts = [], sessions = [];
+    const stage = row.stage_id ? this.stages?.row(row.stage_id) : null;
+    const rules = stage ? JSON.parse(stage.rules_json) : DEFAULT_RULES;
     const heartbeat = setInterval(() => this.db.prepare("UPDATE bot_submissions SET lease_until=? WHERE id=? AND worker_id=? AND job_status='running'").run(this.now() + 30000, row.id, this.workerId), 5000);
     heartbeat.unref(); let problem;
     try {
@@ -150,9 +171,9 @@ class SubmissionService {
         try {
           for (const artifact of ordered) sessions.push(await manager.start(artifact, LIMITS));
           const seed = `submission-${row.id}-side-${candidatePlayer}`;
-          replay = await runMatch({ seed, onTurn: progress => this.db.prepare("INSERT INTO live_matches VALUES (?,'submission',?,?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,replay_json=excluded.replay_json").run(row.id, row.id, this.now(), JSON.stringify(progress)), bots: ordered.map((artifact, p) => ({ id: p === candidatePlayer ? `submission-v${row.version}` : 'python-greedy', submission_id: p === candidatePlayer ? row.id : undefined, source_hash: artifact.hash, image: artifact.image })), choose: (player, request) => sessions[player].move(request) });
+          replay = await runMatch({ seed, rules, onTurn: progress => this.db.prepare("INSERT INTO live_matches VALUES (?,'submission',?,?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,replay_json=excluded.replay_json").run(row.id, row.id, this.now(), JSON.stringify(progress)), bots: ordered.map((artifact, p) => ({ id: p === candidatePlayer ? `submission-v${row.version}` : 'python-greedy', submission_id: p ===candidatePlayer ? row.id : undefined, source_hash: artifact.hash, image: artifact.image })), choose: (player, request) => sessions[player].move(request) });
           verifyReplay(replay);
-          this.db.prepare('INSERT INTO submission_tests VALUES (?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(), row.id, this.now(), row.attempts, candidatePlayer, seed, DEFAULT_RULES.id, DEFAULT_RULES.version, JSON.stringify(replay));
+          this.db.prepare('INSERT INTO submission_tests VALUES (?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(), row.id, this.now(), row.attempts, candidatePlayer, seed, rules.id, rules.version, JSON.stringify(replay));
         } finally {
           this.db.prepare('DELETE FROM live_matches WHERE id=?').run(row.id);
           const results = await Promise.allSettled(sessions.splice(0).map(session => session.close()));
@@ -180,7 +201,7 @@ class SubmissionService {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       this.db.prepare("UPDATE bot_submissions SET status='Accepted',job_status='done',worker_id=NULL,lease_until=NULL,error_type=NULL,reason_code=NULL,reason=NULL,updated_at=? WHERE id=?").run(this.now(), row.id);
-      this.db.prepare(`INSERT INTO active_bots(user_id,submission_id) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET submission_id=excluded.submission_id
+      if (!row.stage_id) this.db.prepare(`INSERT INTO active_bots(user_id,submission_id) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET submission_id=excluded.submission_id
         WHERE (SELECT version FROM bot_submissions WHERE id=excluded.submission_id) > (SELECT version FROM bot_submissions WHERE id=active_bots.submission_id)`).run(row.user_id, row.id);
       this.event(row.id, 'Accepted', 'Bài nộp đã vượt qua kiểm tra mã nguồn, chuẩn bị chương trình và hai trận thử đổi bên.'); this.db.exec('COMMIT');
     } catch (error) { this.db.exec('ROLLBACK'); throw error; }

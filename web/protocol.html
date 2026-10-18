@@ -29,25 +29,46 @@
         <details><summary>Mỗi lần nộp có thay thế bài cũ không?</summary><p>Không. Mỗi lần nộp tạo một bản mới: v1 là bản đầu, v2 là bản thứ hai… Bản mới nhất vượt qua kiểm tra sẽ được chọn để thi đấu. Nếu bản mới bị lỗi, bản đang chọn trước đó vẫn được giữ.</p><p>Bạn có thể bấm “Chọn bản này thi đấu” để dùng lại bản cũ. Vòng đấu đã bắt đầu vẫn giữ bản được chọn lúc tạo vòng.</p></details>
       </section>
       <section id="rules">
-        <div class="section-number">02 / HIỂU TRÒ CHƠI</div><h2>Luật Búa · Bao · Kéo</h2>
-        <p>Bàn cờ có 9 hàng, 9 cột. Mỗi bên có 10 quân: hai loại có 3 quân, loại còn lại có 4 quân. Loại có 4 quân được chọn ngẫu nhiên; cả hai bên có cùng số quân từng loại.</p>
+        <div class="section-number">02 / HIỂU TRÒ CHƠI</div><h2>Luật cơ bản và luật của từng trận</h2>
+        <p><strong>Luật Classic mặc định:</strong> bàn cờ có 9 hàng, 9 cột. Mỗi bên có 10 quân: hai loại có 3 quân, loại còn lại có 4 quân. Loại có 4 quân được chọn ngẫu nhiên; cả hai bên có cùng số quân từng loại.</p>
         <div class="piece-cycle"><span>Búa ăn <b>Kéo</b></span><span>Kéo ăn <b>Bao</b></span><span>Bao ăn <b>Búa</b></span></div>
-        <ul><li><strong>Di chuyển:</strong> mỗi lượt đi một quân sang ô bên cạnh, theo chiều ngang, dọc hoặc chéo.</li><li><strong>Ăn quân:</strong> chỉ vào ô trống hoặc ô có quân đối thủ mà quân của bạn ăn được. Ví dụ: Búa được vào ô có Kéo, nhưng không được vào ô có Bao.</li><li><strong>Thắng:</strong> đưa quân vào nhà đối thủ (ô ★), ăn hết quân đối thủ, hoặc làm đối thủ không còn nước đi đúng luật.</li><li><strong>Hòa:</strong> sau 500 nước của cả hai bên, hoặc cùng bàn cờ và bên đến lượt lặp lại 3 lần. Nếu có bên thắng ở nước đó thì vẫn tính thắng.</li></ul>
-        <details><summary>Cách đọc vị trí quân trong code</summary><p>Vị trí được ghi bằng <code>(hàng, cột)</code>, bắt đầu từ <strong>0</strong>. Hàng tăng từ trên xuống, cột tăng từ trái sang phải. Góc trên trái là <code>(0, 0)</code>; góc dưới phải là <code>(8, 8)</code>.</p><p>Trong dữ liệu: <code>R</code> là Búa, <code>P</code> là Bao, <code>S</code> là Kéo. Một ô trống có giá trị <code>null</code>. Hai bên được đánh số 0 và 1; bên 0 đi trước. Tọa độ không đảo theo bên chơi.</p><p>Đây là luật Classic hiện tại. Nếu ban tổ chức đổi luật, hãy đọc luật của trận thay vì luôn mặc định bàn 9 × 9.</p></details>
+        <ul><li><strong>Di chuyển trong Classic:</strong> mỗi lượt đi một quân sang ô bên cạnh, theo chiều ngang, dọc hoặc chéo.</li><li><strong>Ăn quân khi chưa nâng cấp:</strong> chỉ vào ô trống hoặc ô có quân đối thủ mà quân của bạn ăn được. Ví dụ: Búa được vào ô có Kéo, nhưng không được vào ô có Bao.</li><li><strong>Thắng:</strong> đưa quân vào nhà đối thủ (ô ★), ăn hết quân đối thủ, hoặc làm đối thủ không còn nước đi đúng luật.</li><li><strong>Hòa trong Classic:</strong> sau 500 nước của cả hai bên, hoặc cùng bàn cờ và bên đến lượt lặp lại 3 lần. Nếu có bên thắng ở nước đó thì vẫn tính thắng.</li></ul>
+        <p class="callout"><strong>Khi dùng luật tùy chỉnh:</strong> kích thước, hình dạng bản đồ, số quân và hướng đi có thể thay đổi. Ô chặn và ô ngoài bản đồ nằm trong <code>rules.blockedCells</code>, <code>rules.voidCells</code>; chúng vẫn có thể là <code>null</code> trong bàn cờ nhưng không được đi vào. <code>state.powerUps</code> chứa vị trí vật phẩm còn lại. Quân nhặt được có <code>powered: true</code>, ăn thêm được quân cùng loại và vẫn bị loại khắc chế ăn. Luật cũ có thể không có các trường power-up.</p>
+        <details><summary>Cách đọc vị trí quân trong code</summary><p>Vị trí được ghi bằng <code>(hàng, cột)</code>, bắt đầu từ <strong>0</strong>. Hàng tăng từ trên xuống, cột tăng từ trái sang phải. Góc trên trái là <code>(0, 0)</code>; góc dưới phải của bàn Classic 9 × 9 là <code>(8, 8)</code>.</p><p>Trong dữ liệu: <code>R</code> là Búa, <code>P</code> là Bao, <code>S</code> là Kéo. Một ô trống có giá trị <code>null</code>. Hai bên được đánh số 0 và 1; bên 0 đi trước. Tọa độ không đảo theo bên chơi.</p><p>Đây là luật Classic hiện tại. Nếu ban tổ chức đổi luật, hãy đọc luật của trận thay vì luôn mặc định bàn 9 × 9.</p></details>
       </section>
       <section id="strategy">
         <div class="section-number">03 / THÊM CHIẾN THUẬT</div><h2>Bạn cần sửa chỗ nào?</h2>
         <p>Mở file mẫu bằng trình soạn thảo bạn đang dùng. Tìm dòng <strong>“THAY CHIẾN THUẬT Ở ĐÂY”</strong>. Bạn chỉ cần thay cách chọn nước đi ở phần đó.</p>
-        <div class="table-wrap"><table><caption>Ba tên trong code bạn nên biết trước</caption><thead><tr><th>Tên trong code</th><th>Hiểu đơn giản</th></tr></thead><tbody>
+        <div class="table-wrap"><table><caption>Các tên trong code, đọc khi cần dùng</caption><thead><tr><th>Tên trong code</th><th>Hiểu đơn giản</th></tr></thead><tbody>
           <tr><td><code>legal_moves</code></td><td>Danh sách những nước được phép đi. Chọn trong danh sách này sẽ tránh đi sai luật.</td></tr>
           <tr><td><code>state.board</code></td><td>Bàn cờ hiện tại. Dùng để biết quân nào đang ở ô nào.</td></tr>
           <tr><td><code>player_index</code></td><td>Bên của bạn, là 0 hoặc 1. Dùng để phân biệt quân mình và quân đối thủ.</td></tr>
+          <tr><td><code>rules.homes</code></td><td>Vị trí nhà hai bên. Nhà đối thủ có chỉ số <code>1 - player_index</code>.</td></tr>
+          <tr><td><code>state.powerUps</code></td><td>Các ô còn vật phẩm nâng cấp, ghi bằng cặp [hàng, cột]. Nếu thiếu trường này thì xem như không có vật phẩm.</td></tr>
+          <tr><td><code>powered</code></td><td>Nằm trong thông tin một quân. Giá trị true nghĩa là quân đã nâng cấp; thiếu trường này thì là quân thường.</td></tr>
+          <tr><td><code>rules.movementByType</code></td><td>Kiểu đi riêng của Búa/Bao/Kéo. Nếu chỉ chọn trong legal_moves, bạn chưa cần tự đọc hay tính lại các hướng này.</td></tr>
         </tbody></table></div>
-        <p>Ví dụ, mẫu Python đang chọn <strong>nước đầu tiên</strong> trong danh sách:</p>
-        <div class="code-header"><span>Phần chọn nước trong Python</span><button type="button" data-copy="strategy-python">Sao chép</button></div><pre><code id="strategy-python">move = request['legal_moves'][0]</code></pre>
-        <p><code>[0]</code> nghĩa là phần tử đầu tiên. Với mẫu C++, dòng tương ứng là:</p>
-        <div class="code-header"><span>Phần chọn nước trong C++</span><button type="button" data-copy="strategy-cpp">Sao chép</button></div><pre><code id="strategy-cpp">auto move = request.at("legal_moves").at(0);</code></pre>
-        <p>Bước tiếp theo, bạn có thể thử ưu tiên nước ăn được quân, hoặc nước đưa quân gần nhà đối thủ hơn. Giữ nguyên phần nhận và gửi dữ liệu trong mẫu, lưu file rồi nộp bản mới.</p>
+        <p>Mẫu mới chấm điểm từng nước: ưu tiên chiếm nhà đối thủ, ăn quân, nhặt power-up nếu quân chưa được nâng cấp, rồi tiến gần nhà đối thủ.</p>
+        <div class="code-header"><span>Dòng chọn nước trong Python</span><button type="button" data-copy="strategy-python">Sao chép</button></div><pre><code id="strategy-python">move = max(request['legal_moves'], key=score)</code></pre>
+        <p>Hàm <code>score</code> trong file mẫu quyết định nước nào được ưu tiên. Bạn có thể sửa các điểm 40 (ăn quân), 15 (nhặt power-up) hoặc cách tính khoảng cách. C++ cũng có hàm <code>score</code> và vòng lặp chọn nước có điểm cao nhất.</p>
+        <p>Luôn chọn từ <code>legal_moves</code>: danh sách này đã xét các kiểu đi Xe, Tượng, Mã, hướng tự chỉnh và power-up. Đừng tự giới hạn mỗi lượt chỉ được đi một ô. Gợi ý tiến gần nhà trong mẫu chưa tự tìm đường vòng qua chướng ngại.</p>
+        <h3>Đọc power-up trong code như thế nào?</h3>
+        <p>Ví dụ dưới đây là các biến có thể thêm vào chiến thuật. Quân có dấu + trên bàn cờ chính là quân có <code>powered = true</code>. Quân nâng cấp giữ hiệu lực đến khi bị ăn; không cộng dồn khi nhặt thêm vật phẩm.</p>
+        <div class="code-header"><span>Python · đọc dữ liệu an toàn với cả luật cũ</span><button type="button" data-copy="power-python">Sao chép</button></div><pre><code id="power-python">power_ups = request['state'].get('powerUps', [])
+row, col = move['toRow'], move['toCol']
+piece = board[move['fromRow']][move['fromCol']]
+is_powered = piece.get('powered', False)
+will_pick_up = [row, col] in power_ups</code></pre>
+        <div class="code-header"><span>C++ · đọc dữ liệu an toàn với cả luật cũ</span><button type="button" data-copy="power-cpp">Sao chép</button></div><pre><code id="power-cpp">const auto powerUps = request.at("state").value("powerUps", json::array());
+const auto&amp; piece = board.at(move.at("fromRow").get&lt;int&gt;())
+                         .at(move.at("fromCol").get&lt;int&gt;());
+bool isPowered = piece.value("powered", false);</code></pre>
+        <p>Đọc các biến này bên trong hàm <code>score</code>, nơi đã có biến <code>move</code> và <code>board</code>. Mẫu mới đã đọc sẵn; không cần dán lặp lại. Chỉ số hàng bắt đầu từ 0, tăng xuống dưới; cột tăng sang phải, không đảo tọa độ khi đổi bên.</p>
+        <h3>Kiểu đi mới cần xử lý ra sao?</h3><p>Quân hai bên đều chặn đường nhau: không được đi xuyên hay nhảy qua quân phía trước, kể cả khi có power-up. Chỉ được ăn quân đối thủ ở ô đích nếu đúng luật. Mã đi chữ L bị cản ở ô sát quân theo chiều dài chữ L. Hướng tự chỉnh dài phải có các ô trung gian trống; ô chặn và ô ngoài bản đồ cũng cản đường.</p>
+        <p>Ban tổ chức có thể cho từng loại quân đi như Vua, Xe, Tượng, Hậu, Mã, Tốt hoặc hướng tự đặt. Đây là cách di chuyển; luật ăn quân vẫn là Búa–Bao–Kéo và power-up. Không có chiếu vua, nhập thành hay phong cấp. Với kiểu Tốt, bên 0 tiến xuống, bên 1 tiến lên; đi thẳng một ô trống và ăn chéo một ô.</p>
+        <p><strong>Cách dễ nhất:</strong> cứ chấm điểm các nước trong <code>legal_moves</code>. Danh sách này đã biết quân nào được đi xa, bị chặn đường hay ăn quân cùng loại. Một ô <code>null</code> chưa chắc đi được vì có thể là ô chặn hoặc ngoài bản đồ.</p>
+        <p>Muốn biết kích thước thật: Python dùng <code>len(board)</code>, <code>len(board[0])</code>; C++ dùng <code>board.size()</code>, <code>board.at(0).size()</code>. Muốn đếm quân còn lại, đọc bàn cờ hiện tại thay vì cố định 10 quân.</p>
+        <p><strong>Thử lại sau khi sửa:</strong> nộp phiên bản mới, xem hai ván kiểm tra rồi nhờ ban tổ chức chạy thêm Đấu thử với luật tùy chỉnh. Hai ván kiểm tra bài nộp và vòng điểm hiện dùng Classic; chúng chưa bảo đảm chiến thuật tốt trên mọi bản đồ. Bản đã nộp không tự đổi khi mã mẫu được cập nhật.</p>
         <p class="callout"><strong>Bot được chạy lại từ đầu ở mỗi lượt.</strong> Biến bạn tạo ở lượt trước không tự được giữ lại. Khi mới bắt đầu, cứ chọn nước dựa trên bàn cờ hiện tại; chưa cần làm phần ghi nhớ.</p>
       </section>
       <section id="limits">

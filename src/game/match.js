@@ -5,7 +5,7 @@ const { performance } = require('node:perf_hooks');
 
 async function runMatch({ seed, rules = DEFAULT_RULES, bots, choose, limits = LIMITS, onTurn }) {
   const engine = createEngine({ seed, rules });
-  const replay = { protocol_version: 1, engine_version: 1, seed, rule_set_id: engine.rules.id, rule_set_version: engine.rules.version,
+  const replay = { protocol_version: 1, engine_version: 2, seed, rule_set_id: engine.rules.id, rule_set_version: engine.rules.version,
     rules: engine.rules, bots, limits, initial: engine.snapshot(), turns: [], cpu_ms: [0, 0], result: null };
   const userdata = [null, null], start = performance.now();
   if (onTurn) await onTurn(replay);
@@ -41,7 +41,7 @@ async function runMatch({ seed, rules = DEFAULT_RULES, bots, choose, limits = LI
   replay.result = engine.snapshot(); if (onTurn) await onTurn(replay); return replay;
 }
 function verifyReplay(replay) {
-  const engine = createEngine({ seed: replay.seed, rules: replay.rules });
+  const engine = createEngine({ seed: replay.seed, rules: replay.rules, legacyMovement: (replay.engine_version || 1) < 2 });
   if (JSON.stringify(engine.snapshot()) !== JSON.stringify(replay.initial)) throw new Error('Initial state mismatch');
   for (const turn of replay.turns) {
     if (turn.player !== engine.snapshot().currentTurn || turn.request_id !== `turn-${engine.snapshot().moveCount}`) throw new Error('Replay turn mismatch');

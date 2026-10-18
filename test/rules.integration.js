@@ -25,5 +25,8 @@ test('Docker custom-law sandbox supports sample/sample, student/sample and stude
     assert.equal(result.replay.initial.board.length,6);assert.equal(result.replay.initial.board[0].length,8);
   }
   assert.deepEqual(db.prepare('SELECT * FROM active_bots ORDER BY user_id').all(),before);assert.equal(db.prepare('SELECT COUNT(*) n FROM score_matches').get().n,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM score_entrants').get().n,0);
+  const extended=ruleSets.save({name:'Power-up và hướng đi từng loại',rules:{...DEFAULT_RULES,maxMoves:12,powerUps:true,symmetricArmies:true,movementByType:{R:{kind:'rook'},P:{kind:'knight'},S:{kind:'bishop'}}},userId:1});
+  const extendedId=matches.create({userId:1,botA:'submission:'+bots[0].id,botB:'submission:'+bots[1].id,seed:'extended-docker',ruleSetId:extended.id,ruleSetVersion:1});await matches.active;
+  const extendedResult=matches.get(extendedId);assert.equal(extendedResult.status,'finished',JSON.stringify(extendedResult));assert.ok(!extendedResult.replay.fault);assert.ok(verifyReplay(extendedResult.replay));assert.ok(extendedResult.replay.initial.powerUps.length>=1);
  }finally{await matches.active;await submissions.close();db.close();assert.equal(path.dirname(path.resolve(root)),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('ott-rules-'));await fs.rm(root,{recursive:true,force:true});}
 });

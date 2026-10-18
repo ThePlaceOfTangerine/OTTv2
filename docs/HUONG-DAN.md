@@ -27,9 +27,21 @@ Ba tên trong code cần biết trước:
 | `state.board` | Bàn cờ hiện tại: quân nào đang ở ô nào. |
 | `player_index` | Bên của bạn, đánh số 0 hoặc 1. |
 
-Mẫu đang chọn nước đầu tiên. Bạn có thể thử ưu tiên nước ăn quân hoặc tiến gần nhà đối thủ hơn. Giữ nguyên phần nhận và gửi dữ liệu khi chưa cần thay đổi nó.
+Mẫu chấm điểm từng nước trong hàm score: ưu tiên chiếm nhà, ăn quân, nhặt power-up rồi tiến gần nhà đối thủ. Bạn có thể sửa điểm ưu tiên để đổi chiến thuật. Giữ nguyên phần nhận và gửi dữ liệu khi chưa cần thay đổi nó.
 
 Bot chạy lại từ đầu mỗi lượt, nên biến của lượt trước không tự được giữ. Ban đầu cứ quyết định từ bàn cờ hiện tại; phần ghi nhớ `userdata` có thể học sau.
+
+## Khi bản đồ và luật thay đổi
+
+Classic mặc định là bàn 9×9, mỗi bên 10 quân, đi một ô theo tám hướng. Trong Đấu thử, ban tổ chức có thể đổi số hàng/cột, hình dạng bản đồ, ô chặn, nhà, số quân chung hai bên, giới hạn nước và cách đi riêng của Búa/Bao/Kéo.
+
+- **Chọn từ `legal_moves`:** hệ thống đã xét mọi luật. Đừng tự giới hạn nước đi một ô hoặc coi mọi ô null đều đi được.
+- **Đọc bàn thật:** số hàng/cột theo `state.board`; nhà đối thủ theo `rules.homes[1 - player_index]`. Quân R/P/S là Búa/Bao/Kéo, player 0/1 là hai bên.
+- **Vật phẩm nâng cấp:** nếu bật sẽ có 1–3 power-up lúc đầu (không vượt số ô trống hợp lệ). `state.powerUps` chứa ô còn vật phẩm. Đi vào đó để nhặt, không sinh lại.
+- **Quân có dấu +:** `powered: true`, ăn thêm được quân cùng loại, vẫn bị loại khắc chế ăn. Ví dụ Búa+ ăn Búa/Kéo nhưng vẫn bị Bao ăn. Hiệu lực đến khi bị ăn, không cộng dồn. Trường power-up có thể thiếu ở luật cũ; dùng giá trị mặc định như mẫu.
+- **Các kiểu đi cờ vua:** chỉ là cách di chuyển, vẫn ăn theo Búa/Bao/Kéo. Không có chiếu vua, nhập thành hoặc phong cấp. Tốt đi thẳng một ô trống, ăn chéo một ô; bên 0 tiến xuống, bên 1 tiến lên.
+
+Hai ván kiểm tra bài nộp và vòng điểm hiện dùng Classic. Muốn kiểm tra thêm luật mới, nhờ ban tổ chức chạy Đấu thử với phiên bản bot đã được chấp nhận. Qua hai ván kiểm tra chưa bảo đảm bot có chiến thuật tốt trên mọi bản đồ.
 
 ## Đọc trạng thái bài nộp
 
@@ -72,8 +84,8 @@ Hướng dẫn dành cho người mới nằm tại `/docs/PROTOCOL.md` trên we
    Mật khẩu ban đầu trùng chính xác tên tài khoản. Thí sinh bắt buộc đổi mật khẩu ngay lần đăng nhập đầu tiên trước khi sử dụng chức năng khác; mật khẩu mới khác mật khẩu cũ, ít nhất 12 ký tự, tối đa 72 byte. CSV cũ username,password vẫn nhận nhưng giá trị cột password không được dùng. Hệ thống chỉ lưu bản hash. CSV sai hoặc trùng tài khoản bị từ chối toàn bộ. Không dùng import để sửa mật khẩu tài khoản cũ.
 3. Dùng “Cấp lại mật khẩu” khi cần cấp mật khẩu mới; “Khóa” khi cần ngăn đăng nhập. Các thao tác này hủy phiên đăng nhập cũ. Khóa sau khi vòng đã bắt đầu không thay lịch đấu đã chốt.
 4. Theo dõi “Bộ xử lý và hàng đợi”: worker là bộ xử lý tự động, slot là số bài/trận có thể chạy cùng lúc. “Xem nhật ký” mở thông tin bài nộp và các trận thử. Khi có trận đang chơi, nút xem trực tiếp xuất hiện.
-5. Cần ít nhất hai tài khoản đang mở có bot đang được chọn và đã Accepted. Mặc định dùng **Lịch đấu tự động**: không cần nhập mã ghép lịch hay tính số ván. Mỗi cặp đấu 6 ván, mỗi bên đi trước 3 ván. Hai ván đổi bên dùng cùng mã trận; ba lượt đổi bên dùng các mã khác nhau. Hai bot tạo 6 ván tổng cộng; ba bot tạo 18 ván. Vòng kết thúc đúng lịch, cho phép bằng điểm và không tự đấu phân định.
-6. Hệ thống ghép tối đa 4 đối thủ cho mỗi bot, giảm khi ít bot hoặc để không vượt 100.000 ván. Mỗi bot gặp cùng số đối thủ và có số lượt đi trước/đi sau bằng nhau. Khi thật sự cần, mở **Tự điều chỉnh lịch (nâng cao)** để dùng cấu hình riêng; đóng lại để về tự động. Ở chế độ nâng cao, số ván/bot phải chia hết số ván/cặp, số ván/cặp chẵn từ 2–20; số đối thủ nhỏ hơn số bot và phải chẵn nếu có số bot lẻ. Mã ghép lịch để trống sẽ được tự tạo.
+5. Cần ít nhất hai tài khoản đang mở có bot đang được chọn và đã Accepted. Dùng **Lịch đấu vòng tròn**: mỗi bot gặp tất cả bot còn lại, mỗi cặp mặc định 3 trận. Hai bot tạo 3 trận tổng cộng; ba bot tạo 9 trận; bốn bot tạo 18 trận. Vòng kết thúc đúng lịch, cho phép bằng điểm và không tự đấu phân định.
+6. Chỉnh **Số trận mỗi cặp bot** từ 1 đến 20 nếu cần; có nút chọn nhanh 3, 5 hoặc 7 trận. Tổng số trận = số bot × (số bot − 1) ÷ 2 × số trận mỗi cặp. Không cần tự tính số đối thủ hoặc số trận mỗi bot. Vòng vượt 100.000 trận sẽ bị từ chối, không tự bỏ bớt cặp đấu. Hệ thống bốc thăm thứ tự bằng mã ghép lịch rồi luân phiên bên đi trước trong từng cặp. Với số trận chẵn, hai bot có số lượt đi trước bằng nhau; với số trận lẻ, một bot đi trước nhiều hơn 1 lần trong cặp, nhưng chênh lệch tổng số lượt đi trước/đi sau của mỗi bot trong toàn vòng không quá 1. Hai trận đổi bên liên tiếp dùng cùng mã trận. **Tùy chỉnh mã ghép lịch (nâng cao)** chỉ dùng khi muốn tạo lại cùng lịch bốc thăm. Vòng đã tạo vẫn giữ lịch và cấu hình cũ.
 7. Bấm “Tạo và chạy vòng điểm”. Chỉ có một vòng chưa hoàn tất tại một thời điểm. Không dùng khu “Kiểm tra đấu trường” để tính điểm: khu đó chạy trận thử theo luật với bot mẫu hoặc bot thí sinh, không ảnh hưởng bảng xếp hạng.
 8. Theo dõi bảng điểm và xem từng trận. Lỗi hạ tầng tự thử lại; sau 3 lần lỗi, bấm “Chạy lại sau lỗi máy chủ” khi đã sửa Docker/máy chủ. Bot chạy lỗi trong trận thực sự thì bị xử thua.
 9. Khi hoàn tất, tải CSV bảng điểm. Mỗi vòng bắt đầu Elo 1500 riêng; xếp theo Elo rồi điểm. Thắng được 1 điểm, hòa 0,5, thua 0. Elo xét thêm sức mạnh đối thủ, nên thứ hạng không chỉ dựa trên số trận thắng.
@@ -100,3 +112,15 @@ Trong **Thí sinh**, tìm theo tên hoặc mã #, lọc tài khoản có bot/đ�
 Mở **Quản lý bộ luật**, chọn luật có sẵn hoặc **Tạo bộ luật mới**. Đặt tên, chỉnh cấu hình và bấm **Lưu bộ luật**. Mỗi lần lưu được đánh số tự động; đó là phiên bản luật, không phải bản nộp của bot. Ví dụ bản 1 giới hạn 500 nước, bản 2 giới hạn 100 nước: trận cũ giữ bản 1, trận mới có thể chọn bản 2. Lịch sử chỉ hiện khi bộ luật đã có nhiều lần lưu.
 
 Trong **Đấu thử theo bộ luật**, chọn luật (thường là bản mới nhất), hai bot và seed rồi chạy. Các bản cũ được ghi rõ để kiểm tra lại khi cần. Trận thử không cập nhật điểm, Elo hay bot đang chọn. Vòng Elo hiện dùng Classic mặc định; việc lưu luật chỉ bổ sung lựa chọn cho đấu thử. Bracket và cửa sổ nộp lại bot chưa có.
+
+## Bot mẫu với luật tùy chỉnh
+
+Mẫu Python/C++ tải trên web và hai bot tham khảo `python-greedy`, `cpp-greedy` dùng cùng chiến thuật đơn giản: chiếm nhà, ăn quân (+40), nhặt power-up khi chưa nâng cấp (+15), rồi ưu tiên gần nhà đối thủ. Sửa hàm `score` để thay chiến thuật. Khoảng cách chỉ là gợi ý, chưa tìm đường tránh chướng ngại.
+
+Luôn chọn từ `legal_moves`: hệ thống đã xử lý hình dạng bản đồ, ô chặn, số quân, kiểu đi riêng từng loại và power-up. Không hard-code bàn 9×9 hay bước đi một ô. `state.powerUps` là danh sách tọa độ vật phẩm còn lại (mặc định rỗng nếu thiếu); quân có `powered: true` đã nâng cấp, ăn được cùng loại và loại vốn yếu hơn, vẫn bị loại khắc chế ăn. Không cần tự viết lại bộ kiểm tra nước hợp lệ.
+
+Bot thí sinh đã nộp là phiên bản cố định. Muốn dùng mẫu mới, tải lại rồi nộp phiên bản mới; hệ thống không tự sửa bài đã nộp.
+
+### Quân chặn đường nhau
+
+Quân hai bên đều chặn đường nhau: không được đi xuyên hay nhảy qua quân phía trước, kể cả khi có power-up. Chỉ được ăn quân đối thủ ở ô đích nếu đúng luật. Mã đi chữ L bị cản ở ô sát quân theo chiều dài chữ L. Hướng tự chỉnh dài phải có các ô trung gian trống; ô chặn và ô ngoài bản đồ cũng cản đường. Replay trước engine phiên bản 2 giữ luật lịch sử.

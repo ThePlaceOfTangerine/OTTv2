@@ -3,11 +3,13 @@
 ## Dành cho admin
 
 1. Đăng nhập `/admin`, mở **Bộ luật → Thiết kế bàn cờ**.
-2. Bấm **Tạo luật mới**, đặt tên. Chọn số hàng/cột, hình vuông/chữ nhật, hình thoi hoặc chữ thập rồi bấm **Cập nhật bản đồ** (xếp lại nhà và quân). Chọn công cụ rồi bấm từng ô để thêm ô chặn, bỏ ô khỏi bản đồ, đặt nhà A/B hoặc vị trí quân A/B. Chỉnh số nước tối đa, số lần lặp và hướng đi. Mục **Số quân của từng bên** cho phép tăng/giảm từng loại Búa/Bao/Kéo riêng cho hai bên; sau đó bấm **Xếp quân tự động** hoặc tự đặt đủ vị trí. Bấm **Xem thử bàn cờ đầu trận** để kiểm tra trước khi lưu. Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa luôn giữ nguyên trong trình chỉnh trực quan. Có bốn màu bàn cờ để chọn.
+2. Bấm **Tạo luật mới**, đặt tên. Chọn hình dạng là bàn cờ đổi ngay; nhập xong số hàng/cột rồi chuyển sang ô khác để áp dụng kích thước. Khi đổi bản đồ, nhà và vị trí quân được sắp lại cho vừa bàn. Dùng sáu công cụ Ô cờ, Ô chặn, Nhà A/B, Quân A/B để sửa trực tiếp; bấm lại để bỏ ô/quân, riêng nhà chỉ chuyển vị trí. **Số quân chung cho hai bên** áp dụng cùng số Búa/Bao/Kéo cho A và B. Tự đặt đủ vị trí theo bộ đếm trước khi lưu. Chọn hướng chung hoặc kiểu đi riêng từng loại quân. Có thể bật 1–3 power-up ngẫu nhiên mỗi trận. Quân nhặt được có dấu + và ăn thêm được quân cùng loại, vẫn bị loại khắc chế ăn; hiệu lực giữ đến khi bị ăn. Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa vẫn giữ nguyên.
 3. Bấm **Lưu bộ luật**. Máy chủ kiểm tra cấu hình rồi cấp ID và phiên bản. JSON sai sẽ được báo lỗi, không lưu một phần.
 4. Chọn bộ luật hiện có để sửa. Mỗi lần lưu tạo phiên bản kế tiếp. Phiên bản cũ giữ nguyên; đổi tên cũng không sửa tên trong cấu hình lịch sử. Chọn phiên bản cũ để xem lại cấu hình.
 5. Trong **Đấu thử**, chọn phiên bản luật. Ở mỗi bên A/B, bấm **Chọn thí sinh / bot**, tìm tài khoản hoặc mã thí sinh, chọn thẻ thí sinh rồi phiên bản bot. Bản đang dùng được ưu tiên; vẫn có thể chọn bản hợp lệ cũ. Thí sinh bị khóa hoặc chưa có bot hợp lệ không chọn được. Tab **Bot mẫu** có bot Python/C++ để thử nhanh. Có thể chọn cùng bot cho hai bên.
 6. Bấm **Chạy trận thử**, rồi **Xem trận**. Replay hỗ trợ tự chạy và tải nhật ký. Trận thử không cộng điểm, không cập nhật Elo và không đổi bot active.
+
+Thanh công cụ có 6 nút: **Ô cờ**, **Ô chặn**, **Nhà A**, **Nhà B**, **Quân A**, **Quân B**. Ô cờ, ô chặn và quân hoạt động bật/tắt: bấm ô cùng loại lần nữa để xóa. Xóa ô cờ cũng bỏ quân hoặc ô chặn trên ô đó. Nhà A/B chỉ di chuyển bằng cách bấm ô mới, không xóa nhà. Quân mỗi bên không được thêm quá số lượng đã đặt; khi đủ, vẫn có thể bấm quân cùng bên để bỏ rồi đặt lại.
 
 Trận lưu ID, phiên bản, toàn bộ JSON luật, seed và thông tin phiên bản bot. Sửa luật sau khi tạo trận không thay cấu hình của trận đó. Seed quyết định bố trí ban đầu; để chạy lại chính xác cần giữ cùng cấu hình, engine, phiên bản bot và môi trường chạy. Bot dùng nguồn ngẫu nhiên riêng không bảo đảm cho cùng kết quả khi chạy lại. Kiểm tra replay tái dựng trạng thái từ các nước đi đã lưu.
 
@@ -34,7 +36,7 @@ Hiện vòng Elo sử dụng Classic mặc định. Việc lưu luật không t�
 | `repetitionLimit` | Số lần lặp cùng bàn cờ và bên đến lượt để hòa, từ 2–10. |
 | `noLegalMoves` | Hiện hỗ trợ `loss`: bên không còn nước hợp lệ bị thua. |
 
-Với engine này, luật thắng vẫn là chiếm nhà, ăn hết quân hoặc đối thủ hết nước hợp lệ; luật thắng được xét trước giới hạn hòa. Thay cơ chế thắng hoặc cách di chuyển vượt ngoài các trường trên cần module engine mới.
+Với engine này, luật thắng vẫn là chiếm nhà, ăn hết quân hoặc đối thủ hết nước hợp lệ; luật thắng được xét trước giới hạn hòa. Thay cơ chế thắng cần module engine mới.
 
 ## Dành cho người phát triển
 
@@ -52,3 +54,17 @@ SQLite lưu danh mục tại `rule_sets`, các cấu hình bất biến tại `r
 - `npm run test:rules`: cần Docker và image sandbox. Nộp Python/C++ qua pipeline thật, chạy sample–sample, student–sample, student–student với luật giới hạn 8 nước; kiểm tra replay, bot active và bảng điểm không thay đổi.
 
 Các bài kiểm thử tự tạo DB/thư mục riêng, không dùng dữ liệu giải thật.
+
+## Di chuyển riêng và power-up
+
+- `symmetricArmies: true`: từ chối cấu hình hai bên khác số lượng từng loại quân. Trình chỉnh trực quan luôn dùng chung `pieceTypes`; luật cũ vẫn đọc được.
+- `powerUps: true`: tạo ngẫu nhiên 1–3 vật phẩm ở ô trống, không đặt trên nhà, quân, ô chặn hay ô bỏ; nếu chỉ còn 1–2 ô hợp lệ thì số vật phẩm không vượt số ô. Vị trí tái hiện được bằng seed. Không sinh lại sau khi nhặt.
+- `movementByType`: ví dụ `{"R":{"kind":"rook"},"P":{"kind":"knight"},"S":{"kind":"bishop"}}`. Các kiểu: `king`, `rook`, `bishop`, `queen`, `knight`, `pawn`, `custom`. Các kiểu này chỉ quy định di chuyển; ăn quân vẫn theo Búa/Bao/Kéo và power-up. Không có chiếu vua, nhập thành hay phong cấp.
+- Tốt: A tiến xuống, B tiến lên; đi thẳng một ô trống, ăn chéo một ô; không đi hai ô hoặc bắt qua đường.
+- Tự chỉnh: `{"kind":"custom","directions":[[-1,0],[0,1]],"maxSteps":3,"jump":false,"relative":true}`. Mỗi hướng là độ lệch hàng/cột, thành phần −8 đến 8, tối đa 48 hướng khác nhau; tầm 1–32 bước. `jump` chỉ giữ để đọc cấu hình cũ, không còn cho phép nhảy qua quân/địa hình. `relative` đảo hướng cho B. Không khai báo loại nào thì loại đó dùng `directions` chung.
+
+Tính năng tùy chỉnh áp dụng ở **Đấu thử**. Vòng điểm chính thức vẫn dùng bộ luật Classic mặc định.
+
+### Quân chặn đường nhau
+
+Quân hai bên đều chặn đường nhau: không được đi xuyên hay nhảy qua quân phía trước, kể cả khi có power-up. Chỉ được ăn quân đối thủ ở ô đích nếu đúng luật. Mã đi chữ L bị cản ở ô sát quân theo chiều dài chữ L. Hướng tự chỉnh dài phải có các ô trung gian trống; ô chặn và ô ngoài bản đồ cũng cản đường. Replay trước engine phiên bản 2 giữ luật lịch sử.

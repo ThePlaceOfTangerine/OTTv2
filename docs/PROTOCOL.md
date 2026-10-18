@@ -22,7 +22,7 @@ Compile và chạy bot hoàn toàn trong Docker Linux. Mỗi bên có container 
 }
 ```
 
-Ví dụ trên rút gọn `rules` và `board`. Request thật chứa **toàn bộ RuleSet**. Số hàng/cột lấy từ `state.board.length` và `state.board[0].length`; nếu có `boardRows`/`boardCols` thì chúng thay cho kích thước vuông `boardSize`. Ô trống là `null`, quân là `{"player":0,"type":"R"}`. `rules.blockedCells` và `rules.voidCells` cũng là ô `null` trên board nhưng không được đi vào. `playerPieceTypes` có thể quy định số quân hai bên khác nhau. Chọn từ `legal_moves` sẽ tự tuân theo địa hình, kích thước và hướng đi của bộ luật; engine luôn kiểm tra lại.
+Ví dụ trên rút gọn `rules` và `board`. Request thật chứa **toàn bộ RuleSet**. Số hàng/cột lấy từ `state.board.length` và `state.board[0].length`; nếu có `boardRows`/`boardCols` thì chúng thay cho kích thước vuông `boardSize`. Ô trống là `null`, quân là `{"player":0,"type":"R"}`. `rules.blockedCells` và `rules.voidCells` cũng là ô `null` trên board nhưng không được đi vào. Trình chỉnh luật hiện dùng chung số lượng từng loại cho hai bên (`symmetricArmies=true`). `playerPieceTypes` trong luật lịch sử vẫn có thể chứa cơ cấu riêng từng bên; bot nên đọc quân thực tế từ board. Chọn từ `legal_moves` sẽ tự tuân theo địa hình, kích thước và hướng đi của bộ luật; engine luôn kiểm tra lại.
 
 RuleSet có `homes`, `pieceTypes`, `beats`, `directions`, `startingPositions`, `maxMoves`, `repetitionLimit` và trường mở rộng trong tương lai. Không hardcode bàn 9×9 hay số quân nếu muốn thích nghi khi đổi luật. `state` và `rules` có thể thêm trường mà vẫn giữ protocol v1; bỏ qua trường không biết.
 
@@ -57,3 +57,46 @@ Image được chốt theo SHA-256 ID cho compile/runtime và lưu vào replay; 
 Bot mẫu: `bots/python-greedy/main.py`, `bots/cpp-greedy/main.cpp`. Template: `bots/templates/python/main.py`, `bots/templates/cpp/main.cpp`.
 
 Classic v2 đặt randomExtraPiece=true: engine lấy 3 quân mỗi loại R/P/S và thêm một quân được chọn từ R/P/S theo seed. pieceTypes trong RuleSet là pool cơ sở; đọc state.board để biết số quân thực tế của ván. RuleSet v1 không có cờ này vẫn dùng 3R+3P+4S, giúp replay lịch sử giữ nguyên.
+
+## Viết bot cho luật tùy chỉnh
+
+Các giới hạn 9×9, 10 quân, một ô/tám hướng và 500 nước ở trên chỉ mô tả Classic. Đọc cấu hình của chính trận đang chơi. Hai ván kiểm tra bài nộp và vòng điểm hiện dùng Classic; luật tùy chỉnh được dùng trong Đấu thử do admin tạo.
+
+| Dữ liệu | Cách dùng |
+| --- | --- |
+| `state.board` | Số hàng/cột thật lấy từ mảng; đếm quân hiện tại từ các phần tử khác null. |
+| `rules.homes[1-player_index]` | Nhà đối thủ, không cố định tọa độ hoặc góc bàn. |
+| `rules.blockedCells`, `rules.voidCells` | Các cặp `[row,col]` không được đi vào, dù board có thể là null. Thiếu trường thì dùng danh sách rỗng. |
+| `state.powerUps` | Khi bật power-up, các cặp `[row,col]` còn vật phẩm; dùng danh sách rỗng nếu thiếu. |
+| `piece.powered` | true nếu quân đã nhặt vật phẩm, mặc định false khi thiếu. |
+| `rules.movementByType` | Cấu hình di chuyển theo mã R/P/S. Nếu loại đó không có cấu hình, dùng `rules.directions` chung. |
+| `legal_moves` | Nguồn nước hợp lệ chính thức, đã xét địa hình, kiểu đi, quyền sở hữu, ăn quân và power-up. |
+
+### Power-up
+
+`rules.powerUps=true` tạo ngẫu nhiên từ 1 đến 3 vật phẩm lúc bắt đầu, không vượt số ô trống hợp lệ; không đặt trên nhà/quân/ô chặn/ô bỏ. Vị trí tái hiện bằng seed, không sinh lại sau khi nhặt. Đi vào ô có vật phẩm sẽ xóa vật phẩm và đặt `powered: true` trên quân. Hiệu lực giữ đến khi quân bị ăn, không cộng dồn.
+
+Quân nâng cấp ăn được loại vốn yếu hơn **và cùng loại**, vẫn không được ăn loại khắc chế. Ví dụ Búa+ ăn Búa hoặc Kéo, vẫn bị Bao ăn. Quân cùng loại được nâng cấp hay chưa đều có thể bị quân nâng cấp tấn công. Không ăn quân cùng bên.
+
+Snapshot luật cũ không có `powerUps`; quân thường không có `powered`. Python đọc bằng `.get('powerUps', [])` / `.get('powered', False)`; C++ dùng `.value("powerUps", json::array())` / `.value("powered", false)`.
+
+### Di chuyển theo từng loại
+
+Ví dụ: `"movementByType":{"R":{"kind":"rook"},"P":{"kind":"knight"},"S":{"kind":"bishop"}}`.
+
+- `king`: một ô theo tám hướng; `rook`: ngang/dọc; `bishop`: chéo; `queen`: ngang/dọc/chéo. Các tia dài dừng ở vật cản hoặc quân, không nhảy qua.
+- `knight`: đi chữ L, bị cản chân ở ô sát quân theo chiều dài chữ L. Không nhảy qua quân hoặc vật cản.
+- `pawn`: bên 0 tiến xuống, bên 1 tiến lên; đi thẳng một ô trống, ăn chéo một ô. Không đi hai ô, phong cấp, bắt qua đường.
+- `custom`: ví dụ `{"kind":"custom","directions":[[0,1],[-1,0]],"maxSteps":3,"jump":false,"relative":true}`. Mỗi hướng có thành phần −8 đến 8, tối đa 48 hướng khác nhau, không `[0,0]`; tầm 1–32 bước. `relative=true` đảo hướng cho bên 1. Cờ `jump` trong luật cũ không còn cho phép nhảy. Chi tiết chặn đường xem RULE-SETS.md.
+
+Đây chỉ là kiểu đi; không áp dụng chiếu vua hoặc nhập thành của cờ vua. Cách đơn giản và ít lỗi nhất là chấm điểm từng phần tử của `legal_moves`, không tự dựng lại bộ kiểm tra luật.
+
+### Chiến thuật mẫu và kiểm tra bài
+
+Bốn file mẫu dùng hàm `score`: chiếm nhà được 100000 điểm; ăn quân +40; nhặt power-up khi chưa nâng cấp +15; trừ khoảng cách tới nhà. Khoảng cách là gợi ý, chưa tính đường vòng hoặc số lượt thật với các kiểu đi mới. Hai nước cùng điểm thì giữ nước xuất hiện trước trong `legal_moves`.
+
+Bot chỉ được gọi khi ván còn đang chơi và có nước hợp lệ. Giữ nguyên phần đọc/gửi JSON, chỉ sửa chiến thuật khi mới bắt đầu. Để kiểm tra luật tùy chỉnh, nhờ admin chạy Đấu thử và xem replay. File đã nộp là phiên bản cố định; muốn dùng mẫu cập nhật thì tải lại và nộp phiên bản mới.
+
+### Quân chặn đường nhau
+
+Quân hai bên đều chặn đường nhau: không được đi xuyên hay nhảy qua quân phía trước, kể cả khi có power-up. Chỉ được ăn quân đối thủ ở ô đích nếu đúng luật. Mã đi chữ L bị cản ở ô sát quân theo chiều dài chữ L. Hướng tự chỉnh dài phải có các ô trung gian trống; ô chặn và ô ngoài bản đồ cũng cản đường. Replay trước engine phiên bản 2 giữ luật lịch sử.

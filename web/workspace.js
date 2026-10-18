@@ -3,6 +3,7 @@
 const workspaceAdmin = location.pathname.startsWith('/admin');
 document.querySelector('.workspace-sidebar .brand').href = workspaceAdmin ? '/admin' : '/portal';
 const workspaceViews = workspaceAdmin ? {
+  tournaments: ['Giải đấu', 'Quản lý vòng loại tính điểm, loại trực tiếp và kết quả giải.'],
   monitor: ['Giám sát', 'Theo dõi bài nộp và các trận đang diễn ra.'],
   users: ['Thí sinh', 'Cấp tài khoản và quản lý quyền tham gia.'],
   scores: ['Vòng điểm', 'Tổ chức vòng đấu và theo dõi bảng xếp hạng.'],

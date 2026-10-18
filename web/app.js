@@ -33,8 +33,9 @@ async function showSession(data) {
   const overview = await api(`/api/${admin ? 'admin' : 'portal'}/overview`);
   document.getElementById('overview').textContent = admin ? `${overview.contestants} thí sinh · ${overview.locked} tài khoản bị khóa` : 'Tài khoản thí sinh đang hoạt động.';
   if (admin) { document.getElementById('admin-guide').hidden = false; document.getElementById('match-panel').hidden = false; await loadMatches(); }
-  else { document.getElementById('submission-panel').hidden = false; await loadSubmissions(); }
+  else { document.getElementById('submission-panel').hidden = false; await loadSubmissionStages(); await loadSubmissions(); }
   await startAdminTools();
+  if (!admin) document.dispatchEvent(new Event('portal-ready'));
 }
 document.getElementById('login-form').addEventListener('submit', async event => {
   event.preventDefault(); message.textContent = '';
@@ -165,10 +166,13 @@ function renderReplay() {
   const turn = Number(document.getElementById('replay-turn').value);
   document.getElementById('replay-turn-label').textContent = `${turn}/${replay.turns.length}`;
   const board = structuredClone(replay.initial.board);
+  let powerUps=structuredClone(replay.initial.powerUps||[]);
+  const pickups=new Set();
   const captures = new Set();
   replay.turns.slice(0, turn).forEach(({ move: m }, i) => {
     if (board[m.toRow][m.toCol]) captures.add(i);
     board[m.toRow][m.toCol] = board[m.fromRow][m.fromCol]; board[m.fromRow][m.fromCol] = null;
+    if(powerUps.some(p=>p[0]===m.toRow&&p[1]===m.toCol)){board[m.toRow][m.toCol].powered=true;powerUps=powerUps.filter(p=>p[0]!==m.toRow||p[1]!==m.toCol);pickups.add(i);}
   });
   const rows = board.length, cols = board[0].length;
   const last = turn ? replay.turns[turn - 1] : null;
@@ -181,7 +185,7 @@ function renderReplay() {
     const strip = document.getElementById(id); strip.replaceChildren();
     for (let i = 0; i < (id.includes('col-') ? cols : rows); i++) { const label = document.createElement('span'); label.className = 'clabel'; label.textContent = id.includes('col-') ? columnName(i) : rows - i; strip.append(label); }
   }
-  const images = { R: '/img/rock.png', P: '/img/paper.png', S: '/img/scissor.png' };
+  const images = { R: '/assets/pieces/rock.svg', P: '/assets/pieces/paper.svg', S: '/assets/pieces/scissor.svg' };
   const labels = { R: 'Búa', P: 'Bao', S: 'Kéo' };
   const counts = [{}, {}];
   const blocked = new Set((replay.rules.blockedCells || []).map(p => p.join(',')));
@@ -191,11 +195,13 @@ function renderReplay() {
     cell.title = `${columnName(c)}${rows - r}${piece ? ` · Bên ${piece.player} · ${labels[piece.type] || piece.type}` : ''}`;
     if (blocked.has(`${r},${c}`)) { cell.classList.add('terrain-blocked'); cell.title += ' · Chướng ngại vật'; }
     if (voids.has(`${r},${c}`)) { cell.classList.add('terrain-void'); cell.title += ' · Ngoài bản đồ'; }
+    if(powerUps.some(p=>p[0]===r&&p[1]===c)){const badge=document.createElement('span');badge.className='power-up';badge.textContent='+';badge.title='Power-up: đi vào ô này để nâng cấp quân';cell.append(badge);cell.title+=' · Power-up';}
     if (piece) {
       counts[piece.player][piece.type] = (counts[piece.player][piece.type] || 0) + 1;
       const token = document.createElement('div'); token.className = `piece p${piece.player}`;
       if (images[piece.type]) { const img = document.createElement('img'); img.src = images[piece.type]; img.alt = labels[piece.type]; token.append(img); }
       else token.textContent = piece.type;
+      if(piece.powered){token.classList.add('powered');const badge=document.createElement('span');badge.className='powered-badge';badge.textContent='+';token.append(badge);cell.title+=' · Đã nâng cấp: ăn được quân cùng loại';}
       cell.append(token);
     }
     replay.rules.homes.forEach((h, p) => { if (h.row === r && h.col === c) { cell.classList.add(`home-p${p}`); const star = document.createElement('span'); star.className = 'home-icon'; star.textContent = '★'; cell.append(star); } });
@@ -232,11 +238,30 @@ function renderReplay() {
     const player = document.createElement('span'); player.className = `pt p${entry.player}`; player.textContent = `Bên ${entry.player}`;
     item.append(document.createTextNode(`${i + 1}. `), player, document.createTextNode(` ${columnName(m.fromCol)}${rows - m.fromRow} → ${columnName(m.toCol)}${rows - m.toRow}`));
     if (captures.has(i)) item.append(document.createTextNode(' · Ăn quân'));
+    if (pickups.has(i)) item.append(document.createTextNode(' · Nhặt power-up (+)'));
     log.append(item);
   });
 }
 
 let submissionPoll = null, selectedSubmission = null;
+let submissionStageId = '', submissionStage = null, submissionSequence = 0, retryUpload = null, uploadBusy = false;
+async function loadSubmissionStages() {
+  const data = await api('/api/portal/tournaments');
+  const select = document.getElementById('submission-stage'); select.replaceChildren();
+  const practice = document.createElement('option'); practice.value = ''; practice.textContent = 'Luyện tập ngoài giải (luật cơ bản)'; select.append(practice);
+  for (const stage of data.stages) { const option = document.createElement('option'); option.value = stage.id; option.textContent = `${stage.name} · ${stage.kind === 'final' ? 'Nộp lại vòng chính thức' : 'Vòng loại'}`; select.append(option); }
+  if (!data.stages.some(stage => stage.id === submissionStageId)) submissionStageId = '';
+  select.value = submissionStageId;
+}
+document.getElementById('submission-stage').addEventListener('change', async event => {
+  submissionStageId = event.target.value; selectedSubmission = null; retryUpload = null;
+  document.getElementById('submission-detail').hidden = true;
+  try { await loadSubmissions(); } catch (error) { submissionMessage.textContent = error.message; }
+});
+document.getElementById('submission-stage-refresh').addEventListener('click', async () => {
+  try { await loadSubmissionStages(); await loadSubmissions(); } catch (error) { submissionMessage.textContent = error.message; }
+});
+document.addEventListener('visibilitychange', () => { if (!admin && !document.hidden && submissionStageId) loadSubmissions().catch(error => { submissionMessage.textContent = error.message; }); });
 const submissionLabels = { Queued: 'Đang chờ', Scanning: 'Đang kiểm tra bài', Compiling: 'Đang chuẩn bị chạy', 'Test match': 'Đang đấu thử', Accepted: 'Sẵn sàng thi đấu', Rejected: 'Cần sửa bài' };
 const submissionHints = {
  static_scan: 'Bài có dùng thư viện hoặc lệnh không được phép. Mở chi tiết kỹ thuật để xem tên, rồi bỏ lệnh đó hoặc dùng cách khác.',
@@ -253,18 +278,24 @@ const submissionHints = {
 const submissionMessage = document.getElementById('submission-message');
 document.getElementById('submission-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = document.getElementById('submit-bot'); button.disabled = true; submissionMessage.textContent = '';
+  if (uploadBusy) return;
+  uploadBusy = true;
+  document.getElementById('submission-stage').disabled = document.getElementById('submission-stage-refresh').disabled = true;
   try {
     const file = document.getElementById('bot-file').files[0];
     if (!file) throw new Error('Hãy chọn file bot.');
     if (file.size > (file.name.endsWith('.zip') ? 5 : 1) * 1024 * 1024) throw new Error('Một file mã nguồn tối đa 1 MiB; file ZIP tối đa 5 MiB.');
     const form = new FormData(); form.append('bot', file);
     const entry = document.getElementById('bot-entry').value.trim(); if (entry) form.append('entry', entry);
-    const result = await api('/api/portal/submissions', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: form });
+    const stageId = submissionStageId;
+    if (!retryUpload || retryUpload.file !== file || retryUpload.entry !== entry || retryUpload.stageId !== stageId) retryUpload = { file, entry, stageId, key: Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('') };
+    const result = await api(stageId ? `/api/portal/stages/${encodeURIComponent(stageId)}/submissions` : '/api/portal/submissions', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken, ...(stageId ? { 'Idempotency-Key': retryUpload.key } : {}) }, body: form });
+    retryUpload = null;
     selectedSubmission = result.id; document.getElementById('bot-file').value = '';
-    submissionMessage.textContent = `Đã nhận phiên bản v${result.version}. Theo dõi kết quả trong lịch sử phiên bản; trang sẽ tự cập nhật.`;
+    submissionMessage.textContent = `Đã nhận phiên bản v${result.version} · Mã bài: ${result.id} · ${new Date(result.received_at).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' })} (giờ Việt Nam). Theo dõi kết quả bên dưới.`;
     await loadSubmissions();
   } catch (error) { submissionMessage.textContent = error.message; }
-  finally { button.disabled = false; }
+  finally { uploadBusy = false; button.disabled = false; document.getElementById('submission-stage').disabled = document.getElementById('submission-stage-refresh').disabled = false; document.getElementById('submission-upload-fields').disabled = !!submissionStage && !submissionStage.canSubmit; }
 });
 async function submissionAction(id, action) {
   try {
@@ -273,9 +304,72 @@ async function submissionAction(id, action) {
     await loadSubmissions();
   } catch (error) { submissionMessage.textContent = error.message; }
 }
+function renderSubmissionStage(stage) {
+  const host = document.getElementById('submission-stage-info');
+  host.replaceChildren();
+  host.dataset.state = 'practice';
+  if (!stage) { host.textContent = 'Luyện tập ngoài giải · Bài luyện tập không tự trở thành bài thi. Chọn đúng giải trước khi nộp.'; return; }
+  const upcoming = stage.status === 'open' && stage.serverNow < stage.opensAt;
+  const remaining = stage.closesAt - stage.serverNow;
+  const state = stage.status === 'locked' ? 'locked' : upcoming ? 'upcoming' : stage.canSubmit ? remaining <= 86400000 ? 'urgent' : 'open' : 'closed';
+  host.dataset.state = state;
+  const badge = textNode('span', stage.cancelled ? 'Giải đã hủy' : ({ locked: 'Đã chốt bot', upcoming: 'Chưa đến giờ nhận bài', urgent: 'Sắp hết hạn nộp', open: 'Đang nhận bài', closed: 'Đã đóng nhận bài' })[state]);
+  badge.className = 'stage-state'; host.append(badge);
+  if (stage.kind === 'final') {
+    const notice = textNode('p', `Nộp lại vòng chính thức · ${stage.rules.name} · bản ${stage.rules.version}. ${stage.announcement || ''}`); notice.className = 'stage-note'; host.append(notice);
+    host.append(textNode('p', 'Bắt buộc có bài hợp lệ trong đợt này. Không tự dùng bot vòng loại nếu chưa kiểm tra theo luật chính thức.'));
+
+  }
+  const deadline = document.createElement('div'); deadline.className = 'stage-deadline';
+  deadline.append(textNode('span', 'Hạn nộp bài · giờ Việt Nam'));
+  const time = textNode('time', new Date(stage.closesAt).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' }));
+  time.dateTime = new Date(stage.closesAt).toISOString(); deadline.append(time); host.append(deadline);
+  const formatDuration = ms => {
+    const minutes = Math.ceil(ms / 60000), days = Math.floor(minutes / 1440), hours = Math.floor(minutes % 1440 / 60);
+    return [days ? `${days} ngày` : '', hours ? `${hours} giờ` : '', `${minutes % 60} phút`].filter(Boolean).join(' ');
+  };
+  const summary = upcoming ? `Mở nhận bài lúc ${new Date(stage.opensAt).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' })}`
+    : stage.canSubmit ? `Còn ${formatDuration(Math.max(0, remaining))} để nộp bài`
+    : stage.status === 'locked' ? 'Danh sách bot đã được chốt cho vòng thi.' : 'Không thể nộp thêm bài cho giai đoạn này.';
+  const countdown = textNode('p', summary); countdown.className = 'stage-remaining'; host.append(countdown);
+  const clock = textNode('p', `Theo giờ máy chủ khi cập nhật: ${new Date(stage.serverNow).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' })}.`); clock.className = 'stage-clock'; host.append(clock);
+  const rules = stage.rules;
+  const rulePanel = document.createElement('section'); rulePanel.className = 'stage-rule-description';
+  rulePanel.append(textNode('h3', 'Quy tắc của vòng đang chọn'));
+  if (rules) {
+    rulePanel.append(textNode('p', rules.name + ' · phiên bản ' + rules.version + ' · ' + (stage.kind === 'final' ? 'Vòng chính thức' : 'Vòng loại')));
+    const list = document.createElement('ul');
+    const item = value => list.append(textNode('li', value));
+    if (rules.engine === 'rps-grid-v1') {
+      const pieceName = type => ({ R: 'Búa', P: 'Bao', S: 'Kéo' })[type] || type;
+      item('Bàn cờ: ' + (rules.boardRows ?? rules.boardSize) + ' hàng × ' + (rules.boardCols ?? rules.boardSize) + ' cột; ' + (rules.blockedCells || []).length + ' ô chặn, ' + (rules.voidCells || []).length + ' ô ngoài bản đồ.');
+      const army = pool => Object.entries(pool.reduce((counts, type) => { counts[type] = (counts[type] || 0) + 1; return counts; }, {})).map(([type, count]) => count + ' ' + pieceName(type)).join(', ');
+      item(rules.randomExtraPiece ? 'Mỗi bên có 10 quân Búa/Bao/Kéo theo tỷ lệ 3–3–4; loại có 4 quân được chọn theo mã khởi tạo, giống nhau cho hai bên.' : rules.playerPieceTypes ? 'Quân bên A: ' + army(rules.playerPieceTypes[0]) + '. Quân bên B: ' + army(rules.playerPieceTypes[1]) + '.' : 'Quân mỗi bên: ' + army(rules.pieceTypes) + '.');
+      const movementNames = { king: 'một ô theo tám hướng', rook: 'theo hàng hoặc cột', bishop: 'theo đường chéo', queen: 'theo hàng, cột hoặc đường chéo', knight: 'theo chữ L (bị cản nếu ô sát theo chiều dài chữ L có vật cản)', pawn: 'tiến thẳng một ô trống, ăn chéo một ô; bên A tiến xuống, bên B tiến lên' };
+      const directions = (rules.directions || []).map(d => '[' + d.join(', ') + ']').join(', ');
+      item('Di chuyển mặc định: mỗi lượt đi một quân, một bước theo độ lệch [hàng, cột]: ' + directions + '.');
+      for (const [type, move] of Object.entries(rules.movementByType || {})) item(pieceName(type) + ': ' + (movementNames[move.kind] || 'hướng tùy chỉnh ' + JSON.stringify(move.directions) + ', tối đa ' + move.maxSteps + ' bước' + (move.relative ? ', đảo hướng cho bên B' : '')) + '.');
+      item('Không được đi xuyên qua quân, ô chặn hoặc ô ngoài bản đồ. Ăn quân: ' + Object.entries(rules.beats).map(([a, b]) => pieceName(a) + ' ăn ' + pieceName(b)).join('; ') + '.');
+      item('Thắng khi chiếm nhà đối phương, ăn hết quân đối phương hoặc đối phương không còn nước hợp lệ. Điều kiện thắng được xét trước điều kiện hòa.');
+      item('Hòa khi đạt ' + rules.maxMoves + ' nước tổng cộng hoặc cùng thế cờ và bên đến lượt lặp lại ' + rules.repetitionLimit + ' lần.');
+      item(rules.powerUps ? 'Có vật phẩm tăng sức mạnh: sinh ngẫu nhiên tối đa 3 ở ô trống; quân nhặt được có thể ăn cả quân cùng loại. Vật phẩm không sinh lại.' : 'Không có vật phẩm tăng sức mạnh.');
+      item('Tọa độ bắt đầu từ 0. Vị trí nhà và vị trí xuất phát nằm trong cấu hình đầy đủ bên dưới; quân được xáo trộn theo mã khởi tạo. Bot nên đọc luật, trạng thái và danh sách nước hợp lệ máy chủ gửi, không cố định bàn cờ trong mã.');
+    } else item('Vòng này dùng bộ máy luật riêng. Hãy xem cấu hình đầy đủ và thông báo của ban tổ chức trước khi nộp.');
+    rulePanel.append(list);
+    const details = document.createElement('details'); details.append(textNode('summary', 'Xem cấu hình luật đầy đủ và tọa độ xuất phát'));
+    const config = textNode('pre', JSON.stringify(rules, null, 2)); config.className = 'stage-rules-json'; details.append(config); rulePanel.append(details);
+  } else rulePanel.append(textNode('p', 'Chưa tải được luật của vòng. Hãy cập nhật giải và trạng thái trước khi nộp.'));
+  host.append(rulePanel);
+  const note = textNode('p', stage.snapshot ? 'Bot đã chốt: v' + stage.snapshot.version : 'Bài nhận đúng hạn tiếp tục được kiểm tra. Nếu chưa chọn riêng, hệ thống dùng bản hợp lệ mới nhất.'); note.className = 'stage-note'; host.append(note);
+}
 async function loadSubmissions() {
   clearTimeout(submissionPoll);
-  const data = await api('/api/portal/submissions');
+  const request = ++submissionSequence, context = submissionStageId;
+  const data = await api(context ? `/api/portal/stages/${encodeURIComponent(context)}/submissions` : '/api/portal/submissions');
+  if (request !== submissionSequence || context !== submissionStageId) return;
+  submissionStage = data.stage || null;
+  document.getElementById('submission-upload-fields').disabled = uploadBusy || !!submissionStage && !submissionStage.canSubmit;
+  renderSubmissionStage(submissionStage);
   const list = document.getElementById('submission-list'); list.replaceChildren();
   if (!data.submissions.length) list.textContent = 'Chưa có phiên bản nào. Tải mã mẫu trong mục Hướng dẫn hoặc chọn file để nộp bot đầu tiên.';
   for (const submission of data.submissions) {
@@ -289,12 +383,12 @@ async function loadSubmissions() {
     const actions = document.createElement('div'); actions.className = 'submission-actions';
     const view = document.createElement('button'); view.type = 'button'; view.textContent = 'Chi tiết & trận thử';
     view.addEventListener('click', () => { selectedSubmission = submission.id; loadSubmissionDetail().catch(error => { submissionMessage.textContent = error.message; }); }); actions.append(view);
-    if (submission.status === 'Accepted' && !submission.active) { const activate = document.createElement('button'); activate.type = 'button'; activate.textContent = 'Chọn bản này thi đấu'; activate.addEventListener('click', () => submissionAction(submission.id, 'activate')); actions.append(activate); }
+    if (submission.status === 'Accepted' && !submission.active && (!submissionStage || submissionStage.canSubmit)) { const activate = document.createElement('button'); activate.type = 'button'; activate.textContent = 'Chọn bản này thi đấu'; activate.addEventListener('click', () => submissionAction(submission.id, 'activate')); actions.append(activate); }
     if (submission.job_status === 'blocked' && submission.error_type === 'system') { const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Thử lại'; retry.addEventListener('click', () => submissionAction(submission.id, 'retry')); actions.append(retry); }
     row.append(info, actions); list.append(row);
   }
   if (selectedSubmission) await loadSubmissionDetail();
-  if (data.submissions.some(submission => ['queued','running'].includes(submission.job_status))) submissionPoll = setTimeout(() => loadSubmissions().catch(error => { submissionMessage.textContent = error.message; }), 1000);
+  if (data.submissions.some(submission => ['queued','running'].includes(submission.job_status)) || submissionStage && submissionStage.status !== 'locked') submissionPoll = setTimeout(() => { if (!document.hidden) loadSubmissions().catch(error => { submissionMessage.textContent = error.message; }); }, 3000);
 }
 async function loadSubmissionDetail() {
   if (!selectedSubmission) return;

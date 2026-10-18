@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quy tắc và cách tổ chức giải · OTTv2</title><link rel="icon" href="/assets/favicon.svg"><link rel="stylesheet" href="/assets/tournament-guide.css"></head>
+<body><a class="skip-link" href="#guide-content">Đến nội dung hướng dẫn</a>
+<header><a href="/admin#tournaments">← Về mục Giải đấu</a><p class="eyebrow">DÀNH CHO BAN TỔ CHỨC</p><h1>Quy tắc và cách tổ chức giải đấu</h1><p>Hiểu thể thức, cách tính điểm và từng thao tác từ tạo giải đến duyệt đội vô địch.</p><span class="guide-version">Theo chức năng hiện có · Cập nhật 19/10/2026</span></header>
+<div class="guide-layout"><nav aria-label="Mục lục hướng dẫn"><strong>Trong tài liệu này</strong><a href="#section-1">1. Một giải diễn ra như thế nào?</a>
+<a href="#section-2">2. Cấu hình cần hiểu trước khi tạo giải</a>
+<a href="#section-3">3. Từng bước tạo và chạy giải</a>
+<a href="#section-4">4. Vòng loại tính điểm và cách xếp hạng</a>
+<a href="#section-5">5. Vòng loại trực tiếp và phân định hòa</a>
+<a href="#section-6">6. Cách đọc giao diện và trạng thái</a>
+<a href="#section-7">7. Các tình huống thường gặp</a>
+<a href="#section-8">8. Phạm vi hiện có và những việc cần chuẩn bị</a>
+<a href="#section-9">Tạm dừng, tiếp tục và hủy loại trực tiếp</a>
+<a href="#section-10">Tạm dừng, tiếp tục và hủy vòng loại</a>
+<a href="#section-11">Hủy giải trước thi đấu</a></nav><main id="guide-content"><p>Tài liệu dành cho quản trị viên sử dụng mục <strong>Giải đấu</strong>. Nội dung mô tả chức năng hiện có: nhận bot, vòng loại tính điểm, chọn đội đi tiếp, loại trực tiếp và duyệt kết quả. Các thuật ngữ đều được giải thích theo cách dùng trên giao diện.</p>
+<h2 id="section-1" tabindex="-1">1. Một giải diễn ra như thế nào?</h2>
+<p><strong>Tạo giải → lưu danh sách đội → mở nhận bài → đóng nhận bài → chờ kiểm tra xong → chốt bot → vòng loại tính điểm → chốt đội đi tiếp → tạo sơ đồ → loại trực tiếp → duyệt kết quả và kết thúc.</strong></p>
+<ul>
+<li><strong>Đội:</strong> một tài khoản thí sinh được thêm vào danh sách giải.</li>
+<li><strong>Bot:</strong> chương trình Python hoặc C++ của đội. Mỗi lần nộp tạo một phiên bản mới.</li>
+<li><strong>Ván:</strong> một lần hai bot chơi trên bàn cờ và nhận kết quả thắng, hòa hoặc thua.</li>
+<li><strong>Cặp đấu:</strong> hai đội gặp nhau, có thể chơi nhiều ván để xác định kết quả chung.</li>
+<li><strong>Lượt đấu vòng loại:</strong> một đợt ghép cặp; mỗi đội gặp một đối thủ, hoặc nhận suất miễn đấu nếu số đội lẻ.</li>
+<li><strong>Hạt giống:</strong> thứ tự của đội trong bảng vòng loại đã duyệt. Hạt giống 1 có thứ hạng cao nhất.</li>
+<li><strong>Mã ghép lịch:</strong> mã được lưu để tái lập việc ghép cặp và phân định bốc thăm khi mọi chỉ số bằng nhau. Có thể để hệ thống tự tạo.</li>
+</ul>
+<p>Mục <strong>Vòng điểm</strong> là luồng xếp hạng cũ, tách khỏi giải này. Điểm ở đó không quyết định đội đi tiếp hoặc vô địch trong mục Giải đấu.</p>
+<h2 id="section-2" tabindex="-1">2. Cấu hình cần hiểu trước khi tạo giải</h2>
+<div class="guide-table" tabindex="0" aria-label="Bảng hướng dẫn, có thể cuộn ngang"><table><thead><tr><th scope="col">Trường trên giao diện</th><th scope="col">Ý nghĩa và điều kiện</th></tr></thead><tbody>
+<tr><td>Sức chứa đội</td><td>Số đội tối đa được đăng ký; không phải số đội tự động xuất hiện. Mặc định 150, có thể sửa khi giải còn chuẩn bị.</td></tr>
+<tr><td>Phiên bản luật vòng loại</td><td>Bàn cờ, cách đi, điều kiện thắng/hòa và giới hạn nước. Chọn đúng phiên bản trước khi mở nhận bài.</td></tr>
+<tr><td>Số lượt đấu vòng loại</td><td>Mỗi đội được ghép một cặp mỗi lượt. Phải nhỏ hơn số bot thực tế đã chốt, không chỉ nhỏ hơn sức chứa.</td></tr>
+<tr><td>Số ván mỗi cặp vòng loại</td><td>Số chẵn từ 2 đến 20 để đổi bên. Các ván liền nhau theo từng cặp dùng cùng mã khởi tạo.</td></tr>
+<tr><td>Số đội vào vòng loại trực tiếp</td><td>Số đội dự kiến đi tiếp. Khi duyệt có thể nhập lại số đội phù hợp, từ 2 đến số đội thực sự thi đấu vòng loại.</td></tr>
+<tr><td>Số ván mỗi cặp loại trực tiếp</td><td>Số lẻ từ 1 đến 19. Hệ thống chơi đủ số ván chính này rồi so tổng điểm ván.</td></tr>
+<tr><td>Số cặp đấu thêm khi hòa</td><td>Từ 1 đến 10. Mỗi cặp phụ gồm 2 ván đổi bên; vẫn hòa sau giới hạn này thì xét hạt giống.</td></tr>
+<tr><td>Mở/đóng nhận bài</td><td>Nhập theo giờ Việt Nam. Để trống giờ mở để mở ngay khi bấm nút; phải lưu hạn đóng trong tương lai.</td></tr>
+</tbody></table></div>
+<p><strong>Ví dụ giải 6 đội:</strong> sức chứa 6, vòng loại 2 lượt, 2 ván/cặp, chọn 4 hoặc 6 đội đi tiếp, 3 ván chính/cặp loại trực tiếp và 1 cặp phụ khi hòa. Nếu chọn cả 6 đội, sơ đồ có 8 vị trí và 2 suất miễn đấu.</p>
+<p><strong>Lưu ý về giới hạn nước:</strong> giải thử 6 đội trước đó dùng luật rút gọn 8 nước để kiểm tra quy trình nên mọi ván đều hòa. Khi thử chất lượng chiến thuật, dùng giới hạn nước phù hợp và bot có chiến thuật khác nhau. Tăng giới hạn nước không bảo đảm mọi ván sẽ phân thắng thua.</p>
+<h2 id="section-3" tabindex="-1">3. Từng bước tạo và chạy giải</h2>
+<ol>
+<li><strong>Chuẩn bị môi trường:</strong> xác nhận máy chấm Docker hoạt động; có tài khoản thí sinh và phiên bản bộ luật cần dùng. Có thể thử hai bot ở mục Đấu thử trước.</li>
+<li><strong>Tạo giải:</strong> vào Giải đấu, bấm Tạo giải mới, nhập tên, cấu hình và thời gian rồi bấm Tạo giải. Kiểm tra số lượt vòng loại dựa trên số đội có khả năng nộp bot hợp lệ.</li>
+<li><strong>Lưu đội:</strong> tick đội hoặc Chọn tất cả đội trong bộ lọc, sau đó bấm Lưu danh sách đội. Đã chọn và Đã lưu là hai số khác nhau; cần lưu ít nhất hai đội đang hoạt động.</li>
+<li><strong>Mở nhận bài:</strong> kiểm tra tên giải, luật, hạn nộp và danh sách rồi bấm Mở nhận bài. Sau bước này cấu hình, luật và danh sách được giữ cố định. Nếu lịch mở ở tương lai, thí sinh phải chờ đến giờ mở.</li>
+<li><strong>Thí sinh nộp đúng giải:</strong> ở trang thí sinh, chọn tên giải tại Nơi nộp bài rồi nộp bot. Bài luyện tập ngoài giải không tự chuyển thành bài thi. Theo dõi việc kiểm tra ở mục Giám sát.</li>
+<li><strong>Đóng và chốt bot:</strong> hết hạn hoặc nhập lý do rồi bấm Đóng nhận bài. Chờ các bài đúng hạn được kiểm tra xong; xử lý các lỗi hạ tầng trước khi bấm Chốt bot vòng loại. Cần ít nhất hai đội có bot hợp lệ. Đội thiếu bot hợp lệ được ghi lý do không đủ điều kiện.</li>
+<li><strong>Bắt đầu vòng loại:</strong> kiểm tra số bot đã chốt và số lượt; nhập mã ghép lịch nếu muốn rồi bấm Bắt đầu vòng loại. Chỉ khi lượt hiện tại xong mới bấm Tạo lượt đấu tiếp theo. Lặp đến khi đủ số lượt đã cấu hình.</li>
+<li><strong>Chốt đội đi tiếp:</strong> đối chiếu bảng điểm, nhập Số đội đi tiếp và lý do duyệt rồi bấm Chốt danh sách đội đi tiếp. Hệ thống lấy đúng thứ hạng, không chọn đội tùy ý. Danh sách và hạt giống không sửa lại sau khi chốt.</li>
+<li><strong>Chốt luật và tạo sơ đồ:</strong> trong Luật vòng chính thức có thể chọn đúng phiên bản, nhập lý do và bấm Chốt phiên bản luật chính thức. Nếu giữ nguyên luật vòng loại, vẫn dùng bot đã chốt. Nếu chọn luật khác, nhập thông báo, lịch và xác nhận chính sách rồi bấm Công bố luật và mở nộp lại. Chỉ đội đi tiếp được nộp vào đợt mới, kiểm tra theo luật chính thức. Có thể Đóng nhận bài nộp lại sớm. Sau khi đóng, chờ kiểm tra xong, nhập lý do và bấm Chốt bot chính thức. Mọi đội đi tiếp phải có bài hợp lệ trong đợt mới; thiếu bài thì hệ thống chặn chốt và không tự lấy bot cũ. Sau đó nhập Lý do thao tác loại trực tiếp và bấm Tạo sơ đồ loại trực tiếp; kiểm tra nhánh và suất miễn đấu. Luật đã chốt và sơ đồ không sửa lại sau khi lưu.</li>
+<li><strong>Chạy loại trực tiếp:</strong> nhập lý do và chọn một chế độ. Bấm Chạy toàn bộ vòng loại trực tiếp để máy chấm tự đi đến chung kết; hoặc Khởi tạo chế độ chạy từng cặp/vòng để điều hành bằng nút Chạy cặp này hay Chạy các cặp còn lại của vòng. Ván phụ trong cặp được chọn tự chạy khi hòa; cặp khác/vòng sau chờ lệnh. Dùng bot/luật chính thức đã chốt nếu mở nộp lại; nếu không đổi luật và không mở đợt mới thì dùng bot vòng loại.</li>
+<li><strong>Duyệt kết quả:</strong> xem kết quả chung kết và các bản xem lại, nhập ghi chú rồi bấm Duyệt kết quả và kết thúc giải. Chỉ lúc này kết quả chuyển từ tạm thời sang đã duyệt; thí sinh thuộc giải nhìn thấy đội vô địch.</li>
+</ol>
+<p><strong>Trước khi bấm các nút chốt:</strong> đối chiếu tên giải và dữ liệu. Các bước chốt bot, duyệt đội và tạo sơ đồ được thiết kế giữ lịch sử, không có nút sửa ngược tùy ý. Sau mỗi thao tác, xem thông báo thành công và lịch sử thay đổi.</p>
+<h2 id="section-4" tabindex="-1">4. Vòng loại tính điểm và cách xếp hạng</h2>
+<p>Tất cả đội tiếp tục đấu qua các lượt; thua một cặp không bị loại ngay. Các lượt sau ưu tiên ghép đội có điểm gần nhau, tránh gặp lại đối thủ. Không phải mỗi đội đều gặp toàn bộ đội còn lại.</p>
+<p><strong>Tính điểm một cặp:</strong> mỗi ván thắng được 1 điểm ván, hòa 0,5, thua 0. Cộng điểm các ván của cặp; đội hơn điểm được 1 điểm vòng loại, bằng điểm thì mỗi đội 0,5, thua cặp được 0 điểm vòng loại.</p>
+<p><strong>Ví dụ:</strong> hai ván trong một cặp gồm một thắng và một hòa thì điểm ván là 1,5–0,5; điểm vòng loại tương ứng là 1–0. Nếu mỗi đội thắng một ván, điểm ván là 1–1 và mỗi đội nhận 0,5 điểm vòng loại.</p>
+<p>Thứ tự xét hạng:</p>
+<ol>
+<li><strong>Điểm vòng loại:</strong> tổng điểm các cặp đã hoàn tất.</li>
+<li><strong>Tổng điểm đối thủ:</strong> cộng điểm vòng loại hiện tại của các đối thủ đã gặp; cao hơn xếp trước.</li>
+<li><strong>Điểm đối thủ có trọng số:</strong> cộng toàn bộ điểm đối thủ khi thắng cặp, một nửa khi hòa và không cộng khi thua.</li>
+<li><strong>Điểm ván:</strong> tổng điểm các ván đã đấu; cao hơn xếp trước.</li>
+<li><strong>Bốc thăm theo mã ghép lịch đã lưu:</strong> dùng khi mọi chỉ số trên bằng nhau; không bốc lại mỗi lần tải trang.</li>
+</ol>
+<p>Khi số đội lẻ, một đội nhận <strong>suất miễn đấu</strong>: 1 điểm vòng loại, không có ván giả hoặc điểm ván. Ưu tiên đội ít điểm chưa được miễn đấu; việc chọn còn phải bảo đảm ghép được các đội còn lại. Hệ thống không lặp miễn đấu cho một đội hoặc tự cho tái đấu khi không tìm được lịch phù hợp; khi gặp giới hạn ghép, lượt mới không được tạo và admin nhận thông báo.</p>
+<h2 id="section-5" tabindex="-1">5. Vòng loại trực tiếp và phân định hòa</h2>
+<p>Danh sách đi tiếp giữ thứ tự hạt giống đã duyệt. Hạt giống 1 và 2 ở hai nửa sơ đồ; các nhánh cố định, không bốc lại sau mỗi vòng.</p>
+<ul>
+<li>Nếu số đội không phải lũy thừa của hai, sơ đồ thêm suất trống: 6 đội dùng 8 vị trí, 2 đội hạt giống cao nhất được miễn đấu vòng đầu.</li>
+<li>Đội được miễn đấu tự đi vào vị trí vòng sau, không tạo ván giả hoặc cộng điểm ván.</li>
+<li>Mỗi cặp thực chơi đủ số ván chính, đổi bên luân phiên; so tổng điểm ván để tìm đội đi tiếp.</li>
+<li>Nếu tổng điểm hòa, chấm thêm từng cặp 2 ván đổi bên, cùng mã khởi tạo. Chỉ đấu cặp phụ tiếp theo khi vẫn hòa.</li>
+<li>Hết số cặp phụ mà vẫn hòa, đội có hạt giống tốt hơn đi tiếp. Ví dụ hạt giống 2 được ưu tiên trước hạt giống 5.</li>
+<li>Đội thua dừng bước. Đội thắng tự vào cặp tiếp theo; đội thắng chung kết là đội vô địch chờ duyệt.</li>
+</ul>
+<p><strong>Vì sao điểm 1,5–1,5 vẫn có đội đi tiếp?</strong> Nếu 1 ván chính và 2 ván phụ đều hòa, mỗi đội có 1,5 điểm ván. Khi đã hết quyền đấu thêm, kết quả được phân định bằng hạt giống. Nhãn đi tiếp thể hiện quyết định đó, không phải đội có điểm ván cao hơn.</p>
+<h2 id="section-6" tabindex="-1">6. Cách đọc giao diện và trạng thái</h2>
+<div class="guide-table" tabindex="0" aria-label="Bảng hướng dẫn, có thể cuộn ngang"><table><thead><tr><th scope="col">Trạng thái hoặc nhãn</th><th scope="col">Admin cần hiểu/làm gì</th></tr></thead><tbody>
+<tr><td>Đang chuẩn bị</td><td>Có thể sửa cấu hình và lưu danh sách đội.</td></tr>
+<tr><td>Chưa đến giờ nhận bài</td><td>Đã đặt lịch, thí sinh chưa được nộp trước giờ mở.</td></tr>
+<tr><td>Đang nhận bài</td><td>Thí sinh thuộc giải có thể nộp và chọn bot trước hạn.</td></tr>
+<tr><td>Đã đóng nhận bài</td><td>Không nhận thêm bài; bài nhận đúng hạn tiếp tục được kiểm tra.</td></tr>
+<tr><td>Đã chốt bot</td><td>Phiên bản bot thi đấu đã được cố định; nộp bài luyện tập không thay bot này.</td></tr>
+<tr><td>Điểm tạm thời / chờ duyệt</td><td>Chưa duyệt đội đi tiếp hoặc chưa duyệt kết quả toàn giải; kiểm tra đúng phần đang xem.</td></tr>
+<tr><td>Miễn đấu</td><td>Đội không có đối thủ ở lượt/cặp đó; quy tắc điểm vòng loại và loại trực tiếp khác nhau như trên.</td></tr>
+<tr><td>Đi tiếp / dừng bước</td><td>Kết quả của cặp loại trực tiếp. Điểm từng đội ở bên phải là điểm ván, không phải số cặp thắng.</td></tr>
+<tr><td>Đội vô địch · chờ duyệt</td><td>Chung kết đã xong nhưng chưa bấm duyệt kết quả.</td></tr>
+<tr><td>Đội vô địch · đã duyệt</td><td>Admin đã duyệt và kết thúc giải. Các nút tạo/chạy/duyệt lại bị khóa.</td></tr>
+</tbody></table></div>
+<p>Bấm <strong>Xem các ván đấu</strong> trong một cặp để mở các nút xem lại. Phần đầu sơ đồ hiển thị đội vô địch và tổng số cặp đã hoàn tất. <strong>Lượt miễn đấu</strong> trong bảng điểm vòng loại không bao gồm các suất miễn đấu của sơ đồ loại trực tiếp.</p>
+<h2 id="section-7" tabindex="-1">7. Các tình huống thường gặp</h2>
+<ul>
+<li><strong>Đã tick đội nhưng chưa mở được:</strong> bấm Lưu danh sách đội; kiểm tra Đã lưu ít nhất 2 đội và các tài khoản không bị khóa.</li>
+<li><strong>Không chốt được bot:</strong> còn bài chờ/đang kiểm tra/lỗi hạ tầng, hoặc chưa đóng nhận bài, hoặc chưa đủ 2 bot hợp lệ. Xem mục Giám sát và thông báo cụ thể.</li>
+<li><strong>Bài kiểm tra xong sau hạn:</strong> bài đã được nhận đúng hạn vẫn tiếp tục được kiểm tra. Hệ thống căn cứ thời điểm nhận, không bắt mọi việc kiểm tra phải xong trước hạn.</li>
+<li><strong>Bài mới bị từ chối:</strong> hệ thống có thể dùng bản hợp lệ trước đó trong đúng giải; nếu đội đã chọn riêng một bản hợp lệ, lựa chọn đó được ưu tiên. Luôn đối chiếu danh sách bot đã chốt.</li>
+<li><strong>Số lượt vòng loại quá nhiều so với bot thực tế:</strong> phải có số lượt nhỏ hơn số bot đã chốt; cấu hình đã cố định sau mở nhận bài. Không sửa trực tiếp database để vượt kiểm tra; cần chuẩn bị giải thử mới với cấu hình phù hợp.</li>
+<li><strong>Không tạo được lượt tiếp theo:</strong> chờ lượt hiện tại hoàn tất, xử lý các ván lỗi hoặc kiểm tra thông báo không tìm được lịch không tái đấu.</li>
+<li><strong>Lỗi bot trong trận:</strong> bot có thể bị xử thua theo lỗi được ghi trong bản xem lại. <strong>Lỗi hạ tầng:</strong> không xử thua bot; hệ thống thử lại tối đa 3 lần rồi dừng ván để admin xử lý. Nhập lý do rồi bấm chạy lại sau khi khắc phục máy chấm.</li>
+<li><strong>Tất cả đều hòa và bằng điểm:</strong> kiểm tra lý do kết thúc trong bản xem lại, giới hạn nước và chiến thuật bot. Các chỉ số phụ có thể bằng nhau đúng quy tắc; khi đó mã ghép lịch quyết định thứ tự vòng loại.</li>
+<li><strong>Thông báo dữ liệu đã thay đổi:</strong> có thể lượt đấu vừa hoàn tất hoặc admin khác vừa thao tác. Bấm cập nhật/tải lại dữ liệu, kiểm tra lại rồi thao tác; tải lại có thể làm mất phần chọn chưa lưu.</li>
+<li><strong>Chế độ từng cặp/vòng đang chờ:</strong> đây là trạng thái bình thường. Nhập lý do rồi chọn cặp đã đủ hai đội. Chạy cả vòng chỉ được khi các vòng trước đã xong và không còn cặp đang chạy trong chính vòng đó; nút chỉ đưa các cặp chưa chạy vào hàng đợi. Các ván phụ của một cặp đã chọn vẫn tự hoàn tất. Không đổi chế độ sau khi khởi tạo.</li>
+<li><strong>Đội đi tiếp bị khóa/xóa:</strong> hệ thống không tự bỏ qua thứ hạng để lấy đội khác. Cần xử lý tài khoản trước khi duyệt đội hoặc bắt đầu loại trực tiếp.</li>
+</ul>
+<h2 id="section-8" tabindex="-1">8. Phạm vi hiện có và những việc cần chuẩn bị</h2>
+<p>Hiện có thể chạy trọn giải với <strong>cùng bot và bộ luật giữa vòng loại và loại trực tiếp</strong>, xem lại ván và duyệt kết quả. Đã diễn tập thật 6 đội với Docker Python/C++; đây chưa phải chứng nhận chịu tải 150 đội.</p>
+<p>Đã có chế độ tự chạy toàn bộ, chế độ admin điều khiển từng cặp/vòng và bước chọn/chốt luật chính thức. Đã có công bố luật, cửa sổ nộp lại và kiểm tra theo luật chính thức. Chính sách yêu cầu bài hợp lệ trong đợt mới, không tự lấy bot vòng loại chưa được kiểm tra theo luật mới. Đã hỗ trợ chốt bot đợt mới và chạy loại trực tiếp theo luật đó. Sau khi mở nộp lại phải chốt đủ bot mới, không thể bỏ qua bằng bot cũ. Nếu muốn chạy ngay, hãy giữ luật vòng loại. Khi chưa chốt riêng, luồng cũ vẫn giữ luật vòng loại như trước.</p>
+<p>Đã có tạm dừng/tiếp tục/hủy riêng cho loại trực tiếp, chưa có điều khiển tổng quát cho mọi giai đoạn hay website kết quả cho khách không đăng nhập. Kết quả đã duyệt hiện dành cho admin và thí sinh thuộc giải.</p>
+<p>Trước giải thật: chốt thể lệ và lịch với ban tổ chức; kiểm tra đủ bot; chọn số lượt phù hợp; diễn tập bằng luật và chiến thuật thực tế; sao lưu database cùng bài nộp/artifact; đo thời gian chấm và chuẩn bị máy dự phòng.</p>
+<p><a href="/admin#tournaments">Về mục Giải đấu</a></p>
+<h2 id="section-9" tabindex="-1">Tạm dừng, tiếp tục và hủy loại trực tiếp</h2>
+<p>Admin nhập <strong>Lý do thao tác loại trực tiếp</strong> rồi chọn nút tương ứng. Các thao tác chỉ áp dụng cho phiên loại trực tiếp đã khởi tạo, cả chế độ tự chạy và từng cặp/vòng.</p>
+<ul>
+<li><strong>Tạm dừng loại trực tiếp:</strong> ngừng cấp ván mới ngay; ván đã được máy chấm nhận vẫn hoàn tất và giữ bản xem lại. Chưa ghép/chạy các ván phụ hoặc vòng sau cho đến khi tiếp tục.</li>
+<li><strong>Tiếp tục loại trực tiếp:</strong> xử lý các kết quả đã lưu rồi tiếp tục hàng đợi. Chế độ từng cặp/vòng vẫn giữ các cặp đã được cho phép, không chuyển sang tự chạy toàn giải.</li>
+<li><strong>Hủy thi đấu loại trực tiếp:</strong> phải tạm dừng trước và chờ không còn ván đang chạy. Giải chuyển sang đã hủy, không thể tiếp tục, khởi tạo lại hoặc duyệt vô địch. Giữ dữ liệu, kết quả đã có và lý do để đối chiếu.</li>
+</ul>
+<p>API admin có CSRF: POST .../bracket/pause, /resume, /cancel; nhận expectedRevision của <strong>phiên loại trực tiếp</strong> và reason 1–1000 ký tự. Lệnh cũ, thao tác sai trạng thái hoặc trên phiên đã xong bị chặn. Trạng thái điều khiển lưu trong state_json, không đổi luật/nguồn bot bất biến. Sau khi khởi động lại vẫn giữ tạm dừng/hủy. Hàng đợi và cơ chế phục hồi lỗi hạ tầng vẫn giữ nguyên.</p>
+<p>Chức năng này chưa áp dụng cho vòng loại tính điểm hoặc cửa sổ nhận bài; không coi là nút hủy tổng quát ở mọi giai đoạn.</p>
+<h2 id="section-10" tabindex="-1">Tạm dừng, tiếp tục và hủy vòng loại</h2>
+<p>Admin nhập lý do tại phần vòng loại tính điểm. <strong>Tạm dừng vòng loại</strong> ngừng cấp ván mới; ván đang chạy vẫn hoàn tất và lưu bản xem lại. Điểm cặp/lượt được tổng hợp khi tiếp tục, không xử thua vì tạm dừng. Không tạo lượt mới hoặc chạy lại ván lỗi khi đang dừng.</p>
+<p><strong>Tiếp tục vòng loại</strong> tổng hợp các ván đã xong rồi tiếp tục hàng đợi, giữ luật, bot và lịch cũ. Khởi động lại server vẫn giữ trạng thái tạm dừng.</p>
+<p><strong>Hủy thi đấu vòng loại</strong> chỉ được dùng sau khi tạm dừng và không còn ván đang chạy. Giải chuyển sang đã hủy, giữ lịch sử và bản xem lại, không thể tiếp tục, tạo lượt mới hoặc duyệt đội đi tiếp. Chưa hỗ trợ hủy giải ở giai đoạn chuẩn bị hoặc nhận bài.</p>
+<p>API admin: POST /api/admin/tournaments/:id/swiss/pause, /resume, /cancel, có CSRF; nhận expectedRevision của phiên vòng loại và reason 1–1000 ký tự. Migration 16 lưu điều khiển trong swiss_controls; mỗi thao tác tăng phiên bản phiên/giải và ghi người, thời gian, lý do trong nhật ký.</p>
+<h2 id="section-11" tabindex="-1">Hủy giải trước thi đấu</h2>
+<p>Khi giải đang chuẩn bị, nhận bài hoặc đã đóng nhưng chưa chốt bot, admin nhập lý do và bấm <strong>Hủy giải trước thi đấu</strong>. Thao tác cần đúng phiên bản dữ liệu và lưu nhật ký. Giải đã hủy không thể mở lại, sửa danh sách, nhận bài mới hoặc chốt bot; lịch sử và bài đã nhận vẫn giữ. Bài đã nhận tiếp tục được kiểm tra để giữ biên nhận/kết quả kiểm tra, không được dùng thi đấu trong giải đã hủy. Giải đã chốt bot hoặc đang thi đấu không dùng nút này; dùng điều khiển riêng của giai đoạn đang chạy. API: POST /api/admin/tournaments/:id/cancel, admin + CSRF, expectedRevision của giải và reason 1–500 ký tự.</p></main></div>
+<footer><a href="/admin#tournaments">← Về mục Giải đấu</a><p>OTTv2 · Hướng dẫn tổ chức giải bot</p></footer></body></html>

@@ -19,23 +19,35 @@ function setup(options = {}) {
 }
 const legalGame = row => runMatch({ seed: row.seed, bots: ['a', 'b'], choose: async (p, r) => ({ cpu_ms: 1, stdout: JSON.stringify({ request_id: r.request_id, move: r.legal_moves[0] }) }) });
 async function drain(service) { const end = Date.now() + 10000; while (service.active || service.db.prepare("SELECT 1 FROM score_matches WHERE status='queued'").get()) { if (Date.now() > end) throw new Error('Queue timeout'); service.pump(); await new Promise(resolve => setTimeout(resolve, 10)); } }
-test('automatic scheduling balances sides and odd/even entrant counts within the round limit',()=>{
- for(const count of [2,3,4,5,6,19,20,1000]){
+test('round robin schedules every pair three times with balanced starting sides across the round',()=>{
+ for(const count of [2,3,4,5,6,19,20,100]){
   const config=automaticConfig(count,'auto-test'),plan=pairings(Array.from({length:count},(_,i)=>i),config);
-  assert.equal(config.gamesPerPair,6);assert.equal(plan.length,count*config.gamesPerBot/2);assert.ok(plan.length<=100000);
-  const totals=Array.from({length:count},()=>[0,0]);for(const m of plan){totals[m.players[0]][0]++;totals[m.players[1]][1]++;}
-  assert.ok(totals.every(([a,b])=>a===b&&a+b===config.gamesPerBot));
+  assert.equal(config.gamesPerPair,3);assert.equal(plan.length,count*(count-1)/2*3);assert.ok(plan.length<=100000);
+  const totals=Array.from({length:count},()=>[0,0]),pairs=new Map();
+  for(const m of plan){totals[m.players[0]][0]++;totals[m.players[1]][1]++;const key=[...m.players].sort((a,b)=>a-b).join(':');pairs.set(key,(pairs.get(key)||0)+1);}
+  assert.ok(totals.every(([a,b])=>Math.abs(a-b)<=1&&a+b===(count-1)*3));assert.equal(pairs.size,count*(count-1)/2);assert.ok([...pairs.values()].every(n=>n===3));
+  assert.deepEqual(plan,pairings(Array.from({length:count},(_,i)=>count-i-1),config));
  }
- assert.equal(automaticConfig(2).gamesPerBot,6);assert.equal(automaticConfig(3).gamesPerBot,12);
+ assert.equal(automaticConfig(2).gamesPerBot,3);assert.equal(automaticConfig(3).gamesPerBot,6);
  assert.throws(()=>automaticConfig(1),/ít nhất 2/);assert.throws(()=>automaticConfig(100001),/quá lớn/);
+});
+test('round robin accepts custom odd/even match counts and refuses oversized or invalid schedules',()=>{
+ for(const games of [1,2,3,5,6,20]){
+  const config=automaticConfig(4,'custom',games),plan=pairings([1,2,3,4],config);assert.equal(plan.length,6*games);
+  for(let i=0;i<plan.length;i+=games){for(let j=1;j<games;j++)assert.deepEqual(plan[i+j].players,[...plan[i+j-1].players].reverse());if(games>=2)assert.equal(plan[i].seed,plan[i+1].seed);if(games>=3)assert.notEqual(plan[i].seed,plan[i+2].seed);}
+ }
+ for(const games of [0,-1,1.5,21,'3',null])assert.throws(()=>automaticConfig(2,'invalid',games),e=>e.status===400);
+ assert.equal(automaticConfig(447,'limit',1).gamesPerBot,446);assert.throws(()=>automaticConfig(448,'limit',1),/100.000/);
 });
 test('automatic round uses current eligible bots, stores its schedule and finishes without extra tiebreak games',async()=>{
  const {db,service}=setup({play:legalGame});
  try{
-  const preview=service.preview();assert.equal(preview.eligible,2);assert.equal(preview.total,6);assert.equal(preview.canStart,true);
-  const id=service.create(1,{mode:'auto',gamesPerBot:100,gamesPerPair:2});assert.equal(service.preview().canStart,false);
-  assert.equal(service.detail(id).config.mode,'auto');assert.equal(service.detail(id).config.gamesPerPair,6);assert.equal(service.detail(id).total,preview.total);
-  service.start();await drain(service);assert.equal(service.detail(id).status,'finished');assert.ok(service.detail(id).standings.every(e=>e.played===6));assert.equal(service.detail(id).total,6);
+  const preview=service.preview();assert.equal(preview.eligible,2);assert.equal(preview.total,3);assert.equal(preview.canStart,true);assert.equal(service.preview(5).total,5);
+  const id=service.create(1,{mode:'round-robin',gamesPerBot:100});assert.equal(service.preview().canStart,false);
+  assert.equal(service.detail(id).config.mode,'round-robin');assert.equal(service.detail(id).config.gamesPerPair,3);assert.equal(service.detail(id).total,preview.total);
+  service.start();await drain(service);assert.equal(service.detail(id).status,'finished');assert.ok(service.detail(id).standings.every(e=>e.played===3));assert.equal(service.detail(id).total,3);
+  const custom=service.create(1,{mode:'round-robin',gamesPerPair:5,seed:'custom-five'});await drain(service);assert.equal(service.detail(custom).total,5);assert.equal(service.detail(custom).seed,'custom-five');
+  assert.equal(service.detail(id).total,3);assert.equal(service.detail(id).config.gamesPerPair,3);
   db.prepare('UPDATE users SET locked=1 WHERE id=2').run();assert.equal(service.preview().canStart,false);assert.equal(service.preview().eligible,1);
  }finally{await service.close();db.close();}
 });
@@ -49,7 +61,7 @@ test('seeded sparse pairing gives exact games per bot, no duplicate opponents an
   }
   assert.notDeepEqual(pairings([1,2,3,4,5,6], config), pairings([1,2,3,4,5,6], { ...config, seed:'other' }));
   assert.throws(() => pairings([1,2,3], config), /chẵn/);
-  assert.throws(() => pairings([1,2], { ...config, gamesPerPair: 3 }));
+  assert.throws(() => pairings([1,2], { ...config, gamesPerPair: 0 }));
 });
 test('CSV parses quotes/BOM/CRLF and imports atomically without overwriting accounts', async () => {
   assert.deepEqual(csvRows('\uFEFFusername,password\r\n"team001","a,b""c"\r\n'), [['username','password'],['team001','a,b"c']]);

@@ -34,24 +34,30 @@ async function loadUsers() {
   renderUsers();
   await loadScorePlan();
 }
-let scorePlanBusy=false,scoreManualInitialized=false;
+let scorePlanBusy=false,scorePlanRequest=0;
 async function loadScorePlan(){
-  const plan=await api('/api/admin/score-plan'),target=el('score-plan');
+  const request=++scorePlanRequest,games=Number(el('score-pair').value),target=el('score-plan');
+  el('score-pair-presets').querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.games)===games)));
+  el('score-mode-note').textContent=`Vòng tròn · ${el('score-pair').value||'…'} trận mỗi cặp`;
+  el('create-score-round').disabled=true;
+  if(!Number.isInteger(games)||games<1||games>20){target.dataset.summary='';target.replaceChildren(textNode('p','Nhập số trận mỗi cặp từ 1 đến 20 để tính lịch.'));el('score-plan-note').textContent='';return;}
+  const plan=await api(`/api/admin/score-plan?gamesPerPair=${games}`);
+  if(request!==scorePlanRequest)return;
   el('score-eligibility').textContent=`Hiện có ${plan.eligible} bot đủ điều kiện.`;
-  const text=plan.total?`${plan.eligible} bot · ${plan.total} ván tổng cộng · ${plan.gamesPerBot} ván mỗi bot`:plan.message;
+  const text=plan.total?`${plan.eligible} bot · ${plan.total} trận tổng cộng · ${plan.gamesPerBot} trận mỗi bot`:plan.message;
   if(target.dataset.summary!==text){
     target.dataset.summary=text;
-    target.replaceChildren(...(plan.total?[[plan.eligible,'Bot tham gia'],[plan.total,'Ván trong vòng'],[plan.gamesPerBot,'Ván mỗi bot']].map(([number,label])=>{const card=document.createElement('div');card.append(textNode('strong',number),textNode('span',label));return card;}):[textNode('p',text)]));
+    target.replaceChildren(...(plan.total?[[plan.eligible,'Bot tham gia'],[plan.total,'Trận trong vòng'],[plan.gamesPerBot,'Trận mỗi bot']].map(([number,label])=>{const card=document.createElement('div');card.append(textNode('strong',number),textNode('span',label));return card;}):[textNode('p',text)]));
   }
-  el('score-plan-note').textContent=plan.message||`Mỗi bot gặp ${plan.opponents} đối thủ. Mỗi cặp đấu 6 ván: mỗi bên đi trước 3 ván. Luật Classic; không tự đấu thêm khi bằng điểm.`;
+  const sides=games%2?`Bốc thăm bên đi trước trận đầu rồi luân phiên; một bot đi trước ${Math.ceil(games/2)} lần, bot kia ${Math.floor(games/2)} lần.`:`Mỗi bot đi trước ${games/2} lần trong mỗi cặp.`;
+  el('score-plan-note').textContent=plan.message||`Mỗi bot gặp tất cả ${plan.opponents} đối thủ còn lại. Mỗi cặp ${games} trận. ${sides} Luật cơ bản; cho phép bằng điểm.`;
   el('create-score-round').disabled=scorePlanBusy||!plan.canStart;
-  if(!scoreManualInitialized&&plan.gamesPerBot){el('score-games').value=plan.gamesPerBot;scoreManualInitialized=true;}
 }
 el('score-advanced').addEventListener('toggle',()=>{
-  const manual=el('score-advanced').open;
-  for(const id of ['score-seed','score-games','score-pair'])el(id).disabled=!manual;
-  el('score-mode-note').textContent=manual?'Dùng thiết lập nâng cao bạn đã nhập':'Dùng lịch tự động · 6 ván mỗi cặp';
+  el('score-seed').disabled=!el('score-advanced').open;
 });
+el('score-pair').addEventListener('input',()=>loadScorePlan().catch(e=>{el('score-message').textContent=e.message;}));
+el('score-pair-presets').querySelectorAll('button').forEach(button=>button.onclick=()=>{el('score-pair').value=button.dataset.games;el('score-pair').dispatchEvent(new Event('input'));});
 el('refresh-score-plan').onclick=()=>loadUsers().catch(e=>{el('score-message').textContent=e.message;});
 let adminUsers = [], userPage = 0, deletingUser = null;
 function userIdentity(user) {
@@ -111,7 +117,7 @@ async function loadMonitor() {
 let matchPage = 0;
 async function loadScores() {
   const { rounds } = await api('/api/scores'), selected = el('score-round').value;
-  el('score-round').replaceChildren(...rounds.map(r => { const option = textNode('option', `${r.config?.mode==='auto'?'Vòng tự động':r.seed} · ${new Date(r.created_at).toLocaleString('vi-VN')} · ${statusLabels[r.status] || r.status}`); option.value = r.id; return option; }));
+  el('score-round').replaceChildren(...rounds.map(r => { const option = textNode('option', `${r.config?.mode==='round-robin'?'Vòng tròn':r.config?.mode==='auto'?'Vòng tự động':r.seed} · ${new Date(r.created_at).toLocaleString('vi-VN')} · ${statusLabels[r.status] || r.status}`); option.value = r.id; return option; }));
   if (rounds.some(r => r.id === selected)) el('score-round').value = selected;
   if (!rounds.length) { el('score-status').textContent = 'Chưa có vòng tính điểm. Ban tổ chức cần ít nhất hai tài khoản không bị khóa có bot đã vượt qua kiểm tra và đang được chọn để tạo vòng.'; return; }
   await loadScoreDetail();
@@ -121,7 +127,7 @@ async function loadScoreDetail() {
   const id = el('score-round').value; if (!id) return;
   const round = await api(`/api/scores/${id}?page=${matchPage}`);
   el('score-status').textContent = `${round.status === 'finished' ? 'Hoàn tất' : 'Đang chạy'} · ` + round.counts.map(c => `${statusLabels[c.status] || c.status}: ${c.count}`).join(' · ');
-  table(el('standings'), ['Hạng', 'Thí sinh', 'Bản bot', 'Điểm xếp hạng (Elo)', 'Điểm thắng/hòa', 'Số ván', 'Thắng / Hòa / Thua'], round.standings.map((e, i) => [i + 1, e.username, 'v' + e.version, e.rating.toFixed(2), e.points, e.played, `${e.wins} / ${e.draws} / ${e.losses}`]));
+  table(el('standings'), ['Hạng', 'Thí sinh', 'Bản bot', 'Điểm xếp hạng', 'Điểm thắng/hòa', 'Số ván', 'Thắng / Hòa / Thua'], round.standings.map((e, i) => [i + 1, e.username, 'v' + e.version, e.rating.toFixed(2), e.points, e.played, `${e.wins} / ${e.draws} / ${e.losses}`]));
   el('score-actions').replaceChildren();
   if (admin) {
     const link = textNode('a', 'Tải bảng điểm CSV'); link.href = `/api/admin/scores/${id}/export`; el('score-actions').append(link);
@@ -136,7 +142,8 @@ async function loadScoreDetail() {
 el('score-form').onsubmit = async event => {
   event.preventDefault();el('score-message').textContent='';scorePlanBusy=true;el('create-score-round').disabled=true;
   try {
-    const config=el('score-advanced').open?{seed:el('score-seed').value.trim()||`vong-${Date.now()}`,gamesPerBot:Number(el('score-games').value),gamesPerPair:Number(el('score-pair').value)}:{mode:'auto'};
+    const config={mode:'round-robin',gamesPerPair:Number(el('score-pair').value)};
+    if(el('score-advanced').open&&el('score-seed').value.trim())config.seed=el('score-seed').value.trim();
     const {id}=await postAdmin('/api/admin/scores',config);matchPage=0;await loadScores();el('score-round').value=id;await loadScoreDetail();
     el('score-message').textContent='Đã tạo vòng. Hệ thống đang chạy các trận và cập nhật bảng điểm.';
   }catch(error){el('score-message').textContent=error.message;}

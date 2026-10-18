@@ -84,7 +84,7 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 7);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 16);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
@@ -273,6 +273,8 @@ test('score and live APIs enforce admin role and require CSRF for mutations', as
  assert.equal((await request('/api/admin/score-plan')).status,401);
  assert.equal((await request('/api/admin/score-plan',{cookie:p.cookie})).status,403);
  const plan=await request('/api/admin/score-plan',{cookie:a.cookie});assert.equal(plan.status,200);assert.equal(typeof (await plan.json()).canStart,'boolean');
+ assert.equal((await request('/api/admin/score-plan?gamesPerPair=5',{cookie:a.cookie})).status,200);
+ for(const games of ['0','21','1.5','nope'])assert.equal((await request('/api/admin/score-plan?gamesPerPair='+games,{cookie:a.cookie})).status,400);
  assert.equal((await request('/api/scores')).status,401);
  assert.equal((await request('/api/scores',{cookie:p.cookie})).status,200);
  for(const route of ['/api/admin/live','/api/admin/score-matches/missing','/api/admin/scores/missing/export','/api/admin/submissions/missing'])assert.equal((await request(route,{cookie:p.cookie})).status,403);
@@ -313,6 +315,139 @@ test('rule-set APIs isolate admin permissions, enforce CSRF and versioning',asyn
  response=await request('/api/admin/rule-sets/'+first.id+'/clone',{...opts,body:{name:'copy',version:1}});assert.equal(response.status,404);
  assert.equal((await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'stale',rules:base,expectedVersion:1}})).status,409);
  assert.equal((await request('/api/admin/rule-sets',{...opts,body:{name:'bad',rules:{...base,engine:'unknown'}}})).status,400);
+});
+
+test('tournament APIs enforce admin role, CSRF, revision checks and isolated rosters', async () => {
+  const administrator = await login('admin'), player = await login();
+  const root = '/api/admin/tournaments';
+  const options = { cookie: administrator.cookie, csrf: administrator.data.csrfToken };
+  assert.equal((await request(root)).status, 401);
+  assert.equal((await request(root, { cookie: player.cookie })).status, 403);
+  assert.equal((await request(root, { method: 'POST', cookie: administrator.cookie, body: { name: 'Denied' } })).status, 403);
+  assert.equal((await request(root, { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: { name: 'Denied' } })).status, 403);
+  const created = await request(root, { ...options, method: 'POST', body: { name: 'HTTP Swiss' } });
+  assert.equal(created.status, 201);
+  const tournament = await created.json(), url = `${root}/${tournament.id}`;
+  assert.equal(tournament.config.format, 'swiss');
+  for (const method of ['GET', 'PATCH', 'PUT']) {
+    const target = method === 'PUT' ? url + '/entrants' : url;
+    assert.equal((await request(target, { method, cookie: player.cookie, csrf: player.data.csrfToken, ...(method === 'GET' ? {} : { body: {} }) })).status, 403);
+  }
+  assert.equal((await request(url, { ...options, csrf: undefined, method: 'PATCH', body: { name: 'Denied' } })).status, 403);
+  assert.equal((await request(url + '/entrants', { ...options, csrf: undefined, method: 'PUT', body: { userIds: [] } })).status, 403);
+  assert.equal((await request(url, { ...options, method: 'PATCH', body: { expectedRevision: 1, config: { maxTeams: 16, swissRounds: 4 } } })).status, 200);
+  assert.equal((await request(url, { ...options, method: 'PATCH', body: { expectedRevision: 1, name: 'stale' } })).status, 409);
+  const roster = await request(url + '/entrants', { ...options, method: 'PUT', body: { expectedRevision: 2, userIds: [player.data.user.id] } });
+  assert.equal(roster.status, 200); assert.equal((await roster.json()).entrants.length, 1);
+  assert.equal((await request(url, { cookie: administrator.cookie })).status, 200);
+  assert.equal((await request(root + '?page=-1', options)).status, 400);
+  assert.equal((await request(root + '/missing', options)).status, 404);
+  assert.equal((await request(root + '/missing', { ...options, method: 'PATCH', body: { expectedRevision: 1 } })).status, 404);
+  assert.equal((await request(root + '/missing/entrants', { ...options, method: 'PUT', body: { expectedRevision: 1, userIds: [] } })).status, 404);
+  assert.equal((await request(root, { ...options, method: 'POST', body: { name: 'bad', config: { format: 'elo' } } })).status, 400);
+});
+
+test('stage intake APIs enforce membership, deadlines, CSRF and receipt idempotency', async () => {
+  const administrator = await login('admin'), player = await login(), other = await login('player2');
+  const opts = { cookie: administrator.cookie, csrf: administrator.data.csrfToken, method: 'POST' };
+  let response = await request('/api/admin/tournaments', { ...opts, body: { name: 'HTTP intake' } });
+  const created = await response.json();
+  response = await request(`/api/admin/tournaments/${created.id}/entrants`, { ...opts, method: 'PUT', body: { expectedRevision: 1, userIds: [player.data.user.id, other.data.user.id] } });
+  assert.equal(response.status, 200);
+  const root = `/api/admin/tournaments/${created.id}`;
+  const bracketBody = { expectedRevision: created.revision, reason: 'Checked' };
+  assert.equal((await request(root + '/final-rule')).status, 401);
+  assert.equal((await request(root + '/final-rule', { cookie: player.cookie })).status, 403);
+  assert.equal((await request(root + '/final-rule', { ...opts, csrf: null, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/final-rule', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/cancel', { ...opts, csrf: null, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/cancel', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/final-intake')).status, 401);
+  assert.equal((await request(root + '/final-intake', { cookie: player.cookie })).status, 403);
+  for (const operation of ['open', 'close', 'lock']) {
+    assert.equal((await request(root + '/final-intake/' + operation, { ...opts, csrf: null, body: bracketBody })).status, 403);
+    assert.equal((await request(root + '/final-intake/' + operation, { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: bracketBody })).status, 403);
+  }
+  assert.equal((await request(root + '/bracket')).status, 401);
+  assert.equal((await request(root + '/bracket', { cookie: player.cookie })).status, 403);
+  assert.equal((await request(root + '/bracket', { ...opts, csrf: null, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/bracket', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: bracketBody })).status, 403);
+  assert.equal((await request(root + '/bracket', { ...opts, body: bracketBody })).status, 409);
+  for (const operation of ['start', 'publish', 'schedule', 'pause', 'resume', 'cancel']) {
+    assert.equal((await request(root + '/bracket/' + operation, { ...opts, csrf: null, body: bracketBody })).status, 403);
+    assert.equal((await request(root + '/bracket/' + operation, { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: bracketBody })).status, 403);
+  }
+  assert.equal((await request('/api/admin/bracket-games/missing', { cookie: player.cookie })).status, 403);
+  assert.equal((await request('/api/admin/bracket-games/missing/retry', { ...opts, csrf: null, body: { reason: 'test' } })).status, 403);
+  const openBody = { expectedRevision: 2, opensAt: time - 1000, closesAt: time + 10000 };
+  assert.equal((await request(root + '/open', { ...opts, csrf: null, body: openBody })).status, 403);
+  assert.equal((await request(root + '/open', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: openBody })).status, 403);
+  response = await request(root + '/open', { ...opts, body: openBody }); assert.equal(response.status, 200);
+  const opened = await response.json(), stageId = opened.stages[0].id;
+  const url = `/api/portal/stages/${stageId}/submissions`;
+  assert.equal((await request('/api/portal/tournaments')).status, 401);
+  assert.equal((await request('/api/portal/tournaments', { cookie: administrator.cookie })).status, 403);
+  assert.equal((await request('/api/portal/stages/missing/submissions', { cookie: player.cookie })).status, 404);
+  assert.ok((await (await request('/api/portal/tournaments', { cookie: player.cookie })).json()).stages.some(s => s.id === stageId));
+  const form = () => { const body = new FormData(); body.append('bot', new Blob(['print(1)']), 'main.py'); return body; };
+  const upload = (key, csrf = player.data.csrfToken) => fetch(base + url, { method: 'POST', headers: { Cookie: player.cookie, ...(csrf ? { 'X-CSRF-Token': csrf } : {}), 'Idempotency-Key': key }, body: form() });
+  assert.equal((await upload('http-receipt-000001', null)).status, 403);
+  response = await upload('http-receipt-000001'); assert.equal(response.status, 202); const first = await response.json();
+  assert.equal(first.stage_id, stageId);
+  const closed = await request(root + '/close', { ...opts, body: { expectedRevision: opened.revision, reason: 'Đóng cửa sổ thử' } });
+  assert.equal(closed.status, 200); const state = await closed.json();
+  response = await upload('http-receipt-000001'); assert.equal(response.status, 202); assert.equal((await response.json()).id, first.id);
+  assert.equal((await upload('http-receipt-000002')).status, 409);
+  assert.equal((await request(root + '/lock', { ...opts, body: { expectedRevision: state.revision, reason: 'Còn hàng đợi' } })).status, 409);
+  const legacy = await (await request('/api/portal/submissions', { cookie: player.cookie })).json();
+  assert.ok(legacy.submissions.every(s => s.id !== first.id));
+});
+
+test('Swiss APIs enforce organizer permissions and expose only participant standings', async () => {
+  const administrator = await login('admin'), player = await login(), other = await login('player2');
+  const options = { cookie: administrator.cookie, csrf: administrator.data.csrfToken, method: 'POST' };
+  const created = await (await request('/api/admin/tournaments', { ...options, body: { name: 'HTTP Swiss', config: { swissRounds: 1, maxTeams: 2, topN: 2 } } })).json();
+  const root = `/api/admin/tournaments/${created.id}`;
+  await request(root + '/entrants', { ...options, method: 'PUT', body: { expectedRevision: 1, userIds: [player.data.user.id, other.data.user.id] } });
+  let tournament = await (await request(root + '/open', { ...options, body: { expectedRevision: 2, opensAt: time - 1000, closesAt: time + 10000 } })).json();
+  for (const userId of [player.data.user.id, other.data.user.id]) {
+    const version = db.prepare('SELECT COALESCE(MAX(version),0)+1 n FROM bot_submissions WHERE user_id=?').get(userId).n;
+    db.prepare(`INSERT INTO bot_submissions(id,user_id,version,filename,entry,language,status,job_status,created_at,updated_at,stage_id,source_hash,image)
+      VALUES (?,?,?,'main.py','main.py','python','Accepted','done',?,?,?,'test-hash','test-image')`).run(require('node:crypto').randomUUID(), userId, version, time, time, tournament.stages[0].id);
+  }
+  tournament = await (await request(root + '/close', { ...options, body: { expectedRevision: tournament.revision, reason: 'Fixture' } })).json();
+  tournament = await (await request(root + '/lock', { ...options, body: { expectedRevision: tournament.revision, reason: 'Fixture' } })).json();
+  const body = { expectedRevision: tournament.revision, seed: 'http-swiss' };
+  const approval = { expectedRevision: tournament.revision, swissRevision: 1, topN: 2, reason: 'Checked' };
+  assert.equal((await request(root + '/swiss/approve', { method: 'POST', body: approval })).status, 401);
+  assert.equal((await request(root + '/swiss/approve', { ...options, csrf: null, body: approval })).status, 403);
+  assert.equal((await request(root + '/swiss/approve', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body: approval })).status, 403);
+  assert.equal((await request(root + '/swiss/approve', { ...options, body: approval })).status, 409);
+  assert.equal((await request(root + '/swiss')).status, 401);
+  assert.equal((await request(root + '/swiss', { cookie: player.cookie })).status, 403);
+  assert.equal((await request(root + '/swiss/start', { ...options, csrf: null, body })).status, 403);
+  assert.equal((await request(root + '/swiss/start', { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body })).status, 403);
+  for (const action of ['pause','resume','cancel']) {
+    assert.equal((await request(root + '/swiss/' + action, { ...options, csrf: null, body })).status, 403);
+    assert.equal((await request(root + '/swiss/' + action, { method: 'POST', cookie: player.cookie, csrf: player.data.csrfToken, body })).status, 403);
+  }
+  const started = await request(root + '/swiss/start', { ...options, body }); assert.equal(started.status, 200);
+  const swiss = await started.json(); assert.equal(swiss.rounds.length, 1);
+  assert.equal((await request(root + '/swiss/start', { ...options, body })).status, 409);
+  assert.equal((await request(root + '/swiss/next', { ...options, body: { expectedRevision: swiss.revision } })).status, 409);
+  const view = await request(`/api/portal/tournaments/${created.id}/swiss`, { cookie: player.cookie });
+  assert.equal((await request(`/api/portal/tournaments/${created.id}/bracket`, { cookie: player.cookie })).status, 200);
+  assert.equal(view.status, 200); assert.equal((await view.json()).pairs, undefined);
+  await createUser(db, { username: 'swiss-outsider', password, mustChangePassword: false });
+  const outsider = await login('swiss-outsider');
+  assert.equal((await request(`/api/portal/tournaments/${created.id}/swiss`, { cookie: outsider.cookie })).status, 404);
+  assert.equal((await request(`/api/portal/tournaments/${created.id}/bracket`, { cookie: outsider.cookie })).status, 404);
+  const gameId = swiss.pairs[0].games[0].id;
+  assert.equal((await request(`/api/admin/swiss-games/${gameId}`, { cookie: player.cookie })).status, 403);
+  assert.equal((await request(`/api/admin/swiss-games/${gameId}`, { cookie: administrator.cookie })).status, 200);
+  assert.equal((await request(`/api/admin/swiss-games/${gameId}/retry`, { ...options, csrf: null, body: { reason: 'x' } })).status, 403);
+  assert.equal((await request(`/api/admin/swiss-games/${gameId}/retry`, { ...options, body: { reason: 'x' } })).status, 409);
+  assert.equal((await request(root + '/swiss/export', { cookie: administrator.cookie })).status, 200);
 });
 
 test('new contestant uses username as initial password and must change it before using portal',async()=>{

@@ -16,7 +16,8 @@
     "test:scoring": "node --test test/scoring.integration.js",
     "test:templates": "node --test test/templates.integration.js",
     "test:two-players": "node --test test/two-players.integration.js",
-    "test:rules": "node --test test/rules.integration.js"
+    "test:rules": "node --test test/rules.integration.js",
+    "test:stages": "node --test test/stages.integration.js"
   },
   "repository": {
     "type": "git",

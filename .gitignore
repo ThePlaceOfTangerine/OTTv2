@@ -17,3 +17,21 @@ Thumbs.db
 
 # Old duplicate assets. Runtime serves public/img/.
 /img/
+
+# Local source notes and generated development artifacts.
+/note về lập trình mạng sáng 16.10.docx
+/output/
+/playwright-report/
+/test-results/
+/.playwright-mcp/
+/.cache/
+/.vscode/
+/.idea/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+*.tmp
+*.bak

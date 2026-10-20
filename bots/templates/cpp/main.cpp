@@ -13,8 +13,19 @@ int main() {
     const int player = request.at("player_index");
     const auto& board = request.at("state").at("board");
     const auto& home = request.at("rules").at("homes").at(1 - player);
-    // Luật cũ không có powerUps: dùng danh sách rỗng.
+    // Luật cũ không có powerUps/tiles: dùng danh sách rỗng.
     const auto powerUps = request.at("state").value("powerUps", json::array());
+    // Luật mới: state.tiles có type + tags; loại ô có "effect" trong
+    // rules.tileTypes là ô hiệu ứng (wildcard, shield, dash...).
+    const auto tiles = request.at("state").value("tiles", json::array());
+    const auto tileTypes = request.at("rules").value("tileTypes", json::object());
+    auto effectTile = [&](int r, int c) {
+        for (const auto& tile : tiles)
+            if (tile.at("row").get<int>() == r && tile.at("col").get<int>() == c &&
+                !tileTypes.value(tile.at("type").get<std::string>(), json::object()).value("effect", json()).is_null())
+                return true;
+        return false;
+    };
 
     // THAY CHIẾN THUẬT Ở ĐÂY.
     // legal_moves đã xét ô chặn, ô ngoài bản đồ, kiểu đi từng loại và ăn quân.
@@ -25,15 +36,16 @@ int main() {
                                  .at(move.at("fromCol").get<int>());
         if (r == home.at("row").get<int>() && c == home.at("col").get<int>())
             return 100000; // Chiếm nhà là thắng ngay.
-        int points = board.at(r).at(c).is_null() ? 0 : 40;
-        // powered=true: ăn thêm quân cùng loại, vẫn thua loại khắc chế.
-        if (!piece.value("powered", false)) {
-            for (const auto& position : powerUps) {
-                if (position.at(0).get<int>() == r && position.at(1).get<int>() == c) {
-                    points += 15;
-                    break;
-                }
-            }
+        const auto& target = board.at(r).at(c);
+        int points = 0;
+        // Quân có khiên (effect == "shield") không bị ăn: nước này chỉ làm vỡ khiên.
+        if (!target.is_null()) points = target.value("effect", std::string()) == "shield" ? 5 : 40;
+        // Quân đã có powered hoặc effect thì không cần ưu tiên nhặt thêm.
+        if (!piece.value("powered", false) && !piece.contains("effect")) {
+            bool bonus = effectTile(r, c);
+            for (const auto& position : powerUps)
+                if (position.at(0).get<int>() == r && position.at(1).get<int>() == c) bonus = true;
+            if (bonus) points += 15;
         }
         // Gợi ý gần nhà, không phải số lượt đến nhà trên bản đồ tùy chỉnh.
         const int distance = std::max(std::abs(r - home.at("row").get<int>()),

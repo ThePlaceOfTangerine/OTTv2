@@ -1,12 +1,13 @@
 const crypto = require('node:crypto');
-const { SandboxManager } = require('./sandbox/docker');
-const { runMatch, verifyReplay } = require('./game/match');
-const { LIMITS } = require('./game/protocol');
+const { createSandboxManager } = require('./sandbox');
+const { verifyReplay } = require('./game/match');
+const { playGame } = require('./grader/play');
+const { ownedTournament } = require('./sync/authority');
 const { digest } = require('./swiss-pairing');
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 
 class BracketRunner {
-  constructor(db, { tournaments, brackets, submissions, now = Date.now, play, managerFactory = () => new SandboxManager(), retryDelayMs = 3000 }) {
+  constructor(db, { tournaments, brackets, submissions, now = Date.now, play, managerFactory = () => createSandboxManager(), retryDelayMs = 3000 }) {
     Object.assign(this, { db, tournaments, brackets, submissions, now, playOverride: play, managerFactory, retryDelayMs });
     this.workerId = crypto.randomUUID(); this.active = null; this.started = false; this.closing = false;
   }
@@ -67,6 +68,8 @@ class BracketRunner {
     }
   }
   settle(id, nested = false) {
+    // A machine without write authority for this tournament keeps the imported state as it is.
+    if (this.authority && !this.authority.owns(`tournament:${id}`)) return;
     // May be called inside the start transaction; caller owns transactions for this case.
     const apply = () => {
       const row = this.row(id); if (!row || row.status !== 'running' || JSON.parse(row.state_json).controlStatus) return;
@@ -106,10 +109,13 @@ class BracketRunner {
     };
     if (nested) apply(); else this.tournaments.transaction(apply);
   }
-  start() {
-    if (this.started) return; this.started = true;
+  // local=false: coordinator only; remote graders claim the games.
+  start({ local = true } = {}) {
+    if (this.started) return; this.started = true; this.local = local;
+    // Games held by this coordinator's previous process died with it (power loss, kill); remote graders ("id:token") keep their lease.
+    this.db.prepare("UPDATE bracket_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Máy chủ khởi động lại; không xử thua bot' WHERE status='running' AND worker_id NOT LIKE '%:%'").run();
     for (const row of this.db.prepare("SELECT tournament_id FROM bracket_runs WHERE status='running'").all()) this.settle(row.tournament_id);
-    this.timer = setInterval(() => this.pump(), 500); this.timer.unref(); this.pump();
+    if (local) { this.timer = setInterval(() => this.pump(), 500); this.timer.unref(); this.pump(); }
   }
   schedule(id, actorId, body) {
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['expectedRevision', 'reason', 'matchId', 'round'].includes(k))
@@ -159,39 +165,45 @@ class BracketRunner {
   resume(id, actorId, body) { return this.control(id, actorId, body, 'resume'); }
   cancel(id, actorId, body) { return this.control(id, actorId, body, 'cancel'); }
   pump() {
-    if (!this.started || this.closing || this.active) return;
-    this.db.prepare("UPDATE bracket_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Máy chấm gián đoạn; không xử thua bot' WHERE status='running' AND lease_until<?").run(this.now());
-    const game = this.db.prepare(`UPDATE bracket_games SET status='running',attempts=attempts+1,worker_id=?,lease_until=?
-      WHERE id=(SELECT g.id FROM bracket_games g JOIN bracket_runs r ON r.tournament_id=g.tournament_id WHERE g.status='queued' AND g.available_at<=? AND r.status='running' AND json_extract(r.state_json,'$.controlStatus') IS NULL ORDER BY g.rowid LIMIT 1) RETURNING *`)
-      .get(this.workerId, this.now() + 30000, this.now());
+    if (!this.started || this.closing || this.active || this.local === false) return;
+    const game = this.claimGame(this.workerId);
     if (!game) return;
     this.active = this.execute(game).catch(error => console.error('Bracket worker:', error)).finally(() => { this.active = null; this.pump(); });
   }
-  async play(game) {
-    const source = JSON.parse(this.row(game.tournament_id).source_json), rules = source.rules;
+  // Lease API shared by the local worker and remote graders; worker_id doubles as the lease token.
+  claimGame(workerId) {
+    this.db.prepare("UPDATE bracket_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Máy chấm gián đoạn; không xử thua bot' WHERE status='running' AND lease_until<?").run(this.now());
+    return this.db.prepare(`UPDATE bracket_games SET status='running',attempts=attempts+1,worker_id=?,lease_until=?
+      WHERE id=(SELECT g.id FROM bracket_games g JOIN bracket_runs r ON r.tournament_id=g.tournament_id WHERE g.status='queued' AND g.available_at<=? AND r.status='running' AND json_extract(r.state_json,'$.controlStatus') IS NULL AND ${ownedTournament('g.tournament_id')} ORDER BY g.rowid LIMIT 1) RETURNING *`)
+      .get(workerId, this.now() + 30000, this.now());
+  }
+  gameJob(game) {
+    const source = JSON.parse(this.row(game.tournament_id).source_json);
     const entrants = [game.player0, game.player1].map(id => { const team = source.teams.find(e => e.userId === id); return { username: team.username, ...team.bot }; });
-    const onTurn = replay => this.db.prepare("UPDATE bracket_games SET live_json=? WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), game.id, this.workerId);
-    if (this.playOverride) return this.playOverride(game, { rules, entrants, onTurn });
-    const manager = this.managerFactory(), sessions = [];
-    try {
-      manager.imageId = entrants[0].image; await manager.check();
-      for (const e of entrants) sessions.push(await manager.start({ directory: this.submissions.folder(e.submissionId, 'artifact'), language: e.language, entry: e.entry, image: e.image }, LIMITS));
-      return await runMatch({ seed: game.seed, rules, onTurn, bots: entrants.map(e => ({ id: e.username, submission_id: e.submissionId, version: e.version, source_hash: e.sourceHash, image: e.image })), choose: (player, request) => sessions[player].move(request) });
-    } finally {
-      const closed = await Promise.allSettled(sessions.map(session => session.close()));
-      const failed = closed.find(r => r.status === 'rejected'); if (failed) throw failed.reason;
-    }
+    return { kind: 'bracket', id: game.id, seed: game.seed, rules: source.rules, entrants };
+  }
+  liveGame(id, workerId, replay) { this.db.prepare("UPDATE bracket_games SET live_json=? WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), id, workerId); }
+  heartbeatGame(id, workerId) { return this.db.prepare("UPDATE bracket_games SET lease_until=? WHERE id=? AND worker_id=? AND status='running'").run(this.now() + 30000, id, workerId).changes > 0; }
+  finishGame(id, workerId, replay) {
+    verifyReplay(replay);
+    const saved = this.db.prepare("UPDATE bracket_games SET status='finished',replay_json=?,live_json=NULL,error=NULL,worker_id=NULL,lease_until=NULL WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), id, workerId);
+    if (saved.changes) this.settle(this.db.prepare('SELECT tournament_id FROM bracket_games WHERE id=?').get(id).tournament_id);
+    return saved.changes > 0;
+  }
+  failGame(id, workerId, message) {
+    return this.db.prepare("UPDATE bracket_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,available_at=?,worker_id=NULL,lease_until=NULL,live_json=NULL,error=? WHERE id=? AND worker_id=? AND status='running'")
+      .run(this.now() + this.retryDelayMs, String(message).slice(0, 65536), id, workerId).changes > 0;
+  }
+  async play(game) {
+    const job = this.gameJob(game), onTurn = replay => this.liveGame(game.id, this.workerId, replay);
+    if (this.playOverride) return this.playOverride(game, { rules: job.rules, entrants: job.entrants, onTurn });
+    return playGame(job, { manager: this.managerFactory(), artifactDir: e => this.submissions.folder(e.submissionId, 'artifact'), onTurn });
   }
   async execute(game) {
-    const heartbeat = setInterval(() => this.db.prepare("UPDATE bracket_games SET lease_until=? WHERE id=? AND worker_id=? AND status='running'").run(this.now() + 30000, game.id, this.workerId), 5000); heartbeat.unref();
-    try {
-      const replay = await this.play(game); verifyReplay(replay);
-      const saved = this.db.prepare("UPDATE bracket_games SET status='finished',replay_json=?,live_json=NULL,error=NULL,worker_id=NULL,lease_until=NULL WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), game.id, this.workerId);
-      if (saved.changes) this.settle(game.tournament_id);
-    } catch (error) {
-      this.db.prepare("UPDATE bracket_games SET status=?,available_at=?,worker_id=NULL,lease_until=NULL,live_json=NULL,error=? WHERE id=? AND worker_id=? AND status='running'")
-        .run(game.attempts >= 3 ? 'blocked' : 'queued', this.now() + this.retryDelayMs, String(error.message).slice(0, 65536), game.id, this.workerId);
-    } finally { clearInterval(heartbeat); }
+    const heartbeat = setInterval(() => this.heartbeatGame(game.id, this.workerId), 5000); heartbeat.unref();
+    try { this.finishGame(game.id, this.workerId, await this.play(game)); }
+    catch (error) { this.failGame(game.id, this.workerId, error.message); }
+    finally { clearInterval(heartbeat); }
   }
   retry(gameId, actorId, body) {
     if (!body || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 1000) fail(400, 'Cần lý do chạy lại.');

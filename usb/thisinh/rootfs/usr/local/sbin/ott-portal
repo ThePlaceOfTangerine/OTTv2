@@ -1,0 +1,15 @@
+#!/bin/sh
+# Contestant USB: Firefox policy (home page = portal, all other sites blocked) and optional Wi-Fi, both from OTTCONF/portal.env.
+set -u
+for dir in /etc/firefox/policies /etc/firefox-esr/policies /usr/lib/firefox-esr/distribution; do
+  mkdir -p "$dir"
+  /usr/local/bin/node /opt/ott/scripts/usb-config.js firefox /run/ottconf/portal.env > "$dir/policies.json" \
+    || printf '{"policies":{"WebsiteFilter":{"Block":["<all_urls>"]}}}\n' > "$dir/policies.json"
+done
+if command -v wpa_supplicant >/dev/null 2>&1 && /usr/local/bin/node /opt/ott/scripts/usb-config.js wifi /run/ottconf/portal.env > /run/ott-wifi.conf && [ -s /run/ott-wifi.conf ]; then
+  chmod 600 /run/ott-wifi.conf
+  for path in /sys/class/net/wl*; do
+    [ -e "$path" ] || continue
+    wpa_supplicant -B -i "$(basename "$path")" -c /run/ott-wifi.conf && echo "OTTv2: Wi-Fi trên $(basename "$path")."
+  done
+fi

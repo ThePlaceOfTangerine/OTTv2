@@ -1,0 +1,24 @@
+[Unit]
+Description=OTTv2: máy chấm (đăng ký bằng mã trong OTTCONF/grader.env, sandbox bwrap)
+After=ott-clock.service network-online.target
+Wants=network-online.target ott-clock.service
+Requires=ott-conf.service
+
+[Service]
+User=grader
+Environment=GRADER_CONFIG_FILE=/run/ottconf/grader.env
+# /run is RAM: the key survives a service restart but not a reboot (then the USB enrolls again while the window is open).
+Environment=GRADER_CREDENTIALS_FILE=/run/ott-grader/credentials.json
+Environment=GRADER_WORKDIR=/var/tmp/ott-grader
+Environment=SANDBOX_BACKEND=bwrap
+RuntimeDirectory=ott-grader
+RuntimeDirectoryPreserve=yes
+WorkingDirectory=/opt/ott
+ExecStart=/usr/local/bin/node /opt/ott/scripts/grader.js
+Restart=always
+RestartSec=5
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

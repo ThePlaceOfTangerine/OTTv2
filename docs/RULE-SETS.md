@@ -68,3 +68,27 @@ Tính năng tùy chỉnh áp dụng ở **Đấu thử**. Vòng điểm chính t
 ### Quân chặn đường nhau
 
 Quân hai bên đều chặn đường nhau: không được đi xuyên hay nhảy qua quân phía trước, kể cả khi có power-up. Chỉ được ăn quân đối thủ ở ô đích nếu đúng luật. Mã đi chữ L bị cản ở ô sát quân theo chiều dài chữ L. Hướng tự chỉnh dài phải có các ô trung gian trống; ô chặn và ô ngoài bản đồ cũng cản đường. Replay trước engine phiên bản 2 giữ luật lịch sử.
+
+## Loại ô, hiệu ứng và điều kiện hết nước (dữ liệu hóa)
+
+Có từ bản Phase 3a. Bộ luật không khai báo `tileTypes` chạy y hệt trước đây (kể cả `powerUps` cũ); replay cũ vẫn kiểm tra được. Ba bộ luật mẫu được nạp sẵn khi khởi động: `ottv2-classic` (rules/default.json), `ottv2-obstacles` (tường đá đối xứng qua tâm) và `ottv2-powerups` (ô hiệu ứng ở khu giữa, hết nước tính theo số quân).
+
+| Trường | Ý nghĩa |
+| --- | --- |
+| `tileTypes` | Đối tượng `{mã: {passable, tags, effect, render}}`, tối đa 32 loại. Mã 1–24 ký tự `a-z0-9_-`, không trùng loại có sẵn `blocked`/`void`. `passable=false` là ô không đi vào được. `effect` là tên hiệu ứng đã cài trên máy chủ (`wildcard`, `shield`, `dash`, `plus`); ô hiệu ứng phải đi vào được. `render`: `color` `#rrggbb`, `symbol` tối đa 2 ký tự, `label` 1–40 ký tự; giao diện vẽ ô theo bảng này. |
+| `tiles` | Ô cố định `[{at:[hàng,cột], type}]`. Không được trùng nhà, vị trí xuất phát, ô chặn hoặc ô khác. |
+| `tileSpawns` | Tối đa 8 nhóm rải ô theo seed: `{types, count:[min,max], region:{rowFrom,rowTo,colFrom,colTo}, symmetry}`. `symmetry:"point"` đặt từng cặp đối xứng qua tâm bàn (bỏ ô tự đối xứng), mỗi cặp nhận một loại ngẫu nhiên trong `types`; `"none"` đặt từng ô. Vùng rải tự trừ nhà, vị trí xuất phát và ô khác; thiếu chỗ thì luật bị từ chối khi lưu. Không dùng cùng `powerUps` cũ. |
+| `onMoveLimit` | `"draw"` (mặc định) hoặc `"material"`: hết `maxMoves` thì bên còn nhiều quân hơn thắng (mỗi quân 1 điểm), bằng nhau thì hòa. Lặp thế cờ luôn là hòa. |
+
+Hiệu ứng (một quân mang tối đa một hiệu ứng; nhặt ô mới thì thay hiệu ứng cũ; giữ đến khi bị ăn):
+
+- `wildcard`: ăn được mọi quân đối thủ, kể cả cùng loại; vẫn bị ăn theo luật thường.
+- `shield`: lần đầu bị tấn công, nước ăn bị chặn: quân tấn công đứng yên, khiên vỡ, hết lượt. Nước đó vẫn có trong `legal_moves`.
+- `dash`: sau khi ăn quân, đi thêm 1 ô theo hướng đơn vị của nước vừa đi (dấu của từng trục). Ô đó phải trong bàn, đi vào được và không phải nhà; nếu có quân đối thủ thì chỉ ăn khi Búa/Bao/Kéo thường cho phép (khiên thì vỡ, quân lướt đứng lại). Lướt vào ô hiệu ứng thì nhặt ô đó.
+- `plus`: như power-up cũ, ăn thêm được quân cùng loại.
+
+Trong **Bộ luật → Thiết kế bàn cờ**, mỗi loại ô của bộ luật có một nút công cụ riêng (lấy màu và nhãn từ `render`): bấm ô để đặt, bấm lại để bỏ; không đặt được trên nhà hoặc vị trí quân. Vùng `tileSpawns` có viền cam nét đứt. Sửa `tileTypes`, `tileSpawns`, `onMoveLimit` trong **Nhập / xem JSON (nâng cao)** rồi bấm Áp dụng JSON; công cụ và hình vẽ cập nhật ngay. Khi bộ luật có `tileTypes`, ô power-up cũ bị khóa. Replay và mô tả luật cho thí sinh vẽ theo cùng bảng `render`; loại ô không có `render` hiển thị ô xám có dấu ?.
+
+Thêm loại ô mới (ví dụ bùn, nước) chỉ cần sửa JSON; thêm *hiệu ứng* mới cần một module tin cậy trên máy chủ (`registerEffect` trong src/game/tiles.js), JSON không thể chạy mã.
+
+Replay mới ghi `changes` cho từng lượt: danh sách `{row, col, piece}` (quân sau thay đổi, `null` là ô trống) và `{row, col, tile: null}` (ô hiệu ứng bị nhặt), áp theo thứ tự. `verifyReplay` tính lại độc lập và so khớp từng byte.

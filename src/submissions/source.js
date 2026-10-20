@@ -4,6 +4,8 @@ const yauzl = require('yauzl');
 const { BotFault } = require('../game/protocol');
 const UPLOAD_LIMIT = 5 * 1024 * 1024;
 const FILE_LIMIT = 1024 * 1024;
+const REPO_ARCHIVE_LIMIT = 50 * 1024 * 1024;
+const MANIFEST_LIMIT = 4096;
 const fail = (code, message) => { throw new BotFault(code, message); };
 
 function safeName(name) {
@@ -34,9 +36,10 @@ function chooseEntry(names, language, requested) {
   fail('entry_required', 'ZIP có nhiều file: hãy chỉ rõ file chạy chính, ví dụ main.py hoặc main.cpp.');
 }
 
-async function unpackZip(buffer, directory) {
+// select(fileName) returns null to skip an entry, {name} to extract it, or {manifest:true} to read ott.json.
+async function unpackZip(buffer, directory, { select = name => ({ name }), entryLimit = 128 } = {}) {
   const zip = await new Promise((resolve, reject) => yauzl.fromBuffer(buffer, { lazyEntries: true, decodeStrings: true, validateEntrySizes: true, strictFileNames: true }, (error, value) => error ? reject(new BotFault('invalid_zip', 'Không đọc được file ZIP.')) : resolve(value)));
-  const names = [], seen = new Set(); let entries = 0, declared = 0, actual = 0;
+  const names = [], seen = new Set(); let entries = 0, declared = 0, actual = 0, manifest = null;
   try {
     await new Promise((resolve, reject) => {
       let finished = false;
@@ -45,14 +48,23 @@ async function unpackZip(buffer, directory) {
       zip.on('end', () => { if (!finished) { finished = true; resolve(); } });
       zip.on('entry', entry => {
         (async () => {
-          if (++entries > 128) fail('zip_entry_limit', 'ZIP có quá nhiều mục (tối đa 128).');
-          const name = safeName(entry.fileName), key = name.toLowerCase();
+          if (++entries > entryLimit) fail('zip_entry_limit', `ZIP có quá nhiều mục (tối đa ${entryLimit}).`);
+          const picked = select(entry.fileName);
+          if (!picked) { zip.readEntry(); return; }
+          const name = picked.manifest ? 'ott.json' : safeName(picked.name), key = name.toLowerCase();
           if (seen.has(key)) fail('zip_duplicate', 'ZIP có đường dẫn trùng nhau.');
           seen.add(key);
           if (entry.generalPurposeBitFlag & 1) fail('encrypted_zip', 'Không nhận ZIP có mật khẩu.');
           if (![0, 8].includes(entry.compressionMethod)) fail('zip_compression', 'ZIP chỉ hỗ trợ Store hoặc Deflate.');
           const kind = (entry.externalFileAttributes >>> 16) & 0xf000;
           if (kind && ![0x8000, 0x4000].includes(kind)) fail('zip_special_file', 'ZIP không được chứa symlink hoặc file thiết bị.');
+          if (picked.manifest) {
+            if (kind === 0x4000 || entry.uncompressedSize > MANIFEST_LIMIT) fail('manifest_invalid', 'ott.json phải là file tối đa 4 KiB.');
+            const stream = await new Promise((ok, bad) => zip.openReadStream(entry, (error, value) => error ? bad(error) : ok(value)));
+            const chunks = []; let length = 0;
+            for await (const chunk of stream) { length += chunk.length; if (length > MANIFEST_LIMIT) { stream.destroy(); fail('manifest_invalid', 'ott.json phải là file tối đa 4 KiB.'); } chunks.push(chunk); }
+            manifest = Buffer.concat(chunks); zip.readEntry(); return;
+          }
           if (entry.fileName.endsWith('/')) { if (entry.uncompressedSize !== 0) fail('invalid_zip', 'Thư mục ZIP chứa dữ liệu.'); zip.readEntry(); return; }
           if (kind === 0x4000) fail('invalid_zip', 'Metadata thư mục không hợp lệ.');
           if (!/\.(py|cpp|h|hpp)$/.test(name)) fail('unsupported_source', 'ZIP chỉ được chứa file mã nguồn C++ hoặc Python.');
@@ -74,7 +86,8 @@ async function unpackZip(buffer, directory) {
       });
       zip.readEntry();
     });
-    return names.sort();
+    names.sort();
+    return Object.assign(names, { manifest });
   } finally { zip.close(); }
 }
 
@@ -93,22 +106,52 @@ async function extractSource({ buffer, filename, entry, directory }) {
   return { language, entry: chooseEntry(names, language, entry), names, directory };
 }
 
+// GitHub zipballs wrap the tree in one "owner-repo-sha/" folder; only ott.json and source files under bot/ are extracted.
+async function extractRepo({ buffer, directory }) {
+  if (!Buffer.isBuffer(buffer) || buffer.length > REPO_ARCHIVE_LIMIT) fail('repo_too_large', 'Bản nén repo vượt 50 MB.');
+  await fs.mkdir(directory, { recursive: true, mode: 0o755 });
+  let prefix = null;
+  const select = fileName => {
+    const slash = fileName.indexOf('/'), top = slash < 0 ? fileName : fileName.slice(0, slash + 1);
+    if (prefix === null) prefix = top;
+    else if (top !== prefix) fail('invalid_zip', 'Bản nén repo có cấu trúc không hợp lệ.');
+    const relative = fileName.slice(prefix.length);
+    if (relative === 'ott.json') return { manifest: true };
+    if (!relative.startsWith('bot/') || relative.endsWith('/') || !/\.(py|cpp|h|hpp)$/.test(relative)) return null;
+    return { name: relative.slice(4) };
+  };
+  const names = await unpackZip(buffer, directory, { select, entryLimit: 20000 });
+  if (!names.manifest) fail('manifest_missing', 'Thiếu file ott.json ở thư mục gốc repo.');
+  let config;
+  try { config = JSON.parse(names.manifest.toString('utf8')); } catch { fail('manifest_invalid', 'ott.json không phải JSON hợp lệ.'); }
+  if (!config || typeof config !== 'object' || Array.isArray(config) || !['python', 'cpp'].includes(config.language) || typeof config.entry !== 'string' || !config.entry)
+    fail('manifest_invalid', 'ott.json cần dạng {"language": "python" hoặc "cpp", "entry": "main.py"}; entry tính từ thư mục bot/.');
+  if (!names.length) fail('empty_source', 'Thư mục bot/ trong repo không có file mã nguồn .py/.cpp.');
+  const files = [...names], language = sourceLanguage(files);
+  if (language !== config.language) fail('manifest_invalid', `ott.json khai báo ${config.language} nhưng thư mục bot/ chứa mã ${language}.`);
+  return { language, entry: chooseEntry(files, language, config.entry), names: files, directory };
+}
+
 async function scanSource(source, extraScanner) {
   const deniedModules = /^(os|posix|nt|socket|subprocess|ctypes|multiprocessing|threading|_thread|resource|pty|fcntl|mmap|importlib|pickle|marshal|shutil|pathlib|http|urllib|ssl|requests|builtins)(\.|$)/;
   for (const name of source.names) {
     const text = await fs.readFile(path.join(source.directory, name), 'utf8');
     if (text.includes('\0')) fail('binary_source', `File mã nguồn chứa byte NUL không hợp lệ: ${name}`);
-    if (source.language === 'python') {
-      const code = text.replace(/#[^\n]*/g, '');
-      const imports = [...code.matchAll(/\bfrom\s+([\w.]+)\s+import\b/g)].map(match => match[1]);
-      for (const match of code.matchAll(/(?:^|[;\n])\s*import\s+([^;\n]+)/g)) imports.push(...match[1].split(',').map(item => item.trim().split(/\s+/)[0]));
-      if (imports.some(module => deniedModules.test(module)) || /\b(__import__|eval|exec|compile|open)\s*\(/.test(code)) fail('static_scan', `Phát hiện import hoặc hàm bị cấm trong ${name}.`);
-    } else {
-      const code = text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
-      const includes = [...code.matchAll(/#\s*include\s*[<"]([^>"]+)[>"]/g)].map(match => match[1]);
-      if (includes.some(include => /^(\/|\.\.|sys\/|linux\/|windows|winsock|unistd|process|pthread|thread|future|filesystem|fstream|dlfcn)/i.test(include)) || /\b(system|fork|vfork|clone|socket|connect|bind|listen|accept|popen|fopen|freopen|open|ptrace|mmap|exec\w*|__asm__|asm)\s*\(/.test(code)) fail('static_scan', `Phát hiện include hoặc hàm bị cấm trong ${name}.`);
-    }
+    // Line by line so the message can point at the line to fix; comments are blanked but keep their newlines.
+    const lines = (source.language === 'python' ? text.replace(/#[^\n]*/g, '') : text.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, '')).replace(/\/\/[^\n]*/g, '')).split('\n');
+    lines.forEach((code, index) => {
+      let banned;
+      if (source.language === 'python') {
+        const imports = [...code.matchAll(/\bfrom\s+([\w.]+)\s+import\b/g)].map(match => match[1]);
+        for (const match of code.matchAll(/(?:^|;)\s*import\s+([^;]+)/g)) imports.push(...match[1].split(',').map(item => item.trim().split(/\s+/)[0]));
+        banned = imports.find(module => deniedModules.test(module)) || code.match(/\b(__import__|eval|exec|compile|open)\s*\(/)?.[1];
+      } else {
+        banned = [...code.matchAll(/#\s*include\s*[<"]([^>"]+)[>"]/g)].map(match => match[1]).find(include => /^(\/|\.\.|sys\/|linux\/|windows|winsock|unistd|process|pthread|thread|future|filesystem|fstream|dlfcn)/i.test(include))
+          || code.match(/\b(system|fork|vfork|clone|socket|connect|bind|listen|accept|popen|fopen|freopen|open|ptrace|mmap|exec\w*|__asm__|asm)\s*\(/)?.[1];
+      }
+      if (banned) fail('static_scan', `${name} dòng ${index + 1}: không được dùng "${banned}" (${source.language === 'python' ? 'thư viện hoặc hàm' : 'thư viện hoặc lệnh'} bị cấm trong giải).`);
+    });
   }
   if (extraScanner) await extraScanner(source);
 }
-module.exports = { UPLOAD_LIMIT, FILE_LIMIT, safeName, extractSource, scanSource };
+module.exports = { UPLOAD_LIMIT, FILE_LIMIT, REPO_ARCHIVE_LIMIT, safeName, extractSource, extractRepo, scanSource };

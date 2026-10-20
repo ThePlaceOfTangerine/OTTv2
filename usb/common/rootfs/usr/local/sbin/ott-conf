@@ -1,0 +1,18 @@
+#!/bin/sh
+# Mounts the OTTCONF partition (FAT32, edited with Notepad by the organizers) read-only at /run/ottconf.
+# Never mounts anything else: the computer's own disks stay untouched.
+set -u
+for i in $(seq 1 60); do
+  [ -e /dev/disk/by-label/OTTCONF ] && break
+  sleep 0.5
+done
+mkdir -p /run/ottconf
+# Every stick boots the same image: name the machine after its first network card so the admin list tells USB graders apart.
+mac=$(cat /sys/class/net/e*/address 2>/dev/null | head -n 1 | tr -d ':')
+[ -n "$mac" ] && hostname "$(cat /etc/hostname)-$(printf %s "$mac" | tail -c 6)"
+if [ ! -e /dev/disk/by-label/OTTCONF ]; then
+  echo "OTTv2: KHÔNG THẤY phân vùng OTTCONF trên USB. Ghi lại USB bằng file .img của ban tổ chức." | tee /dev/console
+  exit 0
+fi
+mount -t vfat -o ro,nosuid,nodev,noexec,fmask=0133,dmask=0022 /dev/disk/by-label/OTTCONF /run/ottconf \
+  || echo "OTTv2: không đọc được phân vùng OTTCONF." | tee /dev/console

@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { SandboxManager } = require('./docker');
+const { createSandboxManager } = require('./index');
 const { SAMPLES, sampleSource } = require('./samples');
 const { DEFAULT_RULES } = require('../game/engine');
 const { runMatch, verifyReplay } = require('../game/match');
@@ -7,7 +7,7 @@ const { BotFault, LIMITS } = require('../game/protocol');
 const { RuleSetService } = require('../rule-sets');
 
 class MatchService {
-  constructor(db, { manager = new SandboxManager(), retryDelayMs = 500, submissions, ruleSets } = {}) {
+  constructor(db, { manager = createSandboxManager(), retryDelayMs = 500, submissions, ruleSets } = {}) {
     this.db = db; this.manager = manager; this.retryDelayMs = retryDelayMs; this.active = null;
     this.submissions = submissions; this.ruleSets = ruleSets || new RuleSetService(db);
     db.prepare("UPDATE practice_matches SET status='infrastructure_error',error_json=?,updated_at=? WHERE status='running'")

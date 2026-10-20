@@ -1,0 +1,126 @@
+{
+  "id": "ottv2-obstacles",
+  "version": 1,
+  "engine": "rps-grid-v1",
+  "name": "OTTv2 Obstacles",
+  "randomExtraPiece": true,
+  "boardSize": 9,
+  "homes": [
+    {
+      "row": 0,
+      "col": 8
+    },
+    {
+      "row": 8,
+      "col": 0
+    }
+  ],
+  "pieceTypes": [
+    "R",
+    "R",
+    "R",
+    "P",
+    "P",
+    "P",
+    "S",
+    "S",
+    "S",
+    "S"
+  ],
+  "beats": {
+    "R": "S",
+    "S": "P",
+    "P": "R"
+  },
+  "directions": [
+    [-1,-1],
+    [-1,0],
+    [-1,1],
+    [0,-1],
+    [0,1],
+    [1,-1],
+    [1,0],
+    [1,1]
+  ],
+  "startingPositions": [
+    [
+      [0,6],
+      [1,7],
+      [2,8],
+      [0,5],
+      [1,6],
+      [2,7],
+      [3,8],
+      [1,5],
+      [2,6],
+      [3,7]
+    ],
+    [
+      [8,2],
+      [7,1],
+      [6,0],
+      [8,3],
+      [7,2],
+      [6,1],
+      [5,0],
+      [7,3],
+      [6,2],
+      [5,1]
+    ]
+  ],
+  "maxMoves": 500,
+  "repetitionLimit": 3,
+  "noLegalMoves": "loss",
+  "tileTypes": {
+    "wall": {
+      "passable": false,
+      "tags": [
+        "impassable",
+        "wall"
+      ],
+      "render": {
+        "color": "#6b5e4a",
+        "symbol": "▲",
+        "label": "Tường đá"
+      }
+    }
+  },
+  "tiles": [
+    {
+      "at": [4,4],
+      "type": "wall"
+    },
+    {
+      "at": [3,5],
+      "type": "wall"
+    },
+    {
+      "at": [5,3],
+      "type": "wall"
+    },
+    {
+      "at": [2,2],
+      "type": "wall"
+    },
+    {
+      "at": [6,6],
+      "type": "wall"
+    },
+    {
+      "at": [4,1],
+      "type": "wall"
+    },
+    {
+      "at": [4,7],
+      "type": "wall"
+    },
+    {
+      "at": [1,4],
+      "type": "wall"
+    },
+    {
+      "at": [7,4],
+      "type": "wall"
+    }
+  ]
+}

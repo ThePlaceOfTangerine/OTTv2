@@ -1,0 +1,6 @@
+flush ruleset
+table inet ott {
+  chain input { type filter hook input priority 0; policy drop; iif lo accept; }
+  chain output { type filter hook output priority 0; policy drop; oif lo accept; }
+  chain forward { type filter hook forward priority 0; policy drop; }
+}

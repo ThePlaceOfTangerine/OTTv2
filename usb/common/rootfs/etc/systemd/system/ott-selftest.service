@@ -1,0 +1,12 @@
+[Unit]
+Description=OTTv2: tự kiểm tra (chỉ chạy khi OTTCONF có file SELFTEST, dùng cho test tự động)
+After=ott-conf.service
+ConditionPathExists=/run/ottconf/SELFTEST
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ott-selftest
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target graphical.target

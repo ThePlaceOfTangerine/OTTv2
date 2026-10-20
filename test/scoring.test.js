@@ -70,7 +70,7 @@ test('CSV parses quotes/BOM/CRLF and imports atomically without overwriting acco
   try {
     await assert.rejects(importUsers(db, 'username,password\nvalid1,\ninvalid name,')); assert.equal(db.prepare('SELECT COUNT(*) n FROM users').get().n, 0);
     const imported = await importUsers(db, 'username,password\nteam001,\nteam002,MyPassword-2026'); assert.equal(imported.length, 2); assert.equal(imported[0].password,'team001'); assert.equal(imported[1].password,'team002');
-    const user = db.prepare("SELECT * FROM users WHERE username='team001'").get(); assert.ok(await require('bcryptjs').compare(imported[0].password, user.password_hash)); assert.equal(user.role, 'contestant'); assert.equal(user.must_change_password,1);
+    const user = db.prepare("SELECT * FROM users WHERE username='team001'").get(); assert.ok(await require('../src/passwords').verifyPassword(imported[0].password, user.password_hash)); assert.equal(user.role, 'contestant'); assert.equal(user.must_change_password,1);
     await assert.rejects(importUsers(db, 'username,password\nteam003,\nTEAM001,')); assert.equal(db.prepare('SELECT COUNT(*) n FROM users').get().n, 2);
     assert.equal(csvCell('=SUM(A1)'), '"\'=SUM(A1)"');
   } finally { db.close(); }

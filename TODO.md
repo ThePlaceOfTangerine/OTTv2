@@ -37,7 +37,7 @@ Các mục này ghi nhận chức năng đã có qua rà soát mã nguồn, khô
 - Trạng thái: Đã chốt hướng triển khai với chủ dự án: dưới 150 đội, Swiss theo điểm, bracket đấu thêm rồi xét hạt giống. [Yêu cầu tổ chức giải v0.2](docs/TOURNAMENT-REQUIREMENTS.md) ghi rõ mặc định cấu hình và các việc BTC cần chốt trước giải thật.
 - [x] Soạn bản yêu cầu v0.1: quy mô, vòng đời giải, nhận/chốt bài, vòng loại, bracket, luật mới, fallback, sự cố và tiêu chí nghiệm thu.
 - [x] Xác nhận ba quyết định chính và cập nhật bản yêu cầu thành cơ sở triển khai v0.2; chi tiết còn đề xuất được ghi riêng.
-- [x] Chốt hướng quy mô: dưới 150 đội thực tế; sức chứa cấu hình được; 4.000 chỉ là thử tải mở rộng tùy chọn.
+- [x] Chốt hướng quy mô: dưới 150 đội thực tế; sức chứa cấu hình được; 4.000 chỉ là thử tải mở rộng tùy chọn. Cập nhật 19/10/2026: chủ dự án mở lại D01, hạ tầng thiết kế cho 1.000 đội × 4 người, giải thật linh hoạt theo số đăng ký; giữa kỳ chạy 1 laptop.
 - [x] Chốt vòng loại Swiss theo điểm, không dùng Elo xếp hạng giải mới.
 - [x] Chốt hướng phân định bracket hòa: đấu thêm rồi dùng hạt giống; số cặp phụ là tham số cấu hình.
 - [ ] Xác định số người, số đội/bot, số lượt nộp và mức đồng thời mục tiêu.
@@ -115,13 +115,13 @@ Nghiệm thu: nhiều tài khoản chung IP sử dụng được; không mất/t
 ## P1 Offline và phục hồi
 
 - [ ] Đóng gói đủ runtime, sandbox image, compiler, tài khoản, luật và tài nguyên web trước ngày thi.
-- [ ] Loại phụ thuộc Internet khỏi luồng LAN; xử lý font/thư viện CDN ở khu legacy nếu dùng.
-- [ ] Cấu hình địa chỉ server LAN cố định, HOST, firewall và hướng dẫn truy cập.
-- [ ] Sao lưu nhất quán SQLite cùng mã nguồn, artifact, manifest image và phiên bản phần mềm.
-- [ ] Công cụ/quy trình kiểm tra và khôi phục backup trên máy khác.
+- [x] Loại phụ thuộc Internet khỏi luồng LAN: giao diện chính và site kết quả không tải tài nguyên ngoài (npm run offline:check). Khu /legacy còn Google Fonts, không dùng trong giải; offline tự dùng font hệ thống.
+- [ ] Cấu hình địa chỉ server LAN cố định, HOST, firewall và hướng dẫn truy cập. Đã có hướng dẫn (docs/RUNBOOK.md) và offline:check cảnh báo HOST; chưa cấu hình trên máy thi thật.
+- [ ] Sao lưu nhất quán SQLite cùng mã nguồn, artifact, manifest image và phiên bản phần mềm. Đã có snapshot VACUUM INTO + bài nộp/artifact + phiên bản phần mềm và dấu engine; chưa ghi kèm image sandbox.
+- [ ] Công cụ/quy trình kiểm tra và khôi phục backup trên máy khác. Đã có npm run restore (băm, integrity_check, foreign_key_check, giữ DB cũ) và quy trình trong RUNBOOK; mới kiểm chứng khôi phục sang thư mục khác trên cùng máy.
 - [ ] Chuẩn bị máy dự phòng, lịch backup, người phụ trách chuyển máy; UPS cho server và thiết bị mạng nếu có điều kiện.
-- [ ] Khởi động lại không mất bài đã nhận, không tính thua do hạ tầng và không cộng điểm trùng.
-- [ ] Diễn tập mất điện, mất mạng, đầy đĩa và hết dung lượng lưu trữ theo môi trường thử riêng.
+- [x] Khởi động lại không mất bài đã nhận, không tính thua do hạ tầng và không cộng điểm trùng: test:recovery kill tiến trình coordinator 2 lần giữa vòng, 36 ván và bảng điểm trùng khớp lần chạy không gián đoạn; việc dở của coordinator được trả về hàng đợi ngay khi khởi động.
+- [ ] Diễn tập mất điện, mất mạng, đầy đĩa và hết dung lượng lưu trữ theo môi trường thử riêng. Đã tự động hóa kill tiến trình và chạy trong namespace không mạng; chưa thử rút điện máy thật, đầy đĩa.
 
 Nghiệm thu: ngắt Internet vẫn hoàn thành giải LAN; khôi phục sang máy dự phòng và đối chiếu được dữ liệu/kết quả.
 
@@ -156,41 +156,88 @@ Nghiệm thu: ngắt Internet vẫn hoàn thành giải LAN; khôi phục sang m
 
 ## P2 Máy chấm phân tán
 
-- [ ] Tách tiến trình điều phối, kiểm tra bài và chấm trận.
-- [ ] Chọn DB cho bản phân tán; đề xuất PostgreSQL, giữ SQLite cho bản local nếu phù hợp.
-- [ ] Chọn queue PostgreSQL hoặc Redis/BullMQ; ghi rõ quyết định trước khi thêm dịch vụ.
-- [ ] API đăng ký/xác thực worker, phân quyền nhận việc và trả kết quả.
-- [ ] Phân phối source/artifact theo hash, image cố định và manifest môi trường; không chia sẻ file SQLite qua mạng.
-- [ ] Lease, heartbeat, thu hồi việc, giới hạn retry và chống kết quả trùng/đến muộn.
-- [ ] Quản lý image có sẵn trên worker, tương thích kiến trúc CPU, CPU/RAM/disk và số slot.
-- [ ] Theo dõi worker online/offline, thời gian chờ, tỷ lệ lỗi và năng lực xử lý.
+- [x] Tách tiến trình điều phối, kiểm tra bài và chấm trận: coordinator (npm start) và grader agent (npm run grader); LOCAL_GRADING=0 để coordinator không tự chấm. Đấu thử admin và vòng điểm cũ vẫn chạy trên coordinator.
+- [x] Chọn DB cho bản phân tán: giữ SQLite WAL ở coordinator, máy chấm không truy cập DB (quyết định 19/10/2026, không thêm PostgreSQL).
+- [x] Chọn queue: dùng bảng lease SQLite có sẵn qua API coordinator; không thêm Redis/BullMQ.
+- [x] API đăng ký/xác thực worker, phân quyền nhận việc và trả kết quả: khóa riêng mỗi máy, HMAC + timestamp + nonce lưu SQLite, thu hồi; mã giữ việc gắn với máy.
+- [x] Phân phối source/artifact theo bài nộp (cache bất biến trên máy chấm) và image cố định (GRADER_IMAGE); không chia sẻ file SQLite. Chưa có manifest môi trường riêng.
+- [x] Lease, heartbeat, thu hồi việc, giới hạn retry và chống kết quả trùng/đến muộn: test máy chết giữa việc, kết quả muộn, hai máy tranh việc, replay giả.
+- [ ] Quản lý image có sẵn trên worker, tương thích kiến trúc CPU, CPU/RAM/disk và số slot. Hiện chỉ báo image và số slot; chưa kiểm kiến trúc/tài nguyên.
+- [ ] Theo dõi worker online/offline, thời gian chờ, tỷ lệ lỗi và năng lực xử lý. Đã có online/lần liên lạc cuối/việc đang chạy; chưa có thời gian chờ và tỷ lệ lỗi.
+- [x] Phase 2b: SandboxBackend chọn bằng SANDBOX_BACKEND; bwrap cho cùng mã lỗi với Docker trong distro WSL2 ott-grader; windows-job EXPERIMENTAL (Python); script build-rootfs/setup-grader.
+- [ ] bwrap: giới hạn cgroup tổng RAM/PID và dung lượng tmpfs tương đương Docker (hiện chỉ rlimit + seccomp của supervisor).
+- [x] windows-job: C++ bằng g++ có sẵn trên máy (Dev-C++/Code::Blocks/PATH/OTT_GXX) hoặc gói phụ add-cpp (WinLibs 12.2 rút gọn); test:windows-job có C++ (biên dịch, nước hợp lệ, lỗi biên dịch, crash, CPU, system()).
+- [x] Quyết định mạng/file trên windows-job: không chặn; chỉ dùng cho lớp học có giám sát, kết quả ghi "không chính thức" (D13, D17).
+- [ ] windows-job C++ trong thư mục có dấu tiếng Việt: g++ msvcrt không chạy, hiện chỉ báo lỗi rõ ràng (thử bản UCRT/manifest UTF-8 nếu cần).
+- [ ] Chạy máy chấm WSL2 kết nối coordinator qua LAN thật (mới chạy coordinator và agent cùng trong distro).
 - [ ] Benchmark nhiều máy với cấu hình khác nhau và kiểm tra công bằng giới hạn chạy.
 
 Nghiệm thu: tắt một worker giữa trận, worker khác tiếp tục xử lý; dữ liệu và điểm vẫn nhất quán.
 
 ## P2 Công bố và đồng bộ
 
-- [ ] Trạng thái kết quả: bản nháp, đã duyệt, đã công bố; có người duyệt và dấu thời gian.
-- [ ] Xuất snapshot kết quả công khai có mã phiên bản; không tính lại bảng điểm theo từng người xem.
-- [ ] Website công khai và cache/CDN đúng đường dẫn; không cache session hoặc dữ liệu cá nhân.
+- [x] Trạng thái kết quả: bản nháp, đã duyệt, đã công bố; có người duyệt và dấu thời gian. Bản công bố lưu người/thời điểm/lý do, ghi "tạm tính" khi chưa duyệt đội đi tiếp.
+- [x] Xuất snapshot kết quả công khai có mã phiên bản; không tính lại bảng điểm theo từng người xem (publications v1, v2… bất biến, site tĩnh).
+- [x] Website công khai và cache/CDN đúng đường dẫn; không cache session hoặc dữ liệu cá nhân: deploy thật lên Cloudflare Pages (ott-ket-qua.pages.dev) 21/10/2026, cache latest 60 s / phiên bản immutable, không lộ email, _headers có CSP + X-Frame-Options (thêm sau lần deploy đầu). Đo tải: xem CAPACITY.md.
 - [ ] Công bố trước thời điểm dự kiến có kết quả và giải thích trạng thái chờ.
-- [ ] Gói xuất offline gồm đội, bài nộp, luật, lịch, kết quả, replay, hash và phiên bản phần mềm.
-- [ ] Import online có kiểm tra toàn vẹn, chống trùng và báo xung đột.
-- [ ] Quy định một nơi ghi dữ liệu chính thức tại một thời điểm; ghi nhận chuyển giao online/offline.
+- [x] Gói xuất offline gồm đội, bài nộp, luật, lịch, kết quả, replay, hash và phiên bản phần mềm: bundle đồng bộ (Phase 5b) gồm mọi bảng dữ liệu giải/hệ thống, file bài nộp và artifact, mã băm từng mảnh; hai máy phải cùng schema.
+- [x] Import online có kiểm tra toàn vẹn, chống trùng và báo xung đột: chữ ký Ed25519, GCM + băm từng mảnh, bundle đã nhập bỏ qua, dòng từ máy không giữ quyền báo xung đột; test sync.
+- [x] Quy định một nơi ghi dữ liệu chính thức tại một thời điểm; ghi nhận chuyển giao online/offline: quyền hệ thống và quyền từng giải, bàn giao trong bundle, máy kia chỉ đọc (không nhận bài, không chạy ván, chặn API sửa).
 
 ## P3 Git Google Sheets và trải nghiệm
 
-- [ ] Đăng ký repository gắn với tài khoản đội và xác minh quyền phù hợp.
-- [ ] Nộp commit cụ thể; lưu bản mã nguồn, commit ID, hash, thời điểm nhận và biên nhận.
-- [ ] Lấy repository theo hàng đợi có giới hạn; không chạy hook/build script của repo ngoài sandbox.
-- [ ] Có nộp file dự phòng và dùng chung pipeline; không coi tên tác giả commit là xác thực.
-- [ ] Xuất phiên bản kết quả đã duyệt lên Google Sheets; lỗi Sheets không làm mất kết quả gốc.
-- [ ] Bộ khởi động/đóng gói và tự kiểm tra môi trường cho giáo viên ít kinh nghiệm kỹ thuật.
+- [x] Đăng ký repository gắn với tài khoản đội và xác minh quyền phù hợp: GitHub App chỉ đọc, repo Private, file ott-verify.txt, một repo chỉ thuộc một đội đã xác minh. Mới kiểm chứng với server GitHub giả.
+- [x] Nộp commit cụ thể; lưu bản mã nguồn, commit ID, hash, thời điểm nhận và biên nhận (nút, tag ott-submit, commit lúc hết hạn).
+- [x] Lấy repository theo hàng đợi có giới hạn; không chạy hook/build script của repo ngoài sandbox: zipball theo SHA, chỉ giải nén ott.json và bot/, chặn symlink, giới hạn 50 MB, backoff rate limit.
+- [x] Có nộp file dự phòng và dùng chung pipeline; không coi tên tác giả commit là xác thực. Form upload có Turnstile tùy chọn.
+- [x] Tạo GitHub App thật của BTC: ott-btc-nop-bai (Organization ott-btc, 21/10/2026) bằng scripts/github-app-manifest.js; đã kiểm qua API quyền chỉ contents/metadata read, sự kiện push; khóa trong thư mục secrets ngoài repo; start-server.ps1 tự nạp.
+- [ ] Thử trọn luồng với repo GitHub thật của một đội (lưu repo, cài App, xác minh, Nộp commit mới nhất → Accepted).
+- [ ] Bật webhook của App khi server có địa chỉ công khai (VPS hoặc Cloudflare Tunnel có tên) và thử tag ott-submit.
+- [ ] Đo thời gian lấy commit hạn nộp và rate limit với nhiều repo thật; hiện 20 đội/10 giây chưa có số đo.
+- [x] Xuất phiên bản kết quả đã duyệt lên Google Sheets; lỗi Sheets không làm mất kết quả gốc: ghi thật vào bảng tính của chủ dự án 21/10/2026 (3 tab, 1 lượt thử, dữ liệu đúng).
+- [x] Bộ khởi động/đóng gói và tự kiểm tra môi trường cho giáo viên ít kinh nghiệm kỹ thuật. Gói lớp học portable (Node + Python 3.11 embeddable, start.bat) và trang /setup kiểm tra windows-job/g++/Docker; bài thử máy sạch tự động 51,5 giây (docs/LOP-HOC.md).
+- [ ] Thử gói lớp học trên máy phòng lab thật (Deep Freeze, tài khoản không có quyền quản trị, máy cũ) và với giáo viên chưa từng dùng (mục tiêu ≤ 10 phút).
 - [ ] Luồng thao tác rõ: khởi động → kiểm tra máy → tạo giải → nhập đội → mở/chốt bài → chạy giải → công bố.
 - [x] Tài liệu Quy tắc và cách tổ chức giải trong mục Giải đấu của admin: giải thích thuật ngữ/thể thức, bảng cấu hình, 11 bước tạo/chạy giải, tính điểm/miễn đấu/hòa, trạng thái, lỗi thường gặp và giới hạn hiện có. Bản nguồn docs/QUY-TAC-GIAI-DAU.md; trang web có mục lục, mở tab mới và đọc được trên điện thoại.
-- [ ] Bot mẫu chạy ngay, bài hướng dẫn ngắn cho sinh viên năm nhất, giải thích lỗi và replay dễ hiểu.
+- [x] Bot mẫu chạy ngay, bài hướng dẫn ngắn, giải thích lỗi và replay dễ hiểu: ott-run/chay-thu.bat chạy thử với bot mẫu, gợi ý lỗi tiếng Việt dùng chung (web/hints.js, đủ mọi mã lỗi), quét tĩnh chỉ ra dòng, replay có phím tắt/nhảy pha/bấm lịch sử, replay.html offline.
+- [ ] Thử ott-run và bảng huy hiệu với học sinh thật (cách đọc gợi ý lỗi, có hiểu huy hiệu không).
 - [ ] Diễn tập với người chưa biết Docker/Linux/DB và ghi lại điểm vướng.
-- [ ] Đánh giá USB boot đã tích hợp môi trường chấm; giữ Docker hiện tại đến khi phương án thay thế được nghiệm thu.
+- [x] Đánh giá USB boot đã tích hợp môi trường chấm: USB máy chấm dùng đúng rootfs/IMAGE_ID của máy chấm WSL/Docker, chấm thật trong QEMU (Phase 7). Docker vẫn là mặc định cho coordinator.
+- [ ] USB boot trên máy thật: Secure Boot theo hãng, phím boot, USB-C/USB SSD, GPU rời, Wi-Fi thật, ghi hàng loạt USB, 30–100 máy cùng lúc (việc của BTC theo D15).
+
+## Nâng cấp theo nhận xét của thầy (8 phase)
+
+Nguồn: yêu cầu ngày 19/10/2026; quyết định chốt trong docs/TOURNAMENT-REQUIREMENTS.md (D01, D09–D14).
+
+- [x] Bước 0: đối chiếu yêu cầu với mã hiện tại, chốt mâu thuẫn và quyết định với chủ dự án.
+- [x] Phase 1 – nộp bằng GitHub (code + test tự động + kiểm chứng trình duyệt/Docker với GitHub giả); chưa thử GitHub thật (xem mục P3).
+- [x] Phase 2a – coordinator + grader agent, HMAC, lease/heartbeat, admin quản lý máy chấm (test tự động + Docker thật).
+- [x] Phase 2b – SandboxBackend (docker/bwrap/windows-job), rootfs WSL2 dựng từ image sandbox (test tự động trên Docker, WSL2 và Windows).
+- [x] Phase 3a – RuleSet dữ liệu hóa (tileTypes/tiles/tileSpawns/onMoveLimit), effect registry wildcard/shield/dash, state.tiles + piece.effect, changes trong replay, 3 bộ luật mẫu, bot mẫu cập nhật.
+- [x] Phase 3b – giao diện vẽ theo bảng render của RuleSet, replay áp changes (replay cũ giữ cách mô phỏng), trình chỉnh luật có công cụ theo loại ô + JSON nâng cao, mô tả luật thí sinh sinh từ JSON.
+- [x] Phase 4 – bản công bố bất biến (thủ công/lịch/tạm hoãn), site tĩnh + mã tra cứu đội, đồng bộ Google Sheets, lệnh deploy Pages; test tự động + trình duyệt + đo 4000 lượt đọc.
+- [x] Phase 4 – deploy Cloudflare Pages thật (21/10/2026, giải mẫu trong DB tạm, wrangler 3.80.0, 21 file).
+- [x] Phase 4 – đồng bộ Google Sheets thật (21/10/2026, service account + bảng tính của chủ dự án).
+- [x] Vòng loại Swiss hỗ trợ 1.000 đội (hướng a do chủ dự án chọn): ghép theo khối 256 hạng liên tiếp, giới hạn mới 4.000; ≤256 đội giữ nguyên cách ghép. Test 1.000 đội × 8 lượt; bench vòng loại 1.000 đội chạy thật (ván giả).
+- [x] Phase 5a – chạy LAN không Internet, nhập bài dự phòng từ thư mục/USB (giao diện + CLI), snapshot định kỳ ra ổ ngoài, khôi phục, tự chạy tiếp sau mất điện; test tự động (kill coordinator, cắt mạng bằng network namespace).
+- [x] Phase 5b – đồng bộ bundle local ↔ online (JSONL, Ed25519, AES-256-GCM passphrase, một máy giữ quyền ghi mỗi giải + quyền hệ thống), giao diện + CLI.
+- [ ] Đồng bộ thật giữa hai máy vật lý qua USB (mới kiểm chứng hai DB trên cùng máy).
+- [x] Phase 6a – gói lớp học portable (OTTv2-lop-hoc.zip 45,9 MB + OTTv2-add-cpp.zip 41 MB), trang cài đặt lần đầu (chỉ localhost, tự khóa), mức tin cậy lớp học/chính thức, windows-job C++, data/settings.json, start.bat tự khởi động lại; test tự động + bài thử máy sạch.
+- [x] Phase 6b – ott-run + chay-thu.bat (Job Object, fallback chạy trực tiếp báo CPU ước lượng), replay.html tự chứa, gợi ý lỗi dùng chung portal/CLI, replay phím tắt + nhảy pha + bấm lịch sử (admin/portal, site công khai, replay.html), biến động hạng và 4 huy hiệu (portal, admin, site, bản công bố); test tự động + trình duyệt + máy sạch.
+- [x] Phase 7a – đăng ký máy chấm bằng mã theo đợt (migration 22, mở/đóng ở admin, khóa riêng mỗi máy, giữ trong RAM), file OTTCONF (grader.env/portal.env, chịu được Notepad), luật tường lửa và chính sách Firefox sinh từ cấu hình; test tự động.
+- [x] Phase 7b – USB máy chấm và máy thí sinh dựng từ rootfs máy chấm (usb/build.sh trong distro ott-build), BIOS + UEFI Secure Boot, OTTCONF + persistence ~/bai-lam, bản --with-wifi; kiểm chứng QEMU (usb/boot-test.js): chấm bài thật, tường lửa, Firefox, desktop, ott-run, lưu bài qua 2 lần khởi động, ổ của máy không bị mount/ghi.
+- [ ] Phase 7 – thử USB trên máy thật (xem mục P3).
+- [x] Phase 8 – thử tải 1.000 đội × 3 lần nộp, red team, bộ tài liệu (kiểm chứng trên 1 laptop + QEMU):
+  - [x] Thử tải scripts/load-test.js (WSL ott-build): 4.000 đăng nhập, 3.000 bài nộp sát hạn, 4.000 người xem, vòng loại 1.000 đội × 8 lượt (máy chấm giả qua HMAC thật), công bố + 4.000 lượt đọc site. Lần cuối: 0 lỗi, biên nhận p95 1,0 s, bảng vòng loại p95 0,29 s, health max 1,3 s.
+  - [x] Sửa nhờ thử tải: giới hạn đăng nhập theo IP; scrypt thay bcryptjs; 32 upload cùng lúc; cache bảng xếp hạng + view portal serialize/gzip 2 s; settle() chỉ xét cặp vừa xong; gzip JSON; keep-alive 65 s; đếm entrants bằng COUNT.
+  - [x] Đo ván thật sandbox bwrap (scripts/load-real-games.js): 1,6 giây-luồng/ván, 5,2 giây-luồng/bài kiểm tra (bot mẫu); bảng tính số máy chấm trong CAPACITY.md.
+  - [x] Red team: bwrap tmpfs giới hạn 16/64 MB (fixture disk, test:bwrap 4/4); khóa GRUB PBKDF2 đạt trên cả hai ảnh, UEFI Secure Boot và BIOS; test/redteam.test.js; RED-TEAM.md.
+  - [x] Tài liệu: FORMAT, ANNOUNCEMENT, RACI, RUNBOOK, RISKS, CAPACITY, RED-TEAM; QUY-TAC mục 8 + trang hướng dẫn admin dựng lại; README/CAI-DAT/SWISS/USB-BOOT/TOURNAMENT-REQUIREMENTS cập nhật.
+- [x] Site công khai trên Cloudflare Pages thật (21/10/2026, site 1.000 đội): 4.000 request qua 64 kết nối p95 0,13–0,17 s, không có lỗi HTTP từ Cloudflare. Từ máy chủ OTTv2 4.000 lượt dồn cùng lúc vẫn p95 4,0 s: giải lớn dùng Pages.
+- [ ] Đo site công khai từ nhiều nơi cùng lúc (một máy chỉ mở được khoảng 760/4.000 kết nối mới cùng lúc vì nghẽn mạng phía máy đo).
+- [ ] deploy.js gọi npx qua shell trên Windows: Node 24 báo DEP0190 (tham số không được escape); đổi sang gọi npx.cmd trực tiếp không qua shell.
+- [ ] Đo thử tải trên VPS/Cloudflare Tunnel thật và với bot thật của thí sinh (số hiện tại là laptop + bot mẫu).
+- [ ] Fixture ghi đầy đĩa (disk) với backend Docker (mới chạy bwrap).
 
 ## Công cụ và điều kiện cài đặt
 
@@ -208,7 +255,7 @@ Nghiệm thu: tắt một worker giữa trận, worker khác tiếp tục xử l
 - [ ] Chuẩn bị Redis/BullMQ chỉ nếu chọn phương án queue này.
 - [ ] Chuẩn bị nơi lưu artifact dùng chung hoặc API tải artifact; MinIO/object storage là tùy chọn.
 - [ ] Chuẩn bị Google Cloud project, quyền Sheets API và danh tính truy cập khi làm tích hợp Sheets.
-- [ ] Chuẩn bị Git hosting và thông tin truy cập giới hạn quyền khi làm tích hợp Git.
+- [ ] Chuẩn bị Git hosting và thông tin truy cập giới hạn quyền khi làm tích hợp Git. Mã đã hỗ trợ GitHub App (docs/GITHUB.md); App thật chưa tạo. Gitea cho LAN thuộc Phase 5.
 - [ ] Chuẩn bị runner CI Linux phù hợp cho integration sandbox.
 - [ ] Xác minh runtime/image/sandbox:check riêng trên từng máy mới; Windows cần Docker Desktop/WSL2 phù hợp.
 
@@ -244,6 +291,43 @@ Cấu hình dưới đây chỉ là điểm bắt đầu để benchmark, chưa 
 7. Git, Sheets và bộ đóng gói cho người ít kỹ thuật.
 
 ## Nhật ký tiến trình
+
+- 21/10/2026: Viết lại README (mục lục, tính năng, công nghệ, sơ đồ Mermaid, cây thư mục, lệnh npm, năng lực đã đo, bảng tài liệu theo vai trò). Kiểm tra mọi liên kết tương đối trong README tồn tại; npm test 165/165. Thêm /.wrangler/ vào .gitignore. Giữ nguyên cấu trúc thư mục (di chuyển sẽ làm gãy đường dẫn trong mã, test, tài liệu). Commit toàn bộ lên nhánh thu-nghiem, không đụng main.
+
+- 21/10/2026: Đo tải Cloudflare Pages thật (được chủ dự án đồng ý). Đẩy giải mẫu 1.000 đội (scripts/bench-publish.js, 1.017 file) lên ott-ket-qua.pages.dev; đo từ WSL bằng E:/OTTv2-local/tools/load-pages.js. 4.000 kết nối mới cùng lúc: chỉ 758 thành công, phần còn lại timeout kết nối phía máy đo, Cloudflare không trả lỗi HTTP. 64 kết nối dùng lại: lượt 1 p95 129 ms (1 request treo 51 s), lượt 2 4.000 request 4,9 s, p95 173 ms, 15 ETIMEDOUT. Sau đó đẩy lại giải mẫu 6 đội (Pages + Sheets). Ghi nhận cảnh báo DEP0190 của deploy.js.
+
+- 21/10/2026: Chủ dự án lập Organization ott-btc. Tạo GitHub App ott-btc-nop-bai bằng luồng App manifest (scripts/github-app-manifest.js): một cú bấm trên GitHub, khóa lưu thẳng vào thư mục secrets, không in ra. Kiểm bằng JWT của App: quyền contents:read + metadata:read, sự kiện push, 0 nơi cài. Webhook để tắt (chưa có địa chỉ công khai). start-server.ps1 nạp GITHUB_APP_ID/PRIVATE_KEY_PATH/SLUG/WEBHOOK_SECRET; khởi động thử cổng 3999 thấy cả GitHub, Pages, Sheets. Chưa thử với repo thật của đội.
+
+- 21/10/2026: Cấu hình Cloudflare Pages và Google Sheets với tài khoản thật của chủ dự án. Khóa nằm ở E:/OTTv2-local/secrets (ngoài repo, chỉ tài khoản Windows của chủ dự án đọc được; không ghi vào tài liệu). Token Cloudflare chỉ có quyền Pages: Edit; project ott-ket-qua tạo bằng API. Kiểm chứng bằng giải mẫu 6 đội trong DB tạm E:/OTTv2-local/realtest (E:/OTTv2-local/tools/real-publish-test.js): Sheets ghi 3 tab ngay lần đầu; Pages đẩy 21 file, đọc lại manifest từ Internet, trang hiển thị đúng ở 390 px, replay mở được, không có email trong file công khai. Phát hiện trang trên Pages thiếu CSP/X-Frame-Options (Cloudflare chỉ gửi header trong _headers) → thêm vào _headers, deploy lại và xác nhận header + không lỗi CSP. Thêm scripts/start-server.ps1 (UTF-8 có BOM để PowerShell 5.1 đọc đúng tiếng Việt), chạy thử cổng 3999. Trên ott-ket-qua.pages.dev hiện là dữ liệu giải mẫu.
+
+- 20/10/2026: Hoàn thành Phase 8. Tìm nguyên nhân máy chủ đứng 48–55 s trong vòng loại bằng --cpu-prof: không có tác vụ đồng bộ dài (đoạn bận liền dài nhất 2,1 s) mà là quá tải luồng chính (cửa sổ 60 s bận 58,7 s): JSON.stringify bảng ~150 KB mỗi lượt xem, tính lại xếp hạng mỗi khi một cặp xong, settle() đọc lại mọi ván kèm replay. Sửa: view portal dựng lại tối đa 2 s/lần đã serialize + gzip, settle() theo cặp với json_extract. Lần chạy cuối (output/load/2026-10-20T15-42-43-268Z.json): 4.000/4.000 đăng nhập, 3.000/3.000 biên nhận p95 1,0 s, 304.201 lượt xem bảng p95 0,29 s, 0 lỗi mạng/5xx, health max 1,3 s, vòng loại 8.000 ván 244 s, ghép cặp 2,1–5,2 s, DB 231 MB; site 4.000 lượt dồn cùng lúc p95 4,0 s (chưa đạt). Ván thật bwrap (output/load/2026-10-20T15-47-10-636Z-real-games.json): 200 ván 79 s với 4 luồng, 40/40 Accepted. Dựng lại 3 ảnh USB có khóa GRUB; usb:test --grub-lock đạt UEFI + BIOS cả hai ảnh, test khởi động đầy đủ vẫn đạt. Sửa CAPACITY: số Phase 4 site tĩnh là p95 2,2 s (trước đó ghi nhầm dưới 1 s). npm test 165/165, test:bwrap 4/4. Chưa thử VPS/Cloudflare thật, máy thật, bot thật.
+
+- 20/10/2026: Phase 8 đang làm, tạm dừng theo yêu cầu. Đã sửa và đo (WSL ott-build, i5-11400H 12 luồng, 8 GB): giới hạn đăng nhập theo IP chặn 3.990/4.000 lượt (sửa: đăng nhập đúng trả lượt); bcryptjs 4.000 lượt 950 s, server không phản hồi (sửa: scrypt, 105 s); upload 4 lượt cùng lúc làm biên nhận p95 111 s (sửa: 32, p95 0,74 s); bảng 1.000 đội 15 ms + 349 KB mỗi lượt xem (sửa: cache, rút gọn, gzip; 2,4 ms); bwrap tmpfs không giới hạn 616 MB/nước (sửa: --size). npm test 165/165. Chưa xong: tác vụ chặn ~48 s trong vòng loại (đang profile), vòng loại 8 lượt + site, ván thật sandbox, GRUB lock test, CAPACITY.md. Chưa commit.
+
+- 20/10/2026: Hoàn thành Phase 7 trong QEMU (D15). 7a: migration 22 (grader_enrollments, graders.enrollment_id), GraderService.openEnrollment/enroll/closeEnrollment, POST /api/graders/enroll, khối "Đăng ký máy chấm USB" ở admin, scripts/grader.js đọc GRADER_CONFIG_FILE + GRADER_CREDENTIALS_FILE, src/usb/config.js (parseEnv chịu BOM/CRLF, IPv4 bắt buộc cho portal, nftables, Firefox policy, Wi-Fi), scripts/usb-config.js, scripts/usb-clock.js; test/usb.test.js. 7b: distro WSL ott-build trên E: (từ ott-grader.tar), usb/build.sh dựng squashfs + GRUB BIOS + shim/GRUB ký (gcdx64) + ảnh MBR 4 phân vùng; usb/boot-test.js chạy coordinator thật + QEMU (OVMF khóa Microsoft, SeaBIOS) với ổ INTERNAL giả lập. Kết quả: máy chấm UEFI SB và BIOS kết nối sau 14–18 giây, bài Python Accepted bằng bwrap trên USB, giờ lệch 6 năm được chỉnh; máy thí sinh UEFI SB, BIOS và bản -wifi: portal 200, Internet/cổng khác/DNS bị chặn, Firefox tải được /portal, XFCE chạy, không sudo, root khóa, ott-run 0, ~/bai-lam còn sau khởi động lại, ổ INTERNAL không đổi. Lỗi tìm thấy khi thử: sed bỏ CR làm hỏng file node, rsync --exclude dist bỏ mất node_modules/*/dist, quyền 777 từ ổ Windows, kernel 6.1 thiếu Landlock ABI 3 (dùng backports 6.12), serial getty làm mất output tự kiểm tra, live-boot mount ổ của máy khi tìm persistence (thêm persistence-storage=filesystem), Firefox chặn cả portal vì ngoại lệ có cổng, dữ liệu chưa kịp ghi khi tắt máy (dirty_expire 2 giây). Ảnh: ott-grader.img 376 MiB, ott-thisinh.img 1.591 MiB, ott-thisinh-wifi.img 1.679 MiB ở E:/OTTv2-local/usb. npm test đạt. Chưa thử máy thật.
+
+- 20/10/2026: Hoàn thành Phase 6b (D17: Bất bại ≥3 trận không thua, chuỗi thắng chỉ khi đang còn, loại trực tiếp không có huy hiệu, ott-run dùng Job Object rồi fallback). Mã: scripts/ott-run.js, src/replay-html.js, web/hints.js, web/replay-nav.js, web-public/viewer.js (tách từ public.js), progress() trong swiss-pairing.js, migration 21 (swiss_games.fault_user, điền ngược từ replay), WindowsJobManager({direct}), quét tĩnh theo dòng. Test: npm test 153/153 (thêm classroom-ux.test.js: mọi mã lỗi có gợi ý, số dòng quét tĩnh, biến động hạng/huy hiệu đối chiếu định nghĩa trên 40 mùa giả, replay.html không gọi mạng và không bị phá thẻ script; swiss.test kiểm fault_user + Bot mẫu mực); test:ott-run 4/4 (Python: mẫu, crash, vòng lặp, nước sai, in thừa, import cấm với tên file có dấu cách; C++ khi có g++); test:windows-job đạt. Trình duyệt (E:/OTTv2-local/tools/ui-phase6b.js, ui-replay-html.js): cột ±/huy hiệu/chú thích ở admin, portal 390 px, site công khai; phím tắt, nút pha, bấm lịch sử ở replay admin và site; replay.html mở từ file với mạng bị chặn: 0 yêu cầu ra ngoài, 0 lỗi. Máy sạch: chay-thu.bat ra 2 ván + replay.html sau 26,4 giây. Gói OTTv2-lop-hoc.zip 46,0 MB. Chưa thử với học sinh thật.
+
+- 20/10/2026: Hoàn thành Phase 6a (D13 C++, D17 đối tượng THCS/THPT). Mã: src/settings.js (data/settings.json, biến môi trường ưu tiên), src/setup.js + web/setup.* (trang /setup chỉ mở khi chưa có admin, chỉ nhận kết nối loopback với Host 127.0.0.1/localhost, chặn Origin/Sec-Fetch-Site khác nguồn; tạo admin, nhập CSV lớp, tạo "Giải luyện tập", ghi mức tin cậy, thoát mã 75 để start.bat chạy lại), windows-job dò python/g++ trong gói, jobrun --processes cho trình biên dịch, scripts/package-classroom.js. Tải và kiểm tra: Python 3.11.9 embeddable (chữ ký Authenticode PSF hợp lệ), json.hpp 3.11.2 (sha256 khớp release), WinLibs GCC 12.2 msvcrt r5 (sha256 khớp file .sha256 của release); lưu ở E:/OTTv2-local/downloads. Phát hiện khi thử: chcp 65001 trong .bat làm hỏng đường dẫn có dấu (đã bỏ), tar.exe không nhận đường dẫn có dấu (dùng cwd), g++ msvcrt không chạy trong thư mục có dấu (báo lỗi rõ). npm test 148/148; test:windows-job (có g++) 3 đạt + 1 bỏ qua đúng điều kiện. Bài thử máy sạch (E:/OTTv2-local/tools/clean-phase6a.js, PATH chỉ còn Windows): thư mục lop10a, Python Accepted 22,3 giây, C++ Accepted 51,5 giây; thư mục "Tin học 10A" Python Accepted, C++ báo cần thư mục không dấu. Chưa thử máy phòng lab thật/người thật.
+
+- 20/10/2026: Hoàn thành Phase 5b (D16). Migration 20 (sync_identity Ed25519, sync_peers, sync_authority, sync_state, sync_bundles). src/sync/bundle.js: bundle thư mục manifest ký + chunks JSONL ≤50 MB + file bài nộp, AES-256-GCM/scrypt; nhập trong một transaction với defer_foreign_keys + foreign_key_check, chỉ nhận thay đổi từ máy giữ quyền, ghi file sau khi nhận dòng, idempotent theo mã bundle. Không dùng dải ID (schema không có AUTOINCREMENT): dữ liệu hệ thống một máy ghi, nhật ký/bản công bố theo khóa tự nhiên. src/sync/authority.js + middleware chỉ đọc, bộ nhận việc 3 runner, nhận bài, lịch công bố tôn trọng quyền. Lỗi phát hiện khi test: trigger chặn chèn bot vào giai đoạn đã chốt (đổi thứ tự nạp), khóa tra cứu tạo lười sau khi xuất (tạo ngay khi khởi động), bộ luật mẫu khác created_at (bỏ khỏi so sánh). npm test 145/145; test sync: online → LAN (khởi tạo, bàn giao) → online giống hệt, sửa byte/giả manifest/sai passphrase/máy lạ bị từ chối, nhập lại không đổi, máy hết quyền chỉ gây xung đột. Kiểm chứng CLI + trình duyệt (E:/OTTv2-local/tools/ui-phase5b.js): ghép cặp, khởi tạo LAN bằng CLI 0 xung đột, quyền hiển thị đúng hai bên, portal online báo chỉ đọc; 390 px không tràn. Chưa thử hai máy vật lý.
+
+- 20/10/2026: Hoàn thành Phase 5a. src/intake/folder.js (thư mục/USB: <đội>/ott.json+bot/, <đội>.zip, <đội>.py/.cpp; trùng nội dung không tạo bản mới; thời điểm nhận tại bàn BTC phải trong cửa sổ nộp; ghi nhật ký giải) + giao diện + npm run import:folder; submit() nhận receivedAt/origin. src/backup/snapshots.js: VACUUM INTO + kho bài nộp đã xong chép một lần + upload bài đang chờ, .partial khi mất điện bị bỏ, giữ N bản; npm run restore kiểm tra băm/integrity/foreign key, mở snapshot chỉ đọc (sửa lỗi: openDatabase từng ghi vào snapshot), giữ DB cũ. Khởi động lại trả ngay việc dở của coordinator về hàng đợi (máy chấm từ xa vẫn chờ lease). npm run offline:check. docs/RUNBOOK.md. Test: npm test 144/144; test:recovery (kill 2 lần, kết quả trùng khớp); test/offline.integration.js chạy trong bwrap --unshare-net ở distro ott-grader với sandbox bwrap thật: đăng nhập portal, nộp Python, nhập C++ từ USB, cả hai Accepted, snapshot, công bố, /site/, offline:check không lỗi; trên máy có Internet test tự bỏ qua. Trình duyệt (E:/OTTv2-local/tools/ui-phase5a.js): chụp snapshot, nhập USB, nhập lại báo đã có; 390 px không tràn. Docker Desktop đang tắt trên máy này nên không chạy lại các test Docker trong đợt này.
+
+- 20/10/2026: Bỏ giới hạn 256 đội của vòng loại theo hướng (a): src/swiss-pairing.js ghép theo khối 256 hạng liên tiếp, mỗi khối dùng tìm kiếm quay lui cũ (≤256 đội kết quả trùng cách ghép một khối — có test), khối bế tắc gộp khối kế tiếp, giới hạn tìm kiếm tính theo khối; swiss.js nhận 2–4.000 bot. Đo: 256 đội 0,3 s/lượt, 1.000 đội ~1 s/lượt, 4.000 đội ~4,5 s/lượt (10 lượt, không lỗi). Test thêm: 1.000 đội × 8 lượt không tái đấu/lặp miễn đấu, cặp gần hạng, tất định; khối bế tắc tự gộp. npm test 142/142. bench:publish giải 1.000 đội chơi thật (ván giả): vòng loại 90 s, site 1.014 file/~1 MB, 4000 lượt đọc (bể 200 kết nối trên Windows) 0 lỗi, p95 1,2 s. Chưa đo với máy chấm thật. Chưa commit theo yêu cầu (chủ dự án test sau khi xong các phase); tiếp theo là Phase 5.
+
+- 20/10/2026: Hoàn thành Phase 4 (migration 19: app_secrets, publications bất biến, publication_schedules/controls, sheet_syncs, site_deploys). src/publish/: snapshot công khai (bỏ thông tin thành viên, mã bài, hash, stderr, userdata), dựng site tĩnh (manifest/latest/v<N>/team/_headers, tách replay theo lượt khi vượt giới hạn), SheetsClient JWT service account + backoff 429 + tự tạo tab, deploy Pages qua npx wrangler (Bị chặn khi thiếu biến). Lịch công bố bị bỏ qua khi tạm hoãn; mã tra cứu HMAC với khóa lưu trong DB. Giao diện admin mục Công bố, mã tra cứu ở portal, site web-public/ xem tại /site/. npm test 140/140 (thêm 5 test). Trình duyệt (E:/OTTv2-local/tools/ui-phase4.js): công bố, đặt lịch, tạm hoãn, deploy báo chưa cấu hình; site hiển thị bảng điểm, sơ đồ, xem ván (vẽ ô hiệu ứng), tra cứu bằng mã; không chứa email riêng; 390 px không tràn. Bench (npm run bench:publish): phát hiện vòng loại giới hạn 256 đội; site 1.000 đội (nhân bản từ giải 256 đội thật) 1.016 file/1,08 MB; 4000 lượt đọc đồng thời: Linux 0 lỗi p95 2,2 s; Windows từ chối >~230 kết nối chờ nên đo qua bể 200 kết nối: 0 lỗi p95 1,5 s. Chưa có số đo Cloudflare/Sheets thật.
+
+- 19/10/2026: Hoàn thành Phase 3b. web/tiles.js vẽ ô/hiệu ứng theo render của RuleSet (loại lạ có ô xám dấu ?); replay áp changes và ghi chú ăn quân/vỡ khiên/lướt/nhặt ô; trình chỉnh luật sinh nút công cụ từ tileTypes, đánh dấu vùng rải, chặn đặt ô trên vị trí quân, khóa power-up cũ khi có tileTypes; mô tả luật portal sinh từ JSON. Kiểm chứng trình duyệt với Docker thật (script E:/OTTv2-local/tools/ui-phase3b.js): thêm loại ô "bùn" chỉ bằng JSON, lưu, chạy trận Python vs C++; bàn cờ vẽ khớp engine ở cả 89 lượt (lệch 0), trận classic 75/75 lượt kể cả khi bỏ changes như replay cũ; 390 px không tràn. Ảnh output/playwright/rules-tiles-editor.png, replay-tiles-*.png. npm test 135/135.
+
+- 19/10/2026: Thêm dấu phiên bản engine (src/grader/version.js) vào yêu cầu nhận việc; coordinator từ chối máy chấm lệch phiên bản (test grader 4/4). Dựng lại rootfs và distro ott-grader bằng mã Phase 3a tại E:OTTv2-local; dấu khớp giữa Windows, rootfs và WSL. Sửa lỗi setup-grader.ps1: $PSScriptRoot rỗng trong giá trị mặc định param của PowerShell 5.1 (lỗi do đợt chuyển sang ổ E, lần trước kiểm tra bằng biến giả lập nên không phát hiện).
+- 19/10/2026: Hoàn thành Phase 3a theo D12 và các điểm chốt (một hiệu ứng/quân, nhặt ô mới thì thay; Dash theo hướng đơn vị, chỉ ăn theo RPS thường, không vào nhà; material 1 điểm/quân, bằng thì hòa; ô rải 1–2 cặp đối xứng qua tâm, không trùng nhà/vị trí xuất phát). src/game/tiles.js (validate, rải ô, effect registry), engine ghi changes mỗi lượt và verifyReplay đối chiếu; luật cũ không có tileTypes giữ nguyên snapshot. rules/obstacles.json, rules/powerups.json nạp sẵn cùng classic. npm test 135/135 (thêm 10 test: validate, đối xứng/tất định, nhặt/thay hiệu ứng, wildcard, shield, dash, material, loại ô mới chỉ bằng JSON, changes bị sửa thì không qua, replay cũ vẫn qua). test:rulesets: bot mẫu Python/C++ chơi cả 3 bộ luật trên Docker và bwrap cho kết quả giống hệt (cùng số nước). test:templates, test:rules, test:sandbox Docker đạt. Giao diện chưa đổi (3b).
+
+- 19/10/2026: Hoàn thành Phase 2b. Tách DockerSession thành phần giao tiếp supervisor dùng chung; thêm src/sandbox/bwrap.js, src/sandbox/windows-job.js + sandbox/windows/jobrun.cs (biên dịch bằng csc.exe có sẵn), factory SANDBOX_BACKEND. Phát hiện giới hạn CPU theo tiến trình của Job Object chỉ cắt thưa (giới hạn 0,3 s cắt ở 1,5 s; 0,6 s cắt ở 6,1 s) nên helper đo accounting mỗi 10 ms; sau sửa cắt ở 203/515 ms. Build rootfs từ image sandbox sha256:9770f940…, import distro ott-grader bằng setup-grader.ps1 (đã được chủ dự án đồng ý): probe Landlock ABI 3/seccomp/passwd denied; test:bwrap 4 đạt + 1 bỏ qua (kiểm tra container Docker), 8 fixture cùng mã lỗi với Docker; test:grader với bwrap đạt. Trên Windows: test:windows-job 3 đạt + 2 todo (C++, mạng/file); npm test 125/125, test:sandbox/test:grader/test:pipeline/test:stages Docker đạt sau refactor. Chưa thử máy chấm WSL2 qua LAN thật.
+
+- 19/10/2026: Hoàn thành Phase 2a máy chấm phân tán, migration 18 (graders, grader_nonces). Tách vòng loại/loại trực tiếp/kiểm tra bài thành claim–job–heartbeat–finish–fail dùng chung cho chấm cục bộ và máy từ xa; gom phần chạy ván trùng lặp vào src/grader/play.js, kiểm tra bài vào src/submissions/check.js. API /api/grader/* ký HMAC, coordinator kiểm replay khớp seed/luật/bot rồi verifyReplay. npm test 125/125 (thêm 4 test phân tán); test:grader Docker thật: 2 máy chấm, bot Python/C++ Accepted, 5 tấn công lúc chạy bị chặn (network/passwd/fork/memory → bot_crash, loop → cpu_timeout), vòng loại chạy bằng artifact truyền qua mạng; test:pipeline và test:stages đạt. Trình duyệt: tạo máy chấm, lệnh chạy hiện một lần, agent kết nối, thu hồi; 390 px không tràn (output/playwright/graders-admin.png). Chạy thử npm start (LOCAL_GRADING=0) + npm run grader bằng tiến trình thật. Chưa đo năng lực nhiều máy thật.
+
+- 19/10/2026: Hoàn thành Phase 1 nộp bằng GitHub, migration 17 (team_profiles, team_repos, repo_pushes, repo_snapshots, cột commit trên bot_submissions). GitHub App bằng JWT RS256 node:crypto + fetch, không thêm dependency; CSV đội; xác minh repo; nút/tag/webhook HMAC; lấy commit lúc hết hạn và chặn chốt bot khi chưa xong; zipball chỉ giải nén ott.json + bot/; Turnstile tùy chọn. npm test 121/121 (thêm 10 test với server GitHub giả: giả mạo repo, repo public, symlink/hook/.., SHA sau hạn, trùng delivery, rate limit, cùng SHA hai đội); test:pipeline và test:stages Docker đạt. Trình duyệt (playwright-core trong scratchpad, Chromium có sẵn): đội khai thành viên, lưu/xác minh repo, nộp commit Accepted qua Docker thật; admin thấy bảng repo; desktop và 390 px không tràn. Ảnh output/playwright/github-*.png. Sửa lỗi thông báo xác minh bị ghi đè khi kiểm tra. Chưa thử GitHub App/webhook thật.
 
 - 19/10/2026: Hoàn thành chốt bot chính thức nguyên tử, kiểm tra hạn/hàng đợi/tài khoản/đủ bài mọi đội; giữ bản chọn riêng hoặc bản hợp lệ mới nhất của đợt mới, không lấy bot cũ. Nối snapshot vào máy chấm tự động/thủ công, giữ danh sách/hạt giống và luật/bot vòng loại. npm test 108/108 đạt; test:stages Docker Python/C++ đạt (~56 giây), chạy loại trực tiếp luật 12 nước và xác minh replay dùng đúng bài mới. API chốt có quyền/CSRF/revision; chốt trùng và rollback thiếu đội được kiểm tra. Cập nhật nút admin/hướng dẫn, không thêm dependency hoặc migration. Chưa kiểm chứng trực quan riêng nút mới.
 
@@ -306,6 +390,8 @@ Cấu hình dưới đây chỉ là điểm bắt đầu để benchmark, chưa 
 - 19/10/2026: Hoàn thành hủy giải trước thi đấu, nút admin và nhãn giải đã hủy ở portal; npm test 111/111 đạt, gồm quyền/CSRF, dữ liệu cũ, hủy trùng, chặn nộp/chốt/mở lại và giữ danh sách/nhật ký. Cú pháp/dựng hướng dẫn/diff đạt; chưa kiểm chứng trực quan riêng nút mới. Không thêm dependency/migration; server cổng 3000 đã mở lại, không hủy giải thật.
 
 - 19/10/2026: Chuẩn bị tập thay đổi để commit: giữ mã nguồn/bot mẫu/test/tài liệu/TODO/AGENTS; loại ghi chú Word gốc, DB/backup, dependency, cache, kết quả thử và cấu hình editor khỏi Git bằng .gitignore, không xóa dữ liệu trên máy. Rà mẫu private key/token không thấy kết quả. Chưa commit hoặc push.
+
+- 19/10/2026: Rà soát đối chiếu yêu cầu nâng cấp 8 phase (GitHub, máy chấm phân tán, rule engine, công bố tĩnh, chung kết offline, lớp học, USB boot, red team) với mã hiện tại. Phát hiện mâu thuẫn với D01 (dưới 150 đội so với ~1.000 đội), mô hình đội/tài khoản và kiến trúc portal tĩnh; chờ chủ dự án trả lời trước khi code. Chỉ đọc mã/tài liệu, không đổi trạng thái checklist.
 
 - [x] Hướng dẫn tải/cài/sử dụng cho người mới tại docs/CAI-DAT-VA-SU-DUNG.md, README dẫn tới đúng luồng giải hiện tại; quy tắc duy trì tài liệu trong AGENTS.md.
 - 19/10/2026: Soạn hướng dẫn cài lần đầu/chạy lại, admin/thí sinh, cập nhật/backup/LAN, biến môi trường và lỗi thường gặp. Đối chiếu package.json, seed, server và đường dẫn lưu bài; sửa README bỏ mô tả cũ chưa có loại trực tiếp/nộp lại. Chỉ thay tài liệu, không cài lại hoặc thao tác giải thật.

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Chạy thử bot với bot mẫu (ott-run): chay-thu ~/bai-lam/main.py  — mở replay.html trong Firefox khi xong.
+if [ $# -eq 0 ]; then
+  for f in "$HOME/bai-lam/main.py" "$HOME/bai-lam/main.cpp"; do [ -f "$f" ] && set -- "$f" && break; done
+fi
+exec /usr/local/bin/node /opt/ott/scripts/ott-run.js "$@"

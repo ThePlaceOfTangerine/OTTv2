@@ -1,14 +1,15 @@
-// Run explicitly: npm run test:sandbox. These tests require REAL Docker and fail
-// (never silently skip) if isolation or its image is unavailable.
+// Run explicitly: npm run test:sandbox (Docker) or npm run test:bwrap (inside the WSL2/Linux grader rootfs).
+// Both backends must give the same fault codes; they fail (never silently skip) if isolation is unavailable.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { SandboxManager, dockerCommand } = require('../src/sandbox/docker');
+const { dockerCommand } = require('../src/sandbox/docker');
+const { createSandboxManager } = require('../src/sandbox');
 const { sampleSource } = require('../src/sandbox/samples');
 const { GameEngine, DEFAULT_RULES } = require('../src/game/engine');
 const { LIMITS, makeRequest, parseResponse, BotFault } = require('../src/game/protocol');
 const { runMatch, verifyReplay } = require('../src/game/match');
-const manager = new SandboxManager();
+const backend = process.env.SANDBOX_BACKEND || 'docker', manager = createSandboxManager(backend);
 const artifacts = [];
 before(async () => { console.log('Sandbox:', await manager.check()); });
 after(async () => { for (const artifact of artifacts) await manager.dispose(artifact); });
@@ -35,7 +36,7 @@ test('crash, CPU loop, wall sleep, network, passwd, fork, memory and output are 
   const cases = [
     ['crash', 'bot_crash'], ['loop', 'cpu_timeout'], ['sleep', 'wall_timeout'],
     ['network', 'sandbox_violation'], ['passwd', 'bot_crash', 'PASSWD_DENIED'],
-    ['fork', 'sandbox_violation'], ['memory', 'bot_crash', 'MEMORY_DENIED'], ['output', 'output_limit']
+    ['fork', 'sandbox_violation'], ['memory', 'bot_crash', 'MEMORY_DENIED'], ['output', 'output_limit'], ['disk', 'bot_crash', 'DISK_FULL']
   ];
   for (const [name, code, marker] of cases) {
     const artifact = await prepare({ language: 'python', entry: 'main.py', directory: path.resolve(__dirname, '../bots/fixtures', name) });
@@ -77,7 +78,7 @@ test('C++ cannot read passwd or use network, including during compilation', asyn
     });
   });
 });
-test('all containers from the tests have been removed', async () => {
+test('all containers from the tests have been removed', { skip: backend !== 'docker' }, async () => {
   const containers = await dockerCommand(['ps', '-a', '--filter', 'name=ottv2-', '--format', '{{.Names}}']);
   assert.equal(containers, '');
 });

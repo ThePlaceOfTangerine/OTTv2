@@ -58,6 +58,8 @@ Bot mẫu: `bots/python-greedy/main.py`, `bots/cpp-greedy/main.cpp`. Template: `
 
 Classic v2 đặt randomExtraPiece=true: engine lấy 3 quân mỗi loại R/P/S và thêm một quân được chọn từ R/P/S theo seed. pieceTypes trong RuleSet là pool cơ sở; đọc state.board để biết số quân thực tế của ván. RuleSet v1 không có cờ này vẫn dùng 3R+3P+4S, giúp replay lịch sử giữ nguyên.
 
+Nộp qua GitHub: repo có `ott.json` ở gốc (`{"language":"python","entry":"main.py"}` hoặc `cpp`/`main.cpp`) và mã trong `bot/`; `entry` tính từ `bot/`, chỉ file mã nguồn trong `bot/` được chấm. Xem [GITHUB.md](GITHUB.md).
+
 ## Viết bot cho luật tùy chỉnh
 
 Các giới hạn 9×9, 10 quân, một ô/tám hướng và 500 nước ở trên chỉ mô tả Classic. Đọc cấu hình của chính trận đang chơi. Hai ván kiểm tra bài nộp và vòng điểm hiện dùng Classic; luật tùy chỉnh được dùng trong Đấu thử do admin tạo.
@@ -80,6 +82,12 @@ Quân nâng cấp ăn được loại vốn yếu hơn **và cùng loại**, v�
 
 Snapshot luật cũ không có `powerUps`; quân thường không có `powered`. Python đọc bằng `.get('powerUps', [])` / `.get('powered', False)`; C++ dùng `.value("powerUps", json::array())` / `.value("powered", false)`.
 
+### Loại ô và hiệu ứng (luật có `tileTypes`)
+
+`state.tiles` liệt kê mọi ô đặc biệt: `[{"row":4,"col":3,"type":"shield","tags":["effect"]}]`, gồm cả ô chặn (`blocked`), ô ngoài bản đồ (`void`) và loại ô BTC tự đặt. Ý nghĩa từng loại nằm trong `rules.tileTypes[type]` (`passable`, `tags`, `effect`, `render`). Đi vào ô có `effect` thì quân nhận `piece.effect` (`wildcard`, `shield`, `dash`...) và ô biến mất; mỗi quân giữ một hiệu ứng, nhặt ô mới thì thay. Luật không có `tileTypes` thì không có `state.tiles`; đọc bằng `.get('tiles', [])` / `.value("tiles", json::array())`.
+
+**Lưu ý: `legal_moves` không phải lúc nào cũng mô tả kết quả.** Nước ăn quân đối thủ có `effect: "shield"` vẫn nằm trong `legal_moves`, nhưng kết quả là khiên vỡ và quân của bạn đứng yên. Quân có `dash` sau khi ăn sẽ tự đi thêm 1 ô cùng hướng nếu được phép, không cần bot gửi thêm nước. Xem `state.lastMove.blocked` và `state.lastMove.bonus_step` để biết điều gì đã xảy ra ở lượt trước. Chi tiết luật hiệu ứng và `onMoveLimit` trong [RULE-SETS.md](RULE-SETS.md).
+
 ### Di chuyển theo từng loại
 
 Ví dụ: `"movementByType":{"R":{"kind":"rook"},"P":{"kind":"knight"},"S":{"kind":"bishop"}}`.
@@ -93,7 +101,7 @@ Ví dụ: `"movementByType":{"R":{"kind":"rook"},"P":{"kind":"knight"},"S":{"kin
 
 ### Chiến thuật mẫu và kiểm tra bài
 
-Bốn file mẫu dùng hàm `score`: chiếm nhà được 100000 điểm; ăn quân +40; nhặt power-up khi chưa nâng cấp +15; trừ khoảng cách tới nhà. Khoảng cách là gợi ý, chưa tính đường vòng hoặc số lượt thật với các kiểu đi mới. Hai nước cùng điểm thì giữ nước xuất hiện trước trong `legal_moves`.
+Bốn file mẫu dùng hàm `score`: chiếm nhà được 100000 điểm; ăn quân +40 (đánh quân có khiên chỉ +5 vì không ăn được); nhặt power-up hoặc ô hiệu ứng khi quân chưa có `powered`/`effect` +15; trừ khoảng cách tới nhà. Khoảng cách là gợi ý, chưa tính đường vòng hoặc số lượt thật với các kiểu đi mới. Hai nước cùng điểm thì giữ nước xuất hiện trước trong `legal_moves`.
 
 Bot chỉ được gọi khi ván còn đang chơi và có nước hợp lệ. Giữ nguyên phần đọc/gửi JSON, chỉ sửa chiến thuật khi mới bắt đầu. Để kiểm tra luật tùy chỉnh, nhờ admin chạy Đấu thử và xem replay. File đã nộp là phiên bản cố định; muốn dùng mẫu cập nhật thì tải lại và nộp phiên bản mới.
 

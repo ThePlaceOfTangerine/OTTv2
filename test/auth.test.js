@@ -84,14 +84,14 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 16);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 22);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
   fs.rmdirSync(dir);
 });
-test('passwords use bcrypt and enforce byte length', async () => {
-  assert.match(db.prepare("SELECT password_hash FROM users WHERE username='player'").get().password_hash, /^\$2[aby]\$12\$/);
+test('passwords use scrypt and enforce byte length', async () => {
+  assert.match(db.prepare("SELECT password_hash FROM users WHERE username='player'").get().password_hash, /^scrypt\$32768\$8\$3\$/);
   await assert.rejects(createUser(db, { username: 'short', password: '123' }));
   await assert.rejects(createUser(db, { username: 'long', password: 'é'.repeat(37) }));
   await assert.rejects(createUser(db, { username: 'other-admin', password: 'admin', role: 'admin' }));
@@ -109,7 +109,7 @@ test('seed creates an admin and 20 contestants, then preserves existing password
     const previous = seeded.prepare("SELECT password_hash FROM users WHERE username='admin'").get().password_hash;
     assert.deepEqual(await seed(seeded), []);
     assert.equal(seeded.prepare("SELECT password_hash FROM users WHERE username='admin'").get().password_hash, previous);
-    assert.ok(await require('bcryptjs').compare(credentials[0].password, previous));
+    assert.ok(await require('../src/passwords').verifyPassword(credentials[0].password, previous));
   } finally { seeded.close(); }
 });
 test('unauthenticated users cannot access either protected API', async () => {
@@ -184,6 +184,13 @@ test('rate limit is shared across app instances and resets after the window', as
     assert.equal(db.prepare("SELECT attempts FROM login_limits WHERE key='user:player'").get().attempts, 2);
     time += 900001;
     assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'player', password }) })).status, 200);
+    // Many teams behind one IP (computer room, Cloudflare Tunnel): successful logins never use up the IP's allowance.
+    db.prepare('DELETE FROM login_limits').run();
+    for (let i = 0; i < 30; i++) assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: i % 2 ? 'player' : 'admin', password }) })).status, 200, `lần ${i + 1}`);
+    assert.equal(db.prepare("SELECT COALESCE(SUM(attempts),0) n FROM login_limits").get().n, 0);
+    // Failures still count: per account at loginMax, per IP at 10× loginMax.
+    for (let i = 0; i < 20; i++) await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: `khong-co-${i}`, password: 'wrong' }) });
+    assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'player', password }) })).status, 429);
   } finally { limited.closeIdleConnections(); await new Promise(resolve => limited.close(resolve)); }
 });
 test('HTTPS configuration sets Secure cookies', async () => {

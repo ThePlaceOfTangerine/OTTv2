@@ -1,13 +1,15 @@
 const crypto = require('node:crypto');
-const { SandboxManager } = require('./sandbox/docker');
-const { runMatch, verifyReplay } = require('./game/match');
-const { LIMITS } = require('./game/protocol');
+const zlib = require('node:zlib');
+const { createSandboxManager } = require('./sandbox');
+const { verifyReplay } = require('./game/match');
+const { playGame } = require('./grader/play');
 const { csvCell } = require('./scoring');
-const { standings, pairRound, digest } = require('./swiss-pairing');
+const { ownedTournament } = require('./sync/authority');
+const { standings, progress, pairRound, digest } = require('./swiss-pairing');
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 
 class SwissService {
-  constructor(db, { tournaments, submissions, now = Date.now, managerFactory = () => new SandboxManager(), play, retryDelayMs = 3000 }) {
+  constructor(db, { tournaments, submissions, now = Date.now, managerFactory = () => createSandboxManager(), play, retryDelayMs = 3000 }) {
     Object.assign(this, { db, tournaments, submissions, now, managerFactory, playOverride: play, retryDelayMs });
     this.workerId = crypto.randomUUID(); this.active = null; this.started = false; this.closing = false;
   }
@@ -17,10 +19,21 @@ class SwissService {
     return this.db.prepare('SELECT user_id,username,snapshot_json FROM tournament_stage_entrants WHERE stage_id=? AND locked_submission_id IS NOT NULL ORDER BY user_id').all(stageId)
       .map(row => ({ userId: row.user_id, username: row.username, ...JSON.parse(row.snapshot_json) }));
   }
-  pairs(stageId) { return this.db.prepare('SELECT p.* FROM swiss_pairs p JOIN swiss_rounds r ON r.id=p.round_id WHERE r.stage_id=? ORDER BY r.number,p.rowid').all(stageId); }
+  pairs(stageId) { return this.db.prepare('SELECT p.*,r.number AS round_number FROM swiss_pairs p JOIN swiss_rounds r ON r.id=p.round_id WHERE r.stage_id=? ORDER BY r.number,p.rowid').all(stageId); }
+  // Cached per stage: 1,000 teams cost ~12 ms to rank and thousands of viewers poll the table (Phase 8 load test). The key covers every input
+  // that can change after the bots are locked (entrants and seed cannot): pairs created/finished and games lost to a bot fault.
   ranking(stageId) {
     const session = this.db.prepare('SELECT * FROM swiss_sessions WHERE stage_id=?').get(stageId);
-    return session ? standings(this.entrants(stageId), this.pairs(stageId), session.seed) : [];
+    if (!session) return [];
+    const key = JSON.stringify([session.revision, this.db.prepare(`SELECT COUNT(*) n, SUM(p.status='finished') f, (SELECT COUNT(*) FROM swiss_games g JOIN swiss_pairs q ON q.id=g.pair_id
+      JOIN swiss_rounds s ON s.id=q.round_id WHERE s.stage_id=? AND g.fault_user IS NOT NULL) faults FROM swiss_pairs p JOIN swiss_rounds r ON r.id=p.round_id WHERE r.stage_id=?`).get(stageId, stageId)]);
+    const cached = (this.rankingCache ||= new Map()).get(stageId);
+    if (cached?.key === key) return cached.rows;
+    const entrants = this.entrants(stageId), pairs = this.pairs(stageId);
+    const faulted = new Set(this.db.prepare('SELECT DISTINCT g.fault_user AS user FROM swiss_games g JOIN swiss_pairs p ON p.id=g.pair_id JOIN swiss_rounds r ON r.id=p.round_id WHERE r.stage_id=? AND g.fault_user IS NOT NULL').all(stageId).map(row => row.user));
+    const rows = Object.freeze(progress(standings(entrants, pairs, session.seed), entrants, pairs, session.seed, faulted));
+    this.rankingCache.set(stageId, { key, rows });
+    return rows;
   }
   qualification(id) {
     const row = this.db.prepare('SELECT * FROM tournament_qualifications WHERE tournament_id=?').get(id);
@@ -59,7 +72,7 @@ class SwissService {
   get(id, admin = true) {
     const stage = this.stage(id); if (!stage) return null;
     const session = this.db.prepare('SELECT * FROM swiss_sessions WHERE stage_id=?').get(stage.id);
-    const count = this.entrants(stage.id).length, config = JSON.parse(stage.config_json);
+    const count = this.db.prepare('SELECT COUNT(*) n FROM tournament_stage_entrants WHERE stage_id=? AND locked_submission_id IS NOT NULL').get(stage.id).n, config = JSON.parse(stage.config_json);
     const preview = { eligible: count, rounds: config.swissRounds, gamesPerPair: config.gamesPerPair,
       totalGames: Math.floor(count / 2) * config.swissRounds * config.gamesPerPair };
     if (!session) return { stageId: stage.id, status: 'not_started', preview, standings: [], rounds: [] };
@@ -82,7 +95,7 @@ class SwissService {
       const tournament = this.tournaments.row(id); if (!tournament) return null;
       if (tournament.status !== 'locked' || tournament.revision !== body.expectedRevision) fail(409, 'Giải chưa chốt bot hoặc dữ liệu đã thay đổi.');
       const stage = this.stage(id), entrants = stage && this.entrants(stage.id);
-      if (!stage || stage.status !== 'locked' || entrants.length < 2 || entrants.length > 256) fail(409, 'Vòng loại cần từ 2 đến 256 bot đã chốt.');
+      if (!stage || stage.status !== 'locked' || entrants.length < 2 || entrants.length > 4000) fail(409, 'Vòng loại cần từ 2 đến 4000 bot đã chốt.');
       const config = JSON.parse(stage.config_json);
       if (config.swissRounds >= entrants.length) fail(409, 'Số lượt đấu vòng loại phải nhỏ hơn số đội có bot đã chốt. Cần cấu hình phù hợp trước khi mở giải.');
       if (this.db.prepare('SELECT 1 FROM swiss_sessions WHERE stage_id=?').get(stage.id)) fail(409, 'Giải đã có vòng loại tính điểm.');
@@ -129,16 +142,23 @@ class SwissService {
     });
     this.pump(); return result;
   }
-  settle(stageId, nested = false) {
+  // pairId: only that pair can have completed (a game result). Without it (start, resume) every queued pair is checked.
+  // Phase 8 load test: re-reading every game row with its replay for all 500 queued pairs after each of 1,000 results stalled the server ~48 s.
+  settle(stageId, nested = false, pairId = null) {
+    // A machine without write authority for this tournament keeps the imported state as it is.
+    if (this.authority && !this.authority.owns(this.authority.stageScope(stageId))) return;
     const apply = () => {
       if (this.controlRow(stageId)) return;
-      const queued = this.db.prepare("SELECT p.* FROM swiss_pairs p JOIN swiss_rounds r ON r.id=p.round_id WHERE r.stage_id=? AND p.status='queued'").all(stageId);
-      for (const pair of queued) {
-        const games = this.db.prepare('SELECT * FROM swiss_games WHERE pair_id=? ORDER BY number').all(pair.id);
-        if (!games.length || games.some(game => game.status !== 'finished')) continue;
+      const rows = this.db.prepare(`SELECT p.id pair_id, p.user0, g.status, g.player0, g.player1, json_extract(g.replay_json,'$.result.winner') winner
+        FROM swiss_pairs p JOIN swiss_rounds r ON r.id=p.round_id LEFT JOIN swiss_games g ON g.pair_id=p.id
+        WHERE r.stage_id=? AND p.status='queued' ${pairId ? 'AND p.id=?' : ''} ORDER BY p.id, g.number`).all(...(pairId ? [stageId, pairId] : [stageId]));
+      const byPair = new Map(); for (const row of rows) byPair.set(row.pair_id, [...(byPair.get(row.pair_id) || []), row]);
+      for (const [id, games] of byPair) {
+        const pair = { id, user0: games[0].user0 };
+        if (games.some(game => game.status !== 'finished')) continue;  // also a pair without games (LEFT JOIN gives status null)
         let a = 0, b = 0;
         for (const game of games) {
-          const replay = JSON.parse(game.replay_json), winner = replay.result.winner;
+          const winner = game.winner;
           if (winner === null) { a++; b++; }
           else if ([game.player0, game.player1][winner] === pair.user0) a += 2; else b += 2;
         }
@@ -162,10 +182,13 @@ class SwissService {
     };
     if (nested) apply(); else this.tournaments.transaction(apply);
   }
-  start() {
-    if (this.started) return; this.started = true;
+  // local=false: coordinator only; remote graders claim the games.
+  start({ local = true } = {}) {
+    if (this.started) return; this.started = true; this.local = local;
+    // Games held by this coordinator's previous process died with it (power loss, kill); remote graders ("id:token") keep their lease.
+    this.db.prepare("UPDATE swiss_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Máy chủ khởi động lại; không xử thua bot' WHERE status='running' AND worker_id NOT LIKE '%:%'").run();
     for (const session of this.db.prepare("SELECT stage_id FROM swiss_sessions WHERE status='running'").all()) this.settle(session.stage_id);
-    this.timer = setInterval(() => this.pump(), 500); this.timer.unref(); this.pump();
+    if (local) { this.timer = setInterval(() => this.pump(), 500); this.timer.unref(); this.pump(); }
   }
   control(id, actorId, body, operation) {
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['expectedRevision','reason'].includes(k)) || !Number.isInteger(body.expectedRevision) || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 1000) fail(400, 'Cần phiên bản vòng loại và lý do thao tác (1–1000 ký tự).');
@@ -189,46 +212,47 @@ class SwissService {
   resume(id, actorId, body) { return this.control(id, actorId, body, 'resume'); }
   cancel(id, actorId, body) { return this.control(id, actorId, body, 'cancel'); }
   pump() {
-    if (!this.started || this.closing || this.active) return;
-    this.db.prepare("UPDATE swiss_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Worker gián đoạn; không xử thua bot' WHERE status='running' AND lease_until<?").run(this.now());
-    const row = this.db.prepare(`UPDATE swiss_games SET status='running',worker_id=?,lease_until=?,attempts=attempts+1
-      WHERE id=(SELECT g.id FROM swiss_games g JOIN swiss_pairs p ON p.id=g.pair_id JOIN swiss_rounds r ON r.id=p.round_id
-        JOIN swiss_sessions s ON s.stage_id=r.stage_id WHERE g.status='queued' AND g.available_at<=? AND r.status='running' AND s.status='running' AND NOT EXISTS (SELECT 1 FROM swiss_controls c WHERE c.stage_id=s.stage_id) ORDER BY g.rowid LIMIT 1) RETURNING *`)
-      .get(this.workerId, this.now() + 30000, this.now());
+    if (!this.started || this.closing || this.active || this.local === false) return;
+    const row = this.claimGame(this.workerId);
     if (!row) return;
     this.active = this.execute(row).catch(error => console.error('Swiss worker:', error)).finally(() => { this.active = null; this.pump(); });
   }
-  async play(row) {
+  // Lease API shared by the local worker and remote graders; worker_id doubles as the lease token.
+  claimGame(workerId) {
+    this.db.prepare("UPDATE swiss_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error='Worker gián đoạn; không xử thua bot' WHERE status='running' AND lease_until<?").run(this.now());
+    return this.db.prepare(`UPDATE swiss_games SET status='running',worker_id=?,lease_until=?,attempts=attempts+1
+      WHERE id=(SELECT g.id FROM swiss_games g JOIN swiss_pairs p ON p.id=g.pair_id JOIN swiss_rounds r ON r.id=p.round_id
+        JOIN swiss_sessions s ON s.stage_id=r.stage_id WHERE g.status='queued' AND g.available_at<=? AND r.status='running' AND s.status='running' AND ${ownedTournament('(SELECT tournament_id FROM tournament_stages WHERE id=s.stage_id)')} AND NOT EXISTS (SELECT 1 FROM swiss_controls c WHERE c.stage_id=s.stage_id) ORDER BY g.rowid LIMIT 1) RETURNING *`)
+      .get(workerId, this.now() + 30000, this.now());
+  }
+  gameJob(row) {
     const stage = this.db.prepare('SELECT s.* FROM tournament_stages s JOIN swiss_rounds r ON r.stage_id=s.id JOIN swiss_pairs p ON p.round_id=r.id WHERE p.id=?').get(row.pair_id);
     const entrants = [row.player0, row.player1].map(userId => this.db.prepare('SELECT username,snapshot_json FROM tournament_stage_entrants WHERE stage_id=? AND user_id=?').get(stage.id, userId))
       .map(e => ({ username: e.username, ...JSON.parse(e.snapshot_json) }));
-    const rules = JSON.parse(stage.rules_json);
-    const onTurn = replay => this.db.prepare("UPDATE swiss_games SET live_json=? WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), row.id, this.workerId);
-    if (this.playOverride) return this.playOverride(row, { entrants, rules, onTurn });
-    const manager = this.managerFactory(), sessions = [];
-    try {
-      manager.imageId = entrants[0].image; await manager.check();
-      for (const e of entrants) sessions.push(await manager.start({ directory: this.submissions.folder(e.submissionId, 'artifact'), language: e.language, entry: e.entry, image: e.image }, LIMITS));
-      return await runMatch({ seed: row.seed, rules, onTurn, bots: entrants.map(e => ({ id: e.username, submission_id: e.submissionId, version: e.version, source_hash: e.sourceHash, image: e.image })),
-        choose: (player, request) => sessions[player].move(request) });
-    } finally {
-      const results = await Promise.allSettled(sessions.map(session => session.close()));
-      const failed = results.find(result => result.status === 'rejected'); if (failed) throw failed.reason;
-    }
+    return { kind: 'swiss', id: row.id, seed: row.seed, rules: JSON.parse(stage.rules_json), entrants };
+  }
+  liveGame(id, workerId, replay) { this.db.prepare("UPDATE swiss_games SET live_json=? WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), id, workerId); }
+  heartbeatGame(id, workerId) { return this.db.prepare("UPDATE swiss_games SET lease_until=? WHERE id=? AND worker_id=? AND status='running'").run(this.now() + 30000, id, workerId).changes > 0; }
+  finishGame(id, workerId, replay) {
+    verifyReplay(replay);
+    const saved = this.db.prepare("UPDATE swiss_games SET status='finished',replay_json=?,live_json=NULL,error=NULL,worker_id=NULL,lease_until=NULL,fault_user=CASE ? WHEN 0 THEN player0 WHEN 1 THEN player1 END WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), replay.fault?.player ?? null, id, workerId);
+    if (saved.changes) { const row = this.db.prepare('SELECT r.stage_id, p.id pair_id FROM swiss_rounds r JOIN swiss_pairs p ON p.round_id=r.id JOIN swiss_games g ON g.pair_id=p.id WHERE g.id=?').get(id); this.settle(row.stage_id, false, row.pair_id); }
+    return saved.changes > 0;
+  }
+  failGame(id, workerId, message) {
+    return this.db.prepare("UPDATE swiss_games SET status=CASE WHEN attempts>=3 THEN 'blocked' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,live_json=NULL,error=?,available_at=? WHERE id=? AND worker_id=? AND status='running'")
+      .run(String(message).slice(0, 65536), this.now() + this.retryDelayMs, id, workerId).changes > 0;
+  }
+  async play(row) {
+    const job = this.gameJob(row), onTurn = replay => this.liveGame(row.id, this.workerId, replay);
+    if (this.playOverride) return this.playOverride(row, { entrants: job.entrants, rules: job.rules, onTurn });
+    return playGame(job, { manager: this.managerFactory(), artifactDir: e => this.submissions.folder(e.submissionId, 'artifact'), onTurn });
   }
   async execute(row) {
-    const heartbeat = setInterval(() => this.db.prepare("UPDATE swiss_games SET lease_until=? WHERE id=? AND worker_id=? AND status='running'").run(this.now() + 30000, row.id, this.workerId), 5000); heartbeat.unref();
-    try {
-      const replay = await this.play(row); verifyReplay(replay);
-      const saved = this.db.prepare("UPDATE swiss_games SET status='finished',replay_json=?,live_json=NULL,error=NULL,worker_id=NULL,lease_until=NULL WHERE id=? AND worker_id=? AND status='running'").run(JSON.stringify(replay), row.id, this.workerId);
-      if (saved.changes) {
-        const stage = this.db.prepare('SELECT r.stage_id FROM swiss_rounds r JOIN swiss_pairs p ON p.round_id=r.id WHERE p.id=?').get(row.pair_id);
-        this.settle(stage.stage_id);
-      }
-    } catch (error) {
-      this.db.prepare("UPDATE swiss_games SET status=?,worker_id=NULL,lease_until=NULL,live_json=NULL,error=?,available_at=? WHERE id=? AND worker_id=? AND status='running'")
-        .run(row.attempts >= 3 ? 'blocked' : 'queued', String(error.message).slice(0, 65536), this.now() + this.retryDelayMs, row.id, this.workerId);
-    } finally { clearInterval(heartbeat); }
+    const heartbeat = setInterval(() => this.heartbeatGame(row.id, this.workerId), 5000); heartbeat.unref();
+    try { this.finishGame(row.id, this.workerId, await this.play(row)); }
+    catch (error) { this.failGame(row.id, this.workerId, error.message); }
+    finally { clearInterval(heartbeat); }
   }
   retry(gameId, actorId, body) {
     if (!body || typeof body.reason !== 'string' || !body.reason.trim() || body.reason.length > 500) fail(400, 'Cần lý do chạy lại tối đa 500 ký tự.');
@@ -258,6 +282,7 @@ class SwissService {
 }
 function registerSwiss(app, { swiss, stages, requireRole, csrf }) {
   const send = (res, value) => value ? res.json(value) : res.status(404).json({ error: 'Không tìm thấy vòng loại tính điểm.' });
+  const portalViews = new Map();
   app.get('/api/admin/tournaments/:id/swiss', requireRole('admin'), (req, res) => send(res, swiss.get(req.params.id)));
   app.post('/api/admin/tournaments/:id/swiss/approve', requireRole('admin'), csrf, (req, res) => send(res, swiss.approve(req.params.id, req.auth.id, req.body)));
   for (const action of ['start', 'next', 'pause', 'resume', 'cancel']) app.post(`/api/admin/tournaments/:id/swiss/${action}`, requireRole('admin'), csrf,
@@ -270,7 +295,20 @@ function registerSwiss(app, { swiss, stages, requireRole, csrf }) {
   app.get('/api/portal/tournaments/:id/swiss', requireRole('contestant'), (req, res) => {
     const stage = swiss.stage(req.params.id);
     if (!stage || !stages.forUser(stage.id, req.auth.id)) return res.status(404).json({ error: 'Không tìm thấy giải của bạn.' });
-    send(res, swiss.get(req.params.id, false));
+    // The same table for every team of the tournament, rebuilt at most every 2 s and kept serialized + gzipped: thousands of viewers then cost
+    // one buffer write each. Phase 8: 1,000 teams × 4 viewers re-serializing ~150 KB per request saturated the server (55 s stalls).
+    let view = portalViews.get(req.params.id);
+    if (!view || Date.now() - view.at > 2000) {
+      const data = swiss.get(req.params.id, false);
+      if (!data) return send(res, null);
+      // Contestants get only what their table shows (no internal ids, half-point units or the 64-hex tie key): about half the bytes.
+      const json = JSON.stringify({ ...data, standings: data.standings.map(e => ({ rank: e.rank, username: e.username, version: e.version, points: e.points, buchholz: e.buchholz,
+        sonnebornBerger: e.sonnebornBerger, gamePoints: e.gamePoints, wins: e.wins, draws: e.draws, losses: e.losses, byes: e.byes, rankChange: e.rankChange, badges: e.badges })) });
+      view = { at: Date.now(), json, gzip: zlib.gzipSync(json) };
+      portalViews.set(req.params.id, view);
+    }
+    res.type('application/json').set('Vary', 'Accept-Encoding');
+    if (/\bgzip\b/.test(req.get('accept-encoding') || '')) res.set('Content-Encoding', 'gzip').send(view.gzip); else res.send(view.json);
   });
 }
 module.exports = { SwissService, registerSwiss };

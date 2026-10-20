@@ -4,7 +4,7 @@
 
 Swiss là luồng giải mới, độc lập với Elo/vòng tròn cũ. Bắt đầu sau khi đã chốt bot vòng loại, sử dụng đúng snapshot bot, luật và image của giai đoạn đó. Không lấy lại active bot hoặc cấu hình mới từ bài nộp khi chạy trận.
 
-Hiện hỗ trợ 2–256 bot đã chốt, phục vụ mục tiêu thực tế dưới 150 đội. Số vòng cấu hình từ trước và phải nhỏ hơn số bot thực đủ điều kiện, không chỉ sức chứa. Bắt đầu tạo vòng đầu; admin tạo từng vòng tiếp khi vòng hiện tại đã hoàn tất. Chưa có bracket, chọn top được duyệt hoặc công bố chính thức.
+Hỗ trợ 2–4.000 bot đã chốt. Đội được xếp theo hạng rồi ghép trong từng khối 256 hạng liên tiếp, mỗi khối dùng tìm kiếm quay lui đầy đủ (ưu tiên đối thủ gần điểm, không tái đấu); vì vậy đến 256 đội cách ghép y như trước. Khối không ghép được sẽ gộp thêm khối kế tiếp; phần đuôi dưới nửa khối gộp vào khối trước. Đo trên máy phát triển ngày 20/10/2026: 1.000 đội khoảng 1 giây/lượt ghép, 4.000 đội khoảng 4,5 giây/lượt; vòng loại 1.000 đội × 8 lượt với ván giả chạy trọn trong 90 giây (chưa tính thời gian chấm thật). Số vòng cấu hình từ trước và phải nhỏ hơn số bot thực đủ điều kiện, không chỉ sức chứa. Bắt đầu tạo vòng đầu; admin tạo từng vòng tiếp khi vòng hiện tại đã hoàn tất. Chưa có bracket, chọn top được duyệt hoặc công bố chính thức.
 
 ## Điểm và tie-break
 
@@ -15,6 +15,14 @@ Hiện hỗ trợ 2–256 bot đã chốt, phục vụ mục tiêu thực tế d
 - Thứ hạng: điểm Swiss → Buchholz → Sonneborn-Berger → điểm ván → thứ tự hash từ seed và ID đội. Không dùng Elo hoặc thứ tự nhận kết quả từ worker.
 - Buchholz cộng điểm Swiss hiện có/cuối cùng của các đối thủ thực đã gặp. Sonneborn-Berger cộng điểm đối thủ nhân kết quả cặp (1/0,5/0). Bye không có đối thủ ảo: đóng góp 0 cho cả hai chỉ số.
 - Nội bộ dùng đơn vị nửa điểm và một phần tư điểm nguyên; chỉ đổi sang số thập phân khi trả dữ liệu. Bảng trong lúc giải đang chạy là điểm tạm tính, gồm các cặp đã hoàn tất.
+
+Bảng còn có cột biến động hạng (±) và 4 huy hiệu. Hai cột này chỉ để hiển thị, không ảnh hưởng thứ hạng hay đội đi tiếp. Cách tính ở [LOP-HOC.md](LOP-HOC.md#bảng-xếp-hạng-biến-động-hạng-và-huy-hiệu). Ván thua do lỗi bot được ghi ở cột `swiss_games.fault_user` (migration 21), nên bảng không phải đọc replay.
+
+Hiệu năng (Phase 8):
+- Bảng xếp hạng được lưu đệm theo dữ liệu đầu vào (cặp đã tạo/đã xong, ván thua vì lỗi bot).
+- Trang thí sinh nhận bản đã serialize và nén gzip, dựng lại tối đa 2 giây một lần, nên **có thể trễ tối đa 2 giây** so với kết quả mới nhất.
+- Trang admin, duyệt đội đi tiếp và ghép cặp luôn dùng dữ liệu tức thời.
+- Số đo với 1.000 đội nằm trong [CAPACITY.md](CAPACITY.md).
 
 Đây là thể thức Swiss cho bot của OTTv2, không tuyên bố tuân thủ thuật toán Swiss FIDE.
 

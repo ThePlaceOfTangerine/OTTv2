@@ -1,0 +1,14 @@
+[Unit]
+Description=OTTv2: lấy giờ từ máy chủ trong phòng thi (máy Windows thường để đồng hồ theo giờ Việt Nam)
+After=ott-conf.service ott-firewall.service network-online.target
+Wants=network-online.target
+Requires=ott-conf.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/node /opt/ott/scripts/usb-clock.js
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

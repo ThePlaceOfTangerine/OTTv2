@@ -13,6 +13,12 @@ Mở `/portal` để tham gia. Khu “Chơi trực tiếp” dành cho hai ngư�
 3. **Mở Bot của tôi, chọn file và bấm Nộp bot.** Nộp `main.py` hoặc `main.cpp` vừa tải. Ô “File chính trong ZIP” để trống.
 4. **Chờ kết quả.** Khi thấy “Sẵn sàng thi đấu”, mở “Chi tiết & trận thử”, chọn một trận rồi bấm “Tự động chạy” để xem bot chơi. Trang tự cập nhật, không cần nộp lại cùng file.
 
+Muốn thử trước khi nộp:
+- Dùng gói lớp học: kéo file vào `chay-thu.bat`.
+- Dùng mã nguồn: chạy `npm run ott-run -- main.py`.
+
+Bot sẽ đấu 2 ván với bot mẫu ngay trên máy bạn, báo lỗi bằng tiếng Việt và mở `replay.html` để xem lại từng nước. Xem [LOP-HOC.md](LOP-HOC.md).
+
 Không bắt buộc thắng hai ván thử. Bot chỉ cần chạy đúng luật và trong thời gian cho phép. Vượt qua kiểm tra chưa có nghĩa là chiến thuật đã tốt hoặc bot sẽ không bao giờ lỗi.
 
 ## Khi muốn bot chơi tốt hơn
@@ -93,7 +99,7 @@ Hướng dẫn dành cho người mới nằm tại `/docs/PROTOCOL.md` trên we
 ## Khi trang không chạy
 
 - Không truy cập được `127.0.0.1:3000`: kiểm tra server Node đang chạy (`npm start` từ thư mục OTTv2). Giữ tiến trình server hoạt động.
-- Đăng nhập được nhưng bot không chạy: admin bấm “Kiểm tra Docker”, kiểm tra Docker Desktop và image sandbox. Xem lỗi hạ tầng trong hàng đợi.
+- Đăng nhập được nhưng bot không chạy: admin bấm “Kiểm tra máy chạy bot”, kiểm tra Docker Desktop và image sandbox (gói lớp học: xem LOP-HOC.md). Xem lỗi hạ tầng trong hàng đợi.
 - Không tạo được vòng điểm: xem số bot đủ điều kiện, cấu hình số ván và vòng cũ đã hoàn tất chưa.
 - Thấy bài bị từ chối: mở “Chi tiết & trận thử”, xem gợi ý và “Nhật ký kiểm tra”. Không sửa code chỉ vì máy chủ báo lỗi hạ tầng.
 

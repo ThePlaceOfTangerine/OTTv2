@@ -1,0 +1,14 @@
+[Unit]
+Description=OTTv2: trình duyệt chỉ vào portal, Wi-Fi tùy chọn
+After=ott-conf.service ott-firewall.service
+Requires=ott-conf.service ott-firewall.service
+Before=display-manager.service systemd-networkd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ott-portal
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

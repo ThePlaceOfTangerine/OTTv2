@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { SandboxManager } = require('./sandbox/docker');
+const { createSandboxManager } = require('./sandbox');
 const { runMatch, verifyReplay } = require('./game/match');
 const { DEFAULT_RULES } = require('./game/engine');
 const { LIMITS } = require('./game/protocol');
@@ -34,7 +34,7 @@ function automaticConfig(count, seed, gamesPerPair = 3) {
   return {mode:'round-robin',seed:seed||`vong-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,gamesPerPair,gamesPerBot:(count-1)*gamesPerPair};
 }
 class ScoringService {
-  constructor(db, submissions, { managerFactory = () => new SandboxManager(), retryDelayMs = 3000, play } = {}) {
+  constructor(db, submissions, { managerFactory = () => createSandboxManager(), retryDelayMs = 3000, play } = {}) {
     this.db = db; this.submissions = submissions; this.managerFactory = managerFactory; this.retryDelayMs = retryDelayMs; this.playOverride = play;
     this.workerId = crypto.randomUUID(); this.active = null; this.started = false;
   }

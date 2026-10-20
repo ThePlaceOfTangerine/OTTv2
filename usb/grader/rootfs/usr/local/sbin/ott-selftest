@@ -1,0 +1,16 @@
+#!/bin/sh
+# Grader USB self-test (only with OTTCONF/SELFTEST): prints OTT-SELFTEST lines on the serial console for usb/boot-test.js.
+# The serial console is where usb/boot-test.js reads results (a getty also owns it, so write to it directly).
+exec >/dev/ttyS0 2>&1
+say() { echo "OTT-SELFTEST $*"; }
+for i in $(seq 1 90); do [ -s /run/ott-grader/credentials.json ] && break; sleep 2; done
+say "enrolled=$([ -s /run/ott-grader/credentials.json ] && echo yes || echo no)"
+say "grader=$(systemctl is-active ott-grader)"
+say "clock=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# Every mounted block device with its label; the computer's own disk (label INTERNAL in the test) must not be in this list.
+say "mounted=$(lsblk -rno NAME,LABEL,MOUNTPOINTS | awk '$3 != "" {print $1 ":" $2 ":" $3}' | tr '\n' ' ')"
+say "toram=$(grep -q toram /proc/cmdline && echo yes || echo no)"
+say "image=$(cat /opt/arena/IMAGE_ID)"
+say "secureboot=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | awk '{print $NF}')"
+journalctl -b --no-pager -o short-monotonic -u ott-conf -u ott-clock -u ott-grader -u systemd-networkd | tail -n 40 | sed "s/^/OTT-LOG /"
+say done

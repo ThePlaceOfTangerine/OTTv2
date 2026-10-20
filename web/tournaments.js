@@ -166,8 +166,9 @@
     el('swiss-status').textContent = data.status === 'not_started'
       ? `${data.preview.eligible} bot đã chốt · ${data.preview.rounds} vòng · tối đa ${data.preview.totalGames} ván. Số vòng phải nhỏ hơn số bot thực tế.`
       : `${data.status === 'paused' ? 'Đã tạm dừng vòng loại' : data.status === 'cancelled' ? 'Đã hủy vòng loại, không duyệt đội đi tiếp' : data.status === 'finished' ? 'Hoàn tất vòng loại, kết quả tạm thời' : 'Đang thi đấu vòng loại'} · Vòng ${last?.number || 0}/${data.preview.rounds} · ${last?.status === 'finished' ? 'vòng hiện tại đã xong' : 'chờ hoàn thành các ván'} · Mã ghép lịch: ${data.seed}`;
-    const columns = ['Hạng', 'Đội', 'Bản bot', 'Điểm vòng loại', 'Tổng điểm đối thủ', 'Điểm đối thủ có trọng số', 'Điểm ván', 'Lượt miễn đấu'];
-    table(el('swiss-standings'), columns, data.standings.map(e => [e.rank, e.username, 'v' + e.version, e.points, e.buchholz, e.sonnebornBerger, e.gamePoints, e.byes]));
+    const columns = ['Hạng', '±', 'Đội', 'Huy hiệu', 'Bản bot', 'Điểm vòng loại', 'Tổng điểm đối thủ', 'Điểm đối thủ có trọng số', 'Điểm ván', 'Lượt miễn đấu'];
+    table(el('swiss-standings'), columns, data.standings.map(e => [e.rank, OTT.rankChangeText(e.rankChange), e.username, OTT.badgeCell(e.badges), 'v' + e.version, e.points, e.buchholz, e.sonnebornBerger, e.gamePoints, e.byes]));
+    if (data.standings.length) el('swiss-standings').append(OTT.badgeLegend());
     if (el('qualification-count').dataset.tournament !== selected.id) {
       el('qualification-count').value = selected.config.topN;
       el('qualification-count').dataset.tournament = selected.id;

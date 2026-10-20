@@ -283,6 +283,114 @@ function openDatabase(filename) {
     INSERT INTO migrations VALUES(16);
     COMMIT;
   `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=17').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE team_profiles (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id), team_name TEXT NOT NULL, leader_email TEXT NOT NULL,
+      members_json TEXT NOT NULL DEFAULT '[]', updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE team_repos (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id), full_name TEXT NOT NULL, repo_id INTEGER,
+      verify_code TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','verified')),
+      installation_id INTEGER, default_branch TEXT, verified_at INTEGER, updated_at INTEGER NOT NULL
+    );
+    -- Only a verified claim reserves a repository, so a pending forgery cannot block its owner.
+    CREATE UNIQUE INDEX team_repos_verified ON team_repos(repo_id) WHERE status='verified';
+    CREATE TABLE repo_pushes (
+      delivery_id TEXT PRIMARY KEY, repo_id INTEGER NOT NULL, ref TEXT NOT NULL, sha TEXT NOT NULL, received_at INTEGER NOT NULL
+    );
+    CREATE INDEX repo_pushes_lookup ON repo_pushes(repo_id, ref, received_at);
+    CREATE TABLE repo_snapshots (
+      stage_id TEXT NOT NULL REFERENCES tournament_stages(id), user_id INTEGER NOT NULL REFERENCES users(id),
+      sha TEXT, source TEXT NOT NULL, submission_id TEXT REFERENCES bot_submissions(id), error TEXT, created_at INTEGER NOT NULL,
+      PRIMARY KEY(stage_id, user_id)
+    );
+    ALTER TABLE bot_submissions ADD COLUMN repo_full_name TEXT;
+    ALTER TABLE bot_submissions ADD COLUMN commit_sha TEXT;
+    ALTER TABLE bot_submissions ADD COLUMN origin TEXT;
+    CREATE UNIQUE INDEX submissions_commit ON bot_submissions(user_id, COALESCE(stage_id,''), commit_sha) WHERE commit_sha IS NOT NULL;
+    CREATE INDEX submissions_sha ON bot_submissions(commit_sha) WHERE commit_sha IS NOT NULL;
+    INSERT INTO migrations VALUES(17);
+    COMMIT;
+  `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=18').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    -- The secret signs requests (HMAC) and never travels; protect the database file itself.
+    CREATE TABLE graders (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, secret TEXT NOT NULL, created_at INTEGER NOT NULL,
+      revoked_at INTEGER, last_seen_at INTEGER, image TEXT, slots INTEGER
+    );
+    CREATE TABLE grader_nonces (
+      grader_id TEXT NOT NULL REFERENCES graders(id), nonce TEXT NOT NULL, expires_at INTEGER NOT NULL, PRIMARY KEY(grader_id, nonce)
+    );
+    CREATE INDEX grader_nonces_expiry ON grader_nonces(expires_at);
+    INSERT INTO migrations VALUES(18);
+    COMMIT;
+  `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=19').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    -- Long-lived secrets created once (e.g. the team lookup HMAC key) so they survive restarts and moves with the database.
+    CREATE TABLE app_secrets (name TEXT PRIMARY KEY, value TEXT NOT NULL, created_at INTEGER NOT NULL);
+    CREATE TABLE publications (
+      id INTEGER PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES tournaments(id), version INTEGER NOT NULL,
+      created_at INTEGER NOT NULL, created_by INTEGER REFERENCES users(id), trigger TEXT NOT NULL CHECK(trigger IN ('manual','schedule')),
+      reason TEXT NOT NULL, snapshot_json TEXT NOT NULL, UNIQUE(tournament_id, version)
+    );
+    CREATE TRIGGER publications_immutable_update BEFORE UPDATE ON publications BEGIN SELECT RAISE(ABORT,'Publications are immutable'); END;
+    CREATE TRIGGER publications_immutable_delete BEFORE DELETE ON publications BEGIN SELECT RAISE(ABORT,'Publications are immutable'); END;
+    CREATE TABLE publication_schedules (
+      id INTEGER PRIMARY KEY, tournament_id TEXT NOT NULL REFERENCES tournaments(id), publish_at INTEGER NOT NULL, reason TEXT NOT NULL,
+      created_by INTEGER REFERENCES users(id), created_at INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','done','skipped','cancelled','failed')), publication_id INTEGER REFERENCES publications(id),
+      note TEXT, finished_at INTEGER
+    );
+    CREATE INDEX publication_schedules_due ON publication_schedules(status, publish_at);
+    CREATE TABLE publication_controls (
+      tournament_id TEXT PRIMARY KEY REFERENCES tournaments(id), auto_paused INTEGER NOT NULL CHECK(auto_paused IN (0,1)),
+      reason TEXT NOT NULL, changed_by INTEGER REFERENCES users(id), changed_at INTEGER NOT NULL
+    );
+    CREATE TABLE sheet_syncs (
+      publication_id INTEGER PRIMARY KEY REFERENCES publications(id), status TEXT NOT NULL CHECK(status IN ('queued','done','failed')),
+      attempts INTEGER NOT NULL DEFAULT 0, available_at INTEGER NOT NULL DEFAULT 0, error TEXT, updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE site_deploys (
+      id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL, finished_at INTEGER, status TEXT NOT NULL CHECK(status IN ('running','done','failed','blocked')), output TEXT
+    );
+    INSERT INTO migrations VALUES(19);
+    COMMIT;
+  `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=20').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    -- This machine's Ed25519 identity for signing bundles (created once; travels with snapshots so a standby keeps it).
+    CREATE TABLE sync_identity (id INTEGER PRIMARY KEY CHECK(id=1), node_id TEXT NOT NULL, name TEXT NOT NULL, public_key TEXT NOT NULL, private_key TEXT NOT NULL, created_at INTEGER NOT NULL);
+    CREATE TABLE sync_peers (node_id TEXT PRIMARY KEY, name TEXT NOT NULL, public_key TEXT NOT NULL, added_by INTEGER, added_at INTEGER NOT NULL);
+    -- Which machine may write a scope ('system' or 'tournament:<id>'); no row means this machine.
+    CREATE TABLE sync_authority (scope TEXT PRIMARY KEY, node_id TEXT NOT NULL, changed_at INTEGER NOT NULL, note TEXT);
+    -- Last row version exchanged with each peer, so an incremental bundle carries only changes and deletions.
+    CREATE TABLE sync_state (peer TEXT NOT NULL, table_name TEXT NOT NULL, row_key TEXT NOT NULL, scope TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY(peer, table_name, row_key));
+    CREATE TABLE sync_bundles (bundle_id TEXT PRIMARY KEY, direction TEXT NOT NULL CHECK(direction IN ('export','import')), peer TEXT NOT NULL, kind TEXT NOT NULL,
+      created_at INTEGER NOT NULL, actor INTEGER, records INTEGER NOT NULL, report_json TEXT);
+    INSERT INTO migrations VALUES(20);
+    COMMIT;
+  `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=21').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    -- Team whose bot fault decided the game (badge "Bot mẫu mực"); kept as a column so standings never parse replays.
+    ALTER TABLE swiss_games ADD COLUMN fault_user INTEGER REFERENCES users(id);
+    UPDATE swiss_games SET fault_user=CASE json_extract(replay_json,'$.fault.player') WHEN 0 THEN player0 WHEN 1 THEN player1 END
+      WHERE status='finished' AND replay_json IS NOT NULL;
+    INSERT INTO migrations VALUES(21);
+    COMMIT;
+  `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=22').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    -- Enrollment windows for USB graders (D15): one code, many machines, each gets its own HMAC key. Machine-local like graders; only the code hash is kept.
+    CREATE TABLE grader_enrollments (id TEXT PRIMARY KEY, code_hash TEXT NOT NULL UNIQUE, name_prefix TEXT NOT NULL, max_uses INTEGER NOT NULL CHECK(max_uses BETWEEN 1 AND 500),
+      uses INTEGER NOT NULL DEFAULT 0, expires_at INTEGER NOT NULL, closed_at INTEGER, created_by INTEGER REFERENCES users(id), created_at INTEGER NOT NULL);
+    ALTER TABLE graders ADD COLUMN enrollment_id TEXT REFERENCES grader_enrollments(id);
+    INSERT INTO migrations VALUES(22);
+    COMMIT;
+  `);
   return db;
 }
 module.exports = { openDatabase };

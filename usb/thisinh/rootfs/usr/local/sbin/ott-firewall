@@ -1,0 +1,10 @@
+#!/bin/sh
+# Contestant USB firewall: only DHCP and the portal address from OTTCONF/portal.env. Fails closed: no valid portal.env = no network at all.
+set -u
+if /usr/local/bin/node /opt/ott/scripts/usb-config.js nft /run/ottconf/portal.env > /run/ott-firewall.nft 2> /run/ott-firewall.err \
+   && nft -f /run/ott-firewall.nft; then
+  echo "OTTv2: tường lửa chỉ cho phép $(grep -o 'ip daddr [0-9.]* tcp dport [0-9]*' /run/ott-firewall.nft | head -n 1)."
+else
+  nft -f /etc/ott/drop-all.nft
+  echo "OTTv2: portal.env trong OTTCONF thiếu hoặc sai ($(cat /run/ott-firewall.err)); đã chặn toàn bộ mạng." | tee /dev/console
+fi

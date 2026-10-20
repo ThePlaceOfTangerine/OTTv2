@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="/assets/favicon.svg"><title>OTTv2 · Đấu trường bot</title><link rel="stylesheet" href="/assets/replay.css"><link rel="stylesheet" href="/assets/minimal.css"><link rel="stylesheet" href="/assets/admin-editor.css"><link rel="stylesheet" href="/assets/admin-console.css"><script src="/assets/movement.js" defer></script><script src="/assets/workspace.js" defer></script><script src="/assets/app.js" defer></script></head>
+<link rel="icon" href="/assets/favicon.svg"><title>OTTv2 · Đấu trường bot</title><link rel="stylesheet" href="/assets/replay.css"><link rel="stylesheet" href="/assets/minimal.css"><link rel="stylesheet" href="/assets/admin-editor.css"><link rel="stylesheet" href="/assets/admin-console.css"><link rel="stylesheet" href="/assets/tiles.css"><script src="/assets/movement.js" defer></script><script src="/assets/workspace.js" defer></script><script src="/assets/tiles.js" defer></script><script src="/assets/hints.js" defer></script><script src="/assets/replay-nav.js" defer></script><script src="/assets/app.js" defer></script></head>
 <body data-session="guest">
 <a class="skip-link" href="#main-content">Đến nội dung chính</a>
 <div class="app-shell">
@@ -55,11 +55,13 @@
     </details>
     <label for="submission-stage">Nơi nộp bài</label><select id="submission-stage"><option value="">Luyện tập ngoài giải (luật cơ bản)</option></select>
     <div id="submission-stage-info" class="submission-stage-card" role="status" aria-atomic="true">Bài luyện tập không tự trở thành bài thi của giải.</div><button id="submission-stage-refresh" type="button" class="secondary-button">Cập nhật giải và trạng thái</button>
+    <fieldset id="github-submit-fields" hidden><legend>Nộp từ GitHub</legend><p id="github-submit-info" class="muted"></p><button id="github-submit" type="button">Nộp commit mới nhất</button><p id="github-submit-message" role="status" aria-live="polite"></p></fieldset>
     <form id="submission-form">
       <fieldset id="submission-upload-fields"><legend>Nộp mã nguồn</legend>
       <div class="submission-fields"><div><label for="bot-file">File code của bạn (.py, .cpp hoặc .zip)</label><input id="bot-file" name="bot" type="file" accept=".py,.cpp,.zip" required></div>
       <div><label for="bot-entry">File chính trong ZIP <span class="optional">· thường để trống</span></label><input id="bot-entry" name="entry" placeholder="Ví dụ: main.py hoặc src/main.cpp" maxlength="180" aria-describedby="entry-help"><p id="entry-help" class="muted">Để trống nếu nộp file đơn hoặc ZIP có main.py / main.cpp.</p></div></div>
       <p class="muted">Một file tối đa 1 MiB (khoảng 1 MB). Nếu có nhiều file, nén thành ZIP tối đa 5 MiB, 64 file cùng ngôn ngữ.</p>
+      <div id="turnstile-box" hidden></div>
       <button id="submit-bot" type="submit">Nộp bot</button>
       </fieldset>
     </form>
@@ -68,6 +70,26 @@
     <div id="submission-detail" hidden><h2 id="submission-title"></h2><p id="submission-reason" role="status"></p>
       <ol id="submission-pipeline" class="pipeline"></ol><div id="submission-tests"></div>
       <details><summary>Chi tiết kỹ thuật (khi cần tìm lỗi)</summary><p class="muted">Thông báo gốc của hệ thống nằm ở đây. Nếu chưa hiểu lỗi, bạn có thể gửi phần này cho giảng viên hoặc ban tổ chức.</p><pre id="submission-error" hidden></pre><pre id="submission-events"></pre></details>
+    </div>
+  </section>
+  <section data-view="team" id="team-panel" hidden aria-labelledby="team-title">
+    <h2 id="team-title">Thông tin đội</h2><p id="team-summary" class="muted"></p><p id="team-lookup" class="stage-note"></p>
+    <form id="team-members-form"><fieldset><legend>Thành viên (1–4 người)</legend><div id="team-members"></div><button type="submit">Lưu thành viên</button></fieldset></form>
+    <p id="team-members-message" role="status" aria-live="polite"></p>
+    <h2 class="section-heading">Repo GitHub</h2>
+    <p id="github-disabled" hidden>Ban tổ chức chưa bật nộp bằng GitHub. Hãy nộp file trong mục Bot của tôi.</p>
+    <div id="github-setup">
+      <ol class="contestant-guide">
+        <li>Tạo repo <strong>Private</strong> trên GitHub. Ở thư mục gốc có file <code>ott.json</code>; mã bot đặt trong thư mục <code>bot/</code>.</li>
+        <li>Nhập địa chỉ repo bên dưới rồi bấm <strong>Lưu repo</strong>.</li>
+        <li><a id="github-install" target="_blank" rel="noopener">Cài GitHub App của ban tổ chức</a>, chọn “Only select repositories” và chọn đúng repo này.</li>
+        <li>Tạo file <code>ott-verify.txt</code> ở thư mục gốc nhánh mặc định, nội dung chỉ gồm mã <code id="github-code">(lưu repo để nhận mã)</code>; commit và push.</li>
+        <li>Bấm <strong>Xác minh repo</strong>. Sau đó nộp bằng nút “Nộp commit mới nhất” ở mục Bot của tôi, hoặc push tag bắt đầu bằng <code>ott-submit</code>.</li>
+      </ol>
+      <form id="github-repo-form"><label for="github-url">Địa chỉ repo</label><input id="github-url" placeholder="https://github.com/ten-tai-khoan/ten-repo" maxlength="200" required autocomplete="off"><button type="submit">Lưu repo</button></form>
+      <button id="github-verify" type="button" class="secondary-button">Xác minh repo</button>
+      <p id="github-status" role="status" aria-live="polite"></p>
+      <details><summary>Mẫu ott.json và cấu trúc repo</summary><pre>{"language": "python", "entry": "main.py"}</pre><p>entry tính từ thư mục bot/. Với C++: {"language": "cpp", "entry": "main.cpp"}. Chỉ file .py hoặc .cpp/.h/.hpp trong bot/ được chấm; file khác trong repo bị bỏ qua. Khi hết hạn, hệ thống lấy commit cuối cùng đã push lên nhánh mặc định trước hạn; nếu commit đó lỗi, dùng bản hợp lệ gần nhất.</p></details>
     </div>
   </section>
   <section data-view="tournaments" id="tournament-panel" hidden aria-labelledby="tournament-title">
@@ -165,6 +187,22 @@
         <label for="swiss-round-select">Vòng cần xem</label><select id="swiss-round-select"></select>
         <p id="swiss-byes" class="muted"></p><div id="swiss-games" class="admin-scroll"></div>
       </div>
+      <section id="intake-panel" aria-labelledby="intake-title"><h3 id="intake-title">Nhập bài từ thư mục / USB (dự phòng)</h3>
+        <p class="muted">Dùng khi đội không nộp được qua portal (mạng LAN lỗi, máy hỏng). Thư mục trên máy chủ chứa <code>&lt;mã đội&gt;/ott.json + bot/</code>, <code>&lt;mã đội&gt;.zip</code> hoặc <code>&lt;mã đội&gt;.py/.cpp</code>. Bài vẫn qua kiểm tra sandbox như bình thường; nhập lại cùng nội dung không tạo bản mới.</p>
+        <div class="tournament-grid"><div><label for="intake-stage">Nơi nhận bài</label><select id="intake-stage"></select></div><div><label for="intake-received">Thời điểm nhận tại bàn BTC (tùy chọn, giờ Việt Nam)</label><input id="intake-received" type="datetime-local"></div></div>
+        <label for="intake-dir">Đường dẫn thư mục trên máy chủ</label><input id="intake-dir" maxlength="400" placeholder="Ví dụ: E:USB-chung-ket hoặc /media/usb">
+        <label for="intake-reason">Lý do</label><input id="intake-reason" maxlength="500" placeholder="Ví dụ: Mạng đội 12 lỗi, nhận USB lúc 9:58">
+        <button id="intake-run" type="button" class="secondary-button">Nhập bài từ thư mục</button><p id="intake-status" role="status" aria-live="polite"></p><div id="intake-report" class="admin-scroll"></div>
+      </section>
+      <section id="publication-panel" aria-labelledby="publication-title"><h3 id="publication-title">Công bố kết quả công khai</h3>
+        <p class="muted">Mỗi lần công bố tạo một bản không đổi (v1, v2…) cho trang kết quả tĩnh, Google Sheets và file tra cứu theo đội. Bảng điểm khi vòng loại chưa duyệt được ghi “tạm tính”. Trang công khai không chứa thông tin thành viên.</p>
+        <p id="publication-status" role="status" aria-live="polite"></p>
+        <label for="publication-reason">Lý do công bố, đặt lịch hoặc tạm hoãn</label><input id="publication-reason" maxlength="500" placeholder="Ví dụ: Kết quả sau lượt 3">
+        <div class="tournament-pagination"><button id="publication-now" type="button">Công bố bản kết quả ngay</button><button id="publication-deploy" type="button" class="secondary-button">Dựng lại trang và đẩy lên Cloudflare</button><a id="publication-preview" href="/site/" target="_blank" rel="noopener">Xem trang kết quả (bản trên máy chủ này)</a></div>
+        <div class="tournament-grid"><div><label for="publication-at">Công bố tự động lúc (giờ Việt Nam)</label><input id="publication-at" type="datetime-local"></div></div>
+        <div class="tournament-pagination"><button id="publication-schedule" type="button" class="secondary-button">Thêm lịch công bố</button><button id="publication-pause" type="button" class="secondary-button">Tạm hoãn công bố tự động</button></div>
+        <div id="publication-list" class="admin-scroll"></div><div id="publication-schedules" class="admin-scroll"></div>
+      </section>
       <h3>Lịch sử thay đổi</h3><ol id="tournament-events" class="tournament-events"></ol>
     </div>
   </section>
@@ -172,7 +210,7 @@
     <div class="eyebrow">HƯỚNG DẪN CHO BAN TỔ CHỨC</div><h2 id="admin-guide-title">Khởi động, chạy thử và điều hành giải</h2>
     <p class="muted">Trang quản trị dùng để cấp tài khoản, theo dõi bài nộp và tổ chức vòng tính điểm. Các nút chạy trận yêu cầu máy chủ Node.js và Docker đang hoạt động.</p>
     <ol class="admin-steps">
-      <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Đấu thử theo bộ luật</a>, bấm “Kiểm tra Docker”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
+      <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Đấu thử theo bộ luật</a>, bấm “Kiểm tra máy chạy bot”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
       <li><strong>Cấp tài khoản.</strong> Dán danh sách tại <a href="#admin-users">Tài khoản thí sinh</a> rồi chọn “Tạo tài khoản”. Mật khẩu ban đầu trùng tên tài khoản. Gửi tên tài khoản cho từng thí sinh và yêu cầu đổi mật khẩu ngay lần đăng nhập đầu tiên.</li>
       <li><strong>Chờ bot hợp lệ.</strong> Thí sinh đăng nhập, đổi mật khẩu tạm và nộp mã nguồn. Theo dõi tại <a href="#admin-monitor">Bài nộp và hàng đợi</a>. Mỗi tài khoản cần một phiên bản đã vượt qua kiểm tra và đang được chọn.</li>
       <li><strong>Chạy thử khi cần.</strong> Trong <a href="#rule-panel">Quản lý bộ luật</a>, tạo hoặc chọn bộ luật. Sau đó chọn hai bot mẫu hoặc phiên bản bot thí sinh đã hợp lệ và bấm “Chạy trận thử”. Trận này không thay đổi điểm, điểm xếp hạng hay bot đang chọn.</li>
@@ -189,13 +227,49 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
   </section>
   <section data-view="users" id="admin-tools" hidden>
     <div class="eyebrow">DÀNH CHO BAN TỔ CHỨC</div><h2 id="admin-users">Tài khoản thí sinh</h2>
-    <div class="setup-panel"><h3>Thêm thí sinh</h3><form id="import-users"><label for="users-csv">Danh sách tài khoản</label><textarea id="users-csv" rows="4" placeholder="username&#10;team001&#10;team002" required></textarea><p class="muted">Dòng đầu là username, mỗi dòng sau là một tài khoản. Tối đa 1000 tài khoản/lần. Mật khẩu ban đầu trùng tên tài khoản; thí sinh phải đổi ở lần đăng nhập đầu tiên.</p><button>Tạo tài khoản</button></form></div>
+    <div class="setup-panel"><h3>Thêm thí sinh</h3><form id="import-users"><label for="users-csv">Danh sách tài khoản</label><textarea id="users-csv" rows="4" placeholder="team_id,password_temp,team_name,leader_email&#10;team001,,Đội Một,truongnhom@example.com" required></textarea><p class="muted">Danh sách đội: dòng đầu <code>team_id,password_temp,team_name,leader_email</code>. Để trống password_temp thì hệ thống tự tạo mật khẩu tạm. Định dạng cũ chỉ có cột <code>username</code> vẫn dùng được (mật khẩu ban đầu trùng tên tài khoản). Tối đa 1000 dòng/lần; thí sinh phải đổi mật khẩu ở lần đăng nhập đầu tiên.</p><button>Tạo tài khoản</button></form></div>
     <pre id="credentials" hidden></pre><button id="clear-credentials" hidden type="button">Ẩn mật khẩu</button>
     <div class="participant-filters"><div><label for="user-search">Tìm thí sinh</label><input id="user-search" type="search" placeholder="Tên tài khoản hoặc mã thí sinh…"></div><div><label for="user-filter">Lọc danh sách</label><select id="user-filter"><option value="all">Tất cả</option><option value="ready">Có bot sẵn sàng</option><option value="empty">Chưa có bot hợp lệ</option><option value="locked">Đã khóa</option></select></div></div><p id="user-count" class="muted" role="status"></p>
     <div id="users-list" class="admin-scroll"></div><div id="user-pagination" class="pagination"></div>
   </section>
+  <section data-view="users" id="admin-github-panel" hidden><h2>Repo GitHub của đội</h2><p id="admin-github-status" class="muted" role="status"></p><button id="admin-github-refresh" type="button" class="secondary-button">Tải lại</button><div id="admin-github-duplicates"></div><div id="admin-github-teams" class="admin-scroll"></div></section>
   <section id="admin-monitor-panel" data-view="monitor" hidden>
     <h2 id="admin-monitor">Bài nộp và hàng đợi</h2><p class="muted">Bộ xử lý tự động kiểm tra bài nộp hoặc chạy trận. Số vị trí xử lý cho biết số tác vụ có thể chạy cùng lúc. Hàng đợi chứa các bài đang chờ; “Tạm dừng” nghĩa là hệ thống cần xử lý lỗi máy chủ trước khi chạy lại.</p><div id="monitor-summary" class="monitor-summary" aria-label="Tóm tắt giám sát"></div><p id="worker-status"></p><button id="refresh-monitor" type="button">Làm mới giám sát</button><div id="live-list"></div><div id="jobs-list" class="admin-scroll"></div><details><summary>Chi tiết bài nộp và nhật ký</summary><pre id="admin-job-detail"></pre><div id="admin-job-tests"></div></details>
+  </section>
+  <section id="admin-snapshot-panel" data-view="monitor" hidden aria-labelledby="snapshot-title"><h2 id="snapshot-title">Sao lưu (snapshot)</h2>
+    <p class="muted">Bản sao nhất quán của cơ sở dữ liệu và bài nộp ra ổ ngoài (biến SNAPSHOT_DIR), chụp định kỳ khi server đang chạy. Khôi phục: dừng server rồi chạy <code>npm run restore -- &lt;thư mục snapshot&gt;</code> (xem RUNBOOK).</p>
+    <p id="snapshot-status" role="status" aria-live="polite"></p><button id="snapshot-now" type="button" class="secondary-button">Chụp snapshot ngay</button><div id="snapshot-list" class="admin-scroll"></div>
+  </section>
+  <section id="admin-sync-panel" data-view="monitor" hidden aria-labelledby="sync-title"><h2 id="sync-title">Đồng bộ máy online ↔ máy LAN</h2>
+    <p class="muted">Bundle mã hóa (passphrase) và ký số, chép qua USB. Mỗi phần dữ liệu chỉ một máy được ghi; bàn giao quyền đi kèm bundle. Máy LAN mới: chạy server với DB trống rồi nhập bundle đầy đủ.</p>
+    <p id="sync-identity" role="status"></p><label for="sync-connection-own">Chuỗi kết nối của máy này (dán vào máy kia)</label><textarea id="sync-connection-own" rows="3" readonly></textarea>
+    <form id="sync-peer-form"><label for="sync-peer">Thêm máy đối tác: dán chuỗi kết nối của máy kia (một lần, trước ngày thi)</label><textarea id="sync-peer" rows="3" required></textarea><button type="submit" class="secondary-button">Thêm máy đối tác</button></form>
+    <div id="sync-peers" class="admin-scroll"></div><h3>Quyền ghi hiện tại</h3><div id="sync-authority" class="admin-scroll"></div>
+    <fieldset id="sync-export"><legend>Xuất bundle</legend>
+      <div class="tournament-grid"><div><label for="sync-export-peer">Gửi cho máy</label><select id="sync-export-peer"></select></div><div><label for="sync-export-kind">Loại</label><select id="sync-export-kind"><option value="full">Đầy đủ (an toàn, dùng khi khởi tạo)</option><option value="incremental">Chỉ thay đổi kể từ lần trước</option></select></div></div>
+      <p class="muted">Bàn giao quyền ghi (máy này chuyển sang chỉ đọc cho phần được chọn ngay khi xuất xong):</p><div id="sync-handovers"></div>
+      <label for="sync-export-dir">Thư mục xuất trên máy chủ (ví dụ ổ USB)</label><input id="sync-export-dir" maxlength="400">
+      <label for="sync-export-pass">Passphrase (ít nhất 12 ký tự, không được lưu ở đâu)</label><input id="sync-export-pass" type="password" autocomplete="new-password"><label for="sync-export-pass2">Nhập lại passphrase</label><input id="sync-export-pass2" type="password" autocomplete="new-password">
+      <button id="sync-export-run" type="button">Xuất bundle</button></fieldset>
+    <fieldset id="sync-import"><legend>Nhập bundle</legend>
+      <label for="sync-import-dir">Thư mục bundle (…/&lt;mã&gt;.ottbundle)</label><input id="sync-import-dir" maxlength="400">
+      <label for="sync-import-pass">Passphrase</label><input id="sync-import-pass" type="password" autocomplete="off"><button id="sync-import-run" type="button">Nhập bundle</button></fieldset>
+    <p id="sync-status" role="status" aria-live="polite"></p><h3>Lịch sử</h3><div id="sync-history" class="admin-scroll"></div>
+  </section>
+  <section id="admin-graders-panel" data-view="monitor" hidden aria-labelledby="graders-title"><h2 id="graders-title">Máy chấm</h2>
+    <p class="muted">Mỗi máy chấm có mã và khóa bí mật riêng; khóa chỉ hiện một lần khi tạo. Máy chấm tự lấy việc từ máy chủ này. Thu hồi khi máy bị mất hoặc không còn dùng; việc đang chạy sẽ được giao lại sau khoảng 30 giây.</p>
+    <form id="grader-form"><label for="grader-name">Tên máy chấm mới</label><input id="grader-name" maxlength="60" required autocomplete="off" placeholder="Ví dụ: Phòng lab A - máy 1"><button type="submit">Tạo máy chấm</button></form>
+    <div id="grader-secret" hidden><p><strong>Chạy trên máy chấm (PowerShell, trong thư mục dự án).</strong> Khóa bí mật không hiển thị lại.</p><pre id="grader-command"></pre><button id="grader-secret-hide" type="button" class="secondary-button">Đã lưu, ẩn khóa</button></div>
+    <div class="setup-panel"><h3>Đăng ký máy chấm USB</h3>
+      <p class="muted">Mở đợt khi chuẩn bị phòng thi, cắm và khởi động các USB máy chấm, rồi đóng đợt khi đã đủ máy. Mỗi máy tự nhận khóa riêng; mã đăng ký chỉ hiện một lần và hết tác dụng khi đóng đợt, hết giờ hoặc đủ số máy.</p>
+      <form id="enroll-form"><label for="enroll-prefix">Tiền tố tên máy</label><input id="enroll-prefix" value="usb" pattern="[a-z0-9-]{1,20}" required>
+        <label for="enroll-max">Số máy tối đa</label><input id="enroll-max" type="number" min="1" max="500" value="50" required>
+        <label for="enroll-minutes">Tự đóng sau (phút)</label><input id="enroll-minutes" type="number" min="1" max="240" value="15" required>
+        <button type="submit">Mở đợt đăng ký máy chấm</button></form>
+      <p id="enroll-status" role="status" aria-live="polite"></p>
+      <div id="enroll-env-box" hidden><p><strong>Nội dung grader.env</strong> cho phân vùng OTTCONF của USB (thay địa chỉ bằng IP LAN của máy chủ nếu đang mở trang bằng 127.0.0.1). Mã không hiển thị lại.</p><pre id="enroll-env"></pre></div>
+      <button id="enroll-close" type="button" class="secondary-button" hidden>Đóng đợt đăng ký</button></div>
+    <p id="grader-status" role="status" aria-live="polite"></p><button id="grader-refresh" type="button" class="secondary-button">Tải lại</button><div id="grader-list" class="admin-scroll"></div>
   </section>
   <section id="admin-round-panel" data-view="scores" hidden>
     <h2 id="admin-create-round">Tạo vòng tính điểm</h2><p class="muted">Đấu vòng tròn: mỗi bot gặp tất cả bot còn lại. Mặc định mỗi cặp đấu 3 trận; bạn có thể đổi số trận bên dưới. Không tự đấu thêm khi bằng điểm.</p>
@@ -246,8 +320,8 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
     </form><p id="rule-message" role="status" aria-live="polite"></p>
   </section>
   <section data-view="practice" id="match-panel" hidden>
-    <div class="panel-heading"><div><div class="eyebrow">SANDBOX LUẬT · KHÔNG TÍNH ĐIỂM</div><h2>Đấu thử theo bộ luật</h2></div><button id="check-sandbox" type="button">Kiểm tra Docker</button></div>
-    <p id="sandbox-status" role="status">Chọn “Kiểm tra Docker” để xác minh máy chủ có thể chạy bot trong môi trường cách ly.</p>
+    <div class="panel-heading"><div><div class="eyebrow">SANDBOX LUẬT · KHÔNG TÍNH ĐIỂM</div><h2>Đấu thử theo bộ luật</h2></div><button id="check-sandbox" type="button">Kiểm tra máy chạy bot</button></div>
+    <p id="sandbox-status" role="status">Chọn “Kiểm tra máy chạy bot” để xác minh máy chủ có thể chạy bot (Docker, WSL2 hoặc chế độ lớp học).</p>
     <form id="match-form" class="match-form">
       <div class="practice-rule-field"><label for="practice-rule">Bộ luật</label><select id="practice-rule" required><option value='["ottv2-classic",2]'>OTTv2 cơ bản · bản 2</option></select></div>
       <div class="bot-slot" data-side="0"><span class="eyebrow">BÊN A · ĐI TRƯỚC</span><div id="bot-a-summary" class="bot-selection-summary"></div><button type="button" id="choose-bot-a" class="secondary-button">Chọn thí sinh / bot</button><label class="sr-only" for="bot-a">Bot bên 0</label><select id="bot-a" hidden><option value="python-greedy">Python · Greedy</option><option value="cpp-greedy">C++ · Greedy</option></select></div>
@@ -262,9 +336,11 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
       <div class="replay-controls">
         <button id="replay-play" type="button" aria-pressed="false" disabled>Tự động chạy</button>
         <button id="replay-restart" type="button" disabled>Về đầu</button>
+        <button id="replay-prev-event" type="button" class="secondary-button" disabled title="Phím P">◀ Pha trước</button>
+        <button id="replay-next-event" type="button" class="secondary-button" disabled title="Phím N">Pha tiếp ▶</button>
         <div><label for="replay-speed">Tốc độ</label><select id="replay-speed"><option value="1600">0,5× · Chậm</option><option value="800" selected>1× · Bình thường</option><option value="400">2× · Nhanh</option><option value="200">4× · Rất nhanh</option></select></div>
       </div>
-      <label for="replay-turn">Nước đi <span id="replay-turn-label">0</span></label><input id="replay-turn" type="range" min="0" max="0" value="0">
+      <label for="replay-turn">Nước đi <span id="replay-turn-label">0</span></label><p class="muted replay-keys">Phím tắt: ← → từng nước · Home/End về đầu/cuối · Space chạy/dừng · N/P tới pha ăn quân hoặc nhặt ô tiếp theo/trước đó · bấm một dòng lịch sử để quay lại nước đó.</p><input id="replay-turn" type="range" min="0" max="0" value="0">
       <div id="replay-stage" class="replay-stage" hidden>
         <div class="board-col">
           <div id="replay-banner-0" class="player-banner p0"><div id="replay-name-0" class="banner-name"></div><div id="replay-pieces-0" class="banner-pieces"></div><span id="replay-turn-0" class="banner-turn">Lượt đi</span></div>
@@ -298,4 +374,4 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
   </dialog>
   <p id="message" role="status" aria-live="polite"></p>
   <footer><a href="/portal">Khu vực thí sinh</a><a href="/admin">Khu vực quản trị</a><a class="footer-legacy" href="/legacy/">Chơi trực tiếp ↗</a><span>OTTv2 / Nền tảng thi đấu bot</span></footer>
-</main></div><script src="/assets/admin.js" defer></script><script src="/assets/brackets.js" defer></script><script src="/assets/tournaments.js" defer></script><script src="/assets/portal-swiss.js" defer></script><script src="/assets/bot-picker.js" defer></script><script src="/assets/rules.js" defer></script><script src="/assets/admin-choices.js" defer></script></body></html>
+</main></div><script src="/assets/admin.js" defer></script><script src="/assets/brackets.js" defer></script><script src="/assets/tournaments.js" defer></script><script src="/assets/portal-swiss.js" defer></script><script src="/assets/github.js" defer></script><script src="/assets/graders.js" defer></script><script src="/assets/publications.js" defer></script><script src="/assets/offline.js" defer></script><script src="/assets/sync.js" defer></script><script src="/assets/bot-picker.js" defer></script><script src="/assets/rules.js" defer></script><script src="/assets/admin-choices.js" defer></script></body></html>

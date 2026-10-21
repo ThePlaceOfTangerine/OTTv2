@@ -26,7 +26,11 @@ async function importUsers(db, text) {
   const rows = csvRows(text), header = rows.shift();
   const columns = header?.join(',');
   const teams = ['team_id,password_temp,team_name,leader_email', 'team_id,team_name,leader_email'].includes(columns);
-  if (!teams && !['username','username,password'].includes(columns)) throw bad('Dòng đầu CSV phải là username hoặc team_id,password_temp,team_name,leader_email.');
+  if (!teams && !['username','username,password'].includes(columns)) {
+    // A team row always carries the leader email, so an @ in the first line means the header was left out.
+    if (header?.some(value => value.includes('@'))) throw bad('Thiếu dòng tiêu đề. Thêm dòng team_id,password_temp,team_name,leader_email lên trên cùng, các đội viết từ dòng thứ hai.');
+    throw bad('Dòng đầu CSV phải là username hoặc team_id,password_temp,team_name,leader_email (gõ đúng nguyên văn, viết thường, ngăn bằng dấu phẩy, không có dấu cách).');
+  }
   if (!rows.length || rows.length > 1000) throw bad('Mỗi lần import từ 1 đến 1000 tài khoản.');
   const seen = new Set(), records = [];
   for (const row of rows) {

@@ -371,6 +371,10 @@ test('admin account import, locking/reset revoke sessions and contestant cannot 
   assert.equal((await request('/api/admin/users/'+a.data.user.id+'/reset',adminOptions)).status,404);
   const monitor=await (await request('/api/admin/monitor',{cookie:a.cookie})).json();assert.equal(monitor.worker.capacity,2);assert.ok(Array.isArray(monitor.jobs));
   assert.equal((await request('/api/admin/users/import',{...adminOptions,body:{csv:'username,password\nnewteam,'}})).status,400);
+  r=await request('/api/admin/users/import',{...adminOptions,body:{csv:'an-doi01,,Đội Thử 1,an-doi01@example.com'}});
+  assert.equal(r.status,400);assert.match((await r.json()).error,/^Thiếu dòng tiêu đề/);
+  r=await request('/api/admin/users/import',{...adminOptions,body:{csv:'team_id, team_name, leader_email\nan-doi01,Đội,a@example.com'}});
+  assert.equal(r.status,400);assert.match((await r.json()).error,/^Dòng đầu CSV/);
 });
 test('score and live APIs enforce admin role and require CSRF for mutations', async () => {
  const a=await login('admin'),p=await login();

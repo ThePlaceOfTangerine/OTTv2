@@ -4,11 +4,14 @@
   const vn = value => value ? new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' }) : '—';
   const fromLocal = value => value ? Date.parse(`${value}:00+07:00`) : null;
   const statusLabels = { queued: 'Đã nhận, đang kiểm tra', duplicate: 'Đã có (cùng nội dung)', error: 'Lỗi' };
+  let stageSequence = 0;
 
   async function loadStages() {
+    const request = ++stageSequence;
     const id = el('tournament-select').value, select = el('intake-stage');
     el('intake-panel').hidden = !id; if (!id) return;
     const tournament = await api(`/api/admin/tournaments/${encodeURIComponent(id)}`);
+    if (request !== stageSequence || id !== el('tournament-select').value) return;
     select.replaceChildren(...tournament.stages.map(stage => { const option = textNode('option', `${stage.kind === 'final' ? 'Nộp lại vòng chính thức' : 'Vòng loại'} · ${stage.status}`); option.value = stage.id; return option; }));
     el('intake-run').disabled = !tournament.stages.length;
     el('intake-status').textContent = tournament.stages.length ? '' : 'Giải chưa mở nhận bài.';
@@ -36,10 +39,9 @@
     try { await postAdmin('/api/admin/snapshots'); await loadSnapshots(); } catch (error) { el('snapshot-status').textContent = error.message; }
     finally { el('snapshot-now').disabled = false; }
   });
-  el('tournament-select').addEventListener('change', () => loadStages().catch(error => { el('intake-status').textContent = error.message; }));
+  document.addEventListener('tournament-updated', () => loadStages().catch(error => { el('intake-status').textContent = error.message; }));
   document.addEventListener('admin-ready', () => {
     el('admin-snapshot-panel').hidden = false;
     loadSnapshots().catch(error => { el('snapshot-status').textContent = error.message; });
-    loadStages().catch(() => {});
   });
 })();

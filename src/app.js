@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 const path = require('node:path');
+const { httpConfig } = require('./http-config');
 const { hashPassword, verifyPassword, needsRehash } = require('./passwords');
 const { MatchService } = require('./sandbox/match-service');
 const { SAMPLES } = require('./sandbox/samples');
@@ -42,10 +43,11 @@ const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const random = () => crypto.randomBytes(32).toString('hex');
 const TTL = 8 * 60 * 60 * 1000;
 
-async function createApp({ db, secureCookies = false, now = Date.now, loginMax = 10, matchService, submissionService, submissionOptions, swissOptions, bracketOptions, publicationOptions, snapshotOptions, onRestart, setupProbe, github = githubFromEnv(), turnstile = turnstileFromEnv() } = {}) {
+async function createApp({ db, secureCookies = false, trustedProxies = '', publicOrigin = '', now = Date.now, loginMax = 10, loginIpMax = Math.max(100, loginMax * 10), matchService, submissionService, submissionOptions, swissOptions, bracketOptions, publicationOptions, snapshotOptions, onRestart, setupProbe, github = githubFromEnv(), turnstile = turnstileFromEnv() } = {}) {
+  const config = httpConfig({ trustedProxies, publicOrigin, secureCookies });
   const app = express();
-  // HTTPS proxies on the same machine (Tailscale Funnel, Caddy, cloudflared) talk plain HTTP; X-Forwarded-Proto keeps the Origin check right.
-  app.set('trust proxy', 'loopback');
+  // Only explicitly configured proxies may supply the client IP and protocol.
+  app.set('trust proxy', config.trustProxy);
   const authority = new Authority(db, { now });
   app.locals.authority = authority;
   const matches = matchService || new MatchService(db);
@@ -154,9 +156,10 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     next();
   };
   app.post('/api/auth/login', async (req, res) => {
+    if (config.origin && req.protocol !== new URL(config.origin).protocol.slice(0, -1)) return res.status(400).json({ error: 'Giao thức truy cập không khớp cấu hình website.' });
     if (req.get('Sec-Fetch-Site') === 'cross-site') return res.status(403).json({ error: 'Yêu cầu khác nguồn.' });
     if (req.get('Origin')) {
-      const expected = `${req.protocol}://${req.get('host')}`;
+      const expected = config.origin || `${req.protocol}://${req.get('host')}`;
       if (req.get('Origin') !== expected) return res.status(403).json({ error: 'Yêu cầu khác nguồn.' });
     }
     const { username, password } = req.body || {};
@@ -165,18 +168,19 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     const time = now();
     db.prepare('DELETE FROM login_limits WHERE expires_at<=?').run(time);
     db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(time);
-    // A whole computer room (or every visitor behind Cloudflare Tunnel) shares one IP, so the IP allows 10× the per-account limit,
-    // and a successful login gives its attempt back (Phase 8 load test: 3,990 of 4,000 logins were refused before this).
-    const ipKey = `ip:${req.socket.remoteAddress}`, userKey = `user:${username.toLowerCase()}`, keys = [ipKey, userKey];
-    for (const key of keys) {
-      const entry = db.prepare('SELECT attempts FROM login_limits WHERE key=?').get(key);
-      if (entry && entry.attempts >= (key === ipKey ? loginMax * 10 : loginMax)) {
-        res.set('Retry-After', '900');
-        return res.status(429).json({ error: 'Quá nhiều lần đăng nhập. Thử lại sau 15 phút.' });
-      }
+    const limits = [[`ip:${req.ip}`, loginIpMax], [`user:${username.toLowerCase()}`, loginMax]];
+    const blocked = limits.map(([key, max]) => ({ entry: db.prepare('SELECT attempts,expires_at FROM login_limits WHERE key=?').get(key), max }))
+      .filter(({ entry, max }) => entry && entry.attempts >= max);
+    if (blocked.length) {
+      const retryAfter = Math.max(1, ...blocked.map(({ entry }) => Math.ceil((entry.expires_at - time) / 1000)));
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: `Quá nhiều lần đăng nhập. Thử lại sau ${retryAfter} giây.`, retryAfter });
     }
-    for (const key of keys) db.prepare(`INSERT INTO login_limits VALUES (?,1,?)
-      ON CONFLICT(key) DO UPDATE SET attempts=attempts+1`).run(key, time + 900000);
+    // Reserve before password verification yields, so concurrent requests cannot bypass the limit.
+    const reservations = limits.map(([key]) => {
+      db.prepare(`INSERT INTO login_limits VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=attempts+1`).run(key, time + 900000);
+      return { key, expiresAt: db.prepare('SELECT expires_at FROM login_limits WHERE key=?').get(key).expires_at };
+    });
     const user = db.prepare('SELECT * FROM users WHERE username=? AND deleted_at IS NULL').get(username);
     const valid = await verifyPassword(password, user ? user.password_hash : dummyHash);
     if (!valid || !user || user.locked || !db.prepare('SELECT 1 FROM users WHERE id=? AND password_hash=? AND locked=0').get(user.id, user.password_hash)) return res.status(401).json({ error: 'Tài khoản hoặc mật khẩu không đúng.' });
@@ -186,13 +190,12 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
       const rehashed = await hashPassword(password);
       if (db.prepare('UPDATE users SET password_hash=? WHERE id=? AND password_hash=?').run(rehashed, user.id, user.password_hash).changes) user.password_hash = rehashed;
     }
+    // Refund only this request, never other failures or a newer limit window.
+    for (const { key, expiresAt } of reservations) db.prepare('UPDATE login_limits SET attempts=MAX(0,attempts-1) WHERE key=? AND expires_at=?').run(key, expiresAt);
     const token = random();
     const csrfToken = random();
     db.exec('BEGIN');
     try {
-      // Counted before the password check so parallel guesses cannot slip through; a success gives the attempt back.
-      db.prepare('DELETE FROM login_limits WHERE key=?').run(userKey);
-      db.prepare('UPDATE login_limits SET attempts=attempts-1 WHERE key=? AND attempts>0').run(ipKey);
       if (req.sessionHash) db.prepare('DELETE FROM sessions WHERE token_hash=?').run(req.sessionHash);
       db.prepare('INSERT INTO sessions VALUES (?,?,?,?)').run(digest(token), user.id, csrfToken, time + TTL);
       db.exec('COMMIT');

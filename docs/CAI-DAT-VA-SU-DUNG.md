@@ -4,6 +4,18 @@ Cập nhật: 20/10/2026. Tài liệu dành cho người tải dự án lần đ
 
 ## 1. Chuẩn bị
 
+### Chọn đúng vai trò trước khi bắt đầu
+
+Trong mục **Giải đấu**, đọc thẻ **Việc cần làm tiếp theo**. Thẻ theo 6 bước: chuẩn bị → nhận bài → vòng loại → duyệt đội → loại trực tiếp → duyệt kết quả. Bấm **Đến phần cần thao tác** chỉ chuyển đến vị trí cần kiểm tra, không tự chạy trận hoặc chốt dữ liệu. Khi tạm dừng, hủy, đổi luật hoặc có đợt nộp lại, hướng dẫn thay đổi tương ứng. Nếu chưa tải được trạng thái vòng loại, tải lại dữ liệu trước khi thao tác.
+
+Các con số đội/vòng/ván có bản tóm tắt và nằm trong **Điều chỉnh số đội, số vòng và số ván**. Mở để sửa khi tổ chức giải ít đội: số vòng phải nhỏ hơn số bot thực tế. Nếu một ô không hợp lệ, phần này tự mở để bạn sửa. Tóm tắt cập nhật khi nhập; cần bấm **Lưu cấu hình** để lưu thay đổi.
+
+- **Thí sinh:** không cần cài máy chủ hoặc Docker. Mở địa chỉ `/portal` do ban tổ chức cung cấp, đăng nhập bằng tài khoản được cấp, đổi mật khẩu rồi đọc mục **Bắt đầu**. Tải mẫu Python/C++, mở **Bot của tôi**, chọn đúng giải/giai đoạn, nộp file và chờ kiểm tra. Có thể nộp nguyên mẫu trước khi sửa chiến thuật.
+- **Ban tổ chức:** người vận hành cài máy chủ theo các bước bên dưới. Đăng nhập `/admin`, mở **Bắt đầu** rồi làm việc trong **Giải đấu**: tạo giải, lưu đội, nhận/chốt bài, chạy vòng loại, duyệt đội, chạy loại trực tiếp và duyệt kết quả. **Điểm ngoài giải** là luồng cũ riêng.
+- **Giám khảo ngoài chuyên môn:** người phụ trách mở giải và bản xem lại để trình chiếu. Mỗi đội viết một chương trình tự chơi; xem bảng điểm, diễn biến từng ván và trạng thái duyệt kết quả. Sau khi ban tổ chức công bố kết quả trong Giải đấu, khách mở `/site/` hoặc địa chỉ trang kết quả do ban tổ chức cung cấp để xem bảng điểm/replay mà không cần tài khoản quản trị. Trang phản ánh bản đã công bố, không phải dữ liệu trực tiếp.
+
+Trong **Bot của tôi**, luyện tập không tự trở thành bài thi. Nếu đã chọn riêng một bản cho giải, cần kiểm tra lại sau khi nộp bản mới; bản đã chốt không thay đổi. Tùy chọn file chính trong ZIP và bảng điểm ngoài giải được thu gọn, bấm vào tiêu đề để mở khi cần. Mục **Bắt đầu** luôn có trên thanh điều hướng; các liên kết trực tiếp tới chức năng vẫn hoạt động.
+
 - Node.js từ 24.16 trở lên và npm. Dự án dùng SQLite tích hợp của Node.
 - Git nếu tải bằng lệnh clone; hoặc tải ZIP mã nguồn và giải nén.
 - Windows: Docker Desktop chạy Linux containers với WSL2; Linux: Docker Engine.
@@ -120,9 +132,13 @@ Thí sinh truy cập http://IP-LAN-CUA-SERVER:3000/portal; thay IP bằng địa
 
 Các biến môi trường khác: DB_PATH (file SQLite), SUBMISSIONS_PATH (thư mục bài/artifact), SANDBOX_IMAGE (image chấm), DOCKER_BIN (đường dẫn Docker), BOT_WORKERS (số việc kiểm tra bài đồng thời), COOKIE_SECURE=true khi dùng HTTPS. Nộp bằng GitHub: GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY_PATH (hoặc GITHUB_APP_PRIVATE_KEY), GITHUB_APP_SLUG, GITHUB_WEBHOOK_SECRET; chống bot cho form upload: TURNSTILE_SITE_KEY, TURNSTILE_SECRET (không đặt khi chạy offline). Chi tiết trong [GITHUB.md](GITHUB.md). Máy chấm phân tán: LOCAL_GRADING=0 để coordinator không tự chấm, GRADER_IMAGE để bắt buộc image; trên máy chấm chạy `npm run grader` với COORDINATOR_URL, GRADER_ID, GRADER_SECRET, GRADER_SLOTS (tạo khóa ở admin → Giám sát). Chọn sandbox bằng SANDBOX_BACKEND=docker (mặc định), bwrap (WSL2/Linux) hoặc windows-job (lớp học, thử nghiệm, chưa chặn mạng/file; Python qua OTT_PYTHON hoặc python\ trong gói, C++ qua OTT_GXX/cpp\/Dev-C++, header thêm qua OTT_CPP_INCLUDE). File data/settings.json (do trang /setup ghi, đổi chỗ bằng OTT_SETTINGS) bổ sung SANDBOX_BACKEND, HOST, PORT khi các biến này chưa được đặt. Khi chưa có tài khoản admin, mở /admin trên chính máy chủ sẽ chuyển sang trang cài đặt lần đầu. Xem [GRADERS.md](GRADERS.md). Công bố kết quả: PUBLIC_SITE_DIR (thư mục site tĩnh, mặc định data/public-site, xem tại /site/), PUBLIC_SITE_URL, SITE_AUTO_DEPLOY=1, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_PAGES_PROJECT, WRANGLER_VERSION, GOOGLE_SERVICE_ACCOUNT_FILE, GOOGLE_SHEET_ID; lệnh npm run site:build / site:deploy. Xem [PUBLISHING.md](PUBLISHING.md). Trên Windows có thể chạy `powershell -ExecutionPolicy Bypass -File scripts\start-server.ps1 [-AutoDeploy]`: script đọc khóa Cloudflare/Google trong thư mục secrets ngoài repo (mặc định `E:\OTTv2-local\secrets`: `cloudflare-token.txt`, `cloudflare-account.txt`, `google-sa.json`, `google-sheet-id.txt`), đặt biến rồi `npm start`. Thi LAN và sự cố: SNAPSHOT_DIR (ổ ngoài, bắt buộc tự đặt), SNAPSHOT_INTERVAL_MINUTES (mặc định 15), SNAPSHOT_KEEP (mặc định 24); lệnh npm run offline:check (kiểm tra máy trước ngày thi) và npm run restore -- <snapshot> (khôi phục khi server đã dừng). Nhập bài từ thư mục/USB ở mục Giải đấu. Thử tải và đo (Phase 8, chạy trên Linux/WSL): node scripts/load-test.js, node scripts/load-real-games.js, node scripts/bench-standings.js <db> (xem CAPACITY.md). Mật khẩu được băm bằng scrypt; tài khoản cũ dùng bcrypt tự chuyển ở lần đăng nhập đầu. USB boot (phòng thi): OTT_GRUB_PASSWORD đặt mật khẩu khóa menu GRUB khi dựng ảnh; npm run usb:build -- grader|thisinh [--with-wifi], npm run usb:test -- grader|thisinh [--bios], npm run usb:config -- grader|thisinh|check (cần distro WSL ott-build, xem USB-BOOT.md); máy chấm đăng ký bằng mã dùng GRADER_CONFIG_FILE và GRADER_CREDENTIALS_FILE. Chạy thử bot cục bộ: npm run ott-run -- <main.py|main.cpp|bot.zip> (xem LOP-HOC.md). Đồng bộ máy online ↔ LAN: npm run sync (identity, add-peer, export, import), passphrase qua OTT_SYNC_PASSPHRASE hoặc gõ khi được hỏi. Xem [RUNBOOK.md](RUNBOOK.md). DB_PATH và SUBMISSIONS_PATH cần được cấu hình nhất quán để không trộn dữ liệu giữa môi trường. Server hiện đọc biến môi trường của tiến trình, không tự nạp file .env. File tạm khi chấm (thư mục ott-source-*, helper windows-job, thư mục làm việc của máy chấm) nằm trong thư mục tạm của hệ điều hành; muốn giữ chúng ngoài ổ C, đặt `$env:TEMP` và `$env:TMP` (ví dụ E:OTTv2-local	mp) trước khi chạy npm start hoặc npm run grader.
 
+**Nếu chạy sau proxy:** người vận hành đặt TRUSTED_PROXIES là IP/CIDR của proxy (ví dụ `127.0.0.1,::1` cho proxy cùng máy), PUBLIC_ORIGIN là địa chỉ website (ví dụ `https://arena.example`) và COOKIE_SECURE=true với HTTPS. Mặc định không tin proxy. Không dùng `true`, số hop hoặc `/0`; khai báo sai làm server từ chối khởi động. Proxy phải ghi đè header chuyển tiếp và cổng Node cần được giới hạn truy cập. Xem ví dụ trong [Triển khai](DEPLOYMENT.md). Thay đổi biến môi trường cần khởi động lại server; không thay biến khi chỉ là thí sinh truy cập web.
+
 Triển khai Internet cần cấu hình HTTPS/proxy, tài khoản và đánh giá tải trước; xem [phương án triển khai](DEPLOYMENT.md). Dự án chưa được chứng nhận chịu tải 150 đội đồng thời.
 
 ## 8. Lỗi thường gặp
+
+**Đăng nhập bị giới hạn (HTTP 429):** chờ số giây hiển thị trên nút Đăng nhập rồi thử lại. Trang không tự gửi lại mật khẩu. Mặc định cửa sổ 15 phút giới hạn 10 lần sai theo tài khoản và 100 theo IP kết nối trực tiếp; các yêu cầu đang kiểm tra cũng giữ chỗ tạm để chống gửi đồng thời. Đăng nhập thành công hoàn lại đúng lượt của yêu cầu đó, không xóa lỗi trước của tài khoản hoặc người khác cùng mạng. Máy chủ trả `Retry-After` theo thời gian còn lại, không luôn bắt chờ lại 15 phút. Nếu nhiều người nhập sai cùng lúc, IP chung vẫn có thể bị giới hạn. Khi chạy sau proxy chưa cấu hình tin cậy, mọi người có thể chung IP proxy; không tự tin các header chuyển tiếp do người gửi cung cấp.
 
 | Hiện tượng | Cách kiểm tra |
 | --- | --- |
@@ -141,3 +157,15 @@ Triển khai Internet cần cấu hình HTTPS/proxy, tài khoản và đánh gi�
 npm test chạy bộ kiểm thử unit/API. npm run test:stages kiểm tra luồng giai đoạn/giải bằng Docker; các test Docker cần Engine/image hoạt động, có thể mất thời gian. Không cần Docker nhưng cần Python: npm run test:ott-run (chạy thử bot cục bộ) và npm run test:windows-job (Windows). Xem các lệnh test:* trong package.json. Không chạy script demo-six-teams.js trên DB thật nếu chưa chủ động sao lưu và chấp nhận tạo dữ liệu mẫu.
 
 Người sửa dự án phải cập nhật tài liệu này cùng README khi đổi yêu cầu môi trường, lệnh cài/chạy, tài khoản ban đầu, biến môi trường, luồng sử dụng hoặc giới hạn tính năng. Cập nhật ngày và TODO kèm bằng chứng thực tế. Nếu sửa quy tắc giải, cập nhật QUY-TAC-GIAI-DAU.md rồi chạy node scripts/build-tournament-guide.js để trang hướng dẫn admin đồng bộ. Không đánh dấu thử tải/khôi phục/triển khai là hoàn thành chỉ vì đã có mã.
+
+### Đặt power-up (21/10/2026)
+
+Trong Bộ luật, chọn OTTv2 Power-ups rồi chọn Cách đặt power-up: Ngẫu nhiên trên toàn bàn hoặc Admin tự chọn vị trí. Với chế độ thủ công, chọn loại vật phẩm và bấm ô hợp lệ để đặt/xóa. Bấm Lưu bộ luật để tạo phiên bản mới, rồi chọn đúng phiên bản cho giải. Luật đã ghim trong giải đang chạy không tự đổi. Không còn vùng sinh cố định trong trình chỉnh trực quan.
+
+## Ba luật mặc định và xóa bộ luật (21/10/2026)
+
+- **OTTv2 Classic:** công cụ Ô cờ, Nhà A/B, Quân A/B; không có công cụ ô chặn hoặc power-up.
+- **OTTv2 Obstacles:** thêm duy nhất Ô chặn. Bản 2 dùng blockedCells; Tường đá được gộp vào Ô chặn khi chỉnh luật cũ, không còn công cụ trùng chức năng.
+- **OTTv2 Power-ups:** công cụ cơ bản và ba loại vật phẩm. Chọn random toàn bàn, nhập số tối thiểu/tối đa từ 1 đến 16 (hai số bằng nhau để có số cố định), hoặc chọn vị trí thủ công. Chế độ thủ công dùng đúng các ô được đặt, không sinh thêm.
+
+Ba luật mặc định được giữ lại. Muốn tạo luật riêng, chọn mẫu rồi Nhân bản và Lưu. Nút Xóa bộ luật gỡ bản riêng khỏi các danh sách chọn mới, có hộp thoại xác nhận; phiên bản lịch sử vẫn được giữ cho giải và replay. Không thể dùng luật đã xóa để tạo giải/trận thử mới. Lưu/chỉnh/xóa không tự đổi luật đã ghim của giải.

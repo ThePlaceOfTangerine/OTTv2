@@ -84,7 +84,7 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 22);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 23);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
@@ -161,9 +161,9 @@ test('cross origin login and malformed JSON are rejected', async () => {
   assert.equal((await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400);
   assert.equal((await request('/api/auth/login', { method: 'POST', body: { username: {}, password } })).status, 400);
 });
-test('login behind a local HTTPS proxy accepts its https Origin', async () => {
+test('forwarded HTTPS is ignored until a proxy is explicitly trusted', async () => {
   const origin = base.replace('http://', 'https://');
-  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-Proto': 'https' }, body: { username: 'player', password } })).status, 200);
+  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-Proto': 'https' }, body: { username: 'player', password } })).status, 403);
   assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin }, body: { username: 'player', password } })).status, 403);
 });
 test('match APIs enforce admin role, CSRF and fixed sample bot selection', async () => {
@@ -178,7 +178,7 @@ test('match APIs enforce admin role, CSRF and fixed sample bot selection', async
   assert.equal((await request('/api/admin/matches', { ...admin, csrf: admin.data.csrfToken, method: 'POST', body: { botA: '../../bad', botB: 'cpp-greedy', seed: 'test' } })).status, 400);
 });
 test('rate limit is shared across app instances and resets after the window', async () => {
-  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2 }));
+  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 20 }));
   limited.listen(0, '127.0.0.1'); await once(limited, 'listening');
   const url = `http://127.0.0.1:${limited.address().port}/api/auth/login`;
   db.prepare('DELETE FROM login_limits').run();
@@ -193,11 +193,103 @@ test('rate limit is shared across app instances and resets after the window', as
     db.prepare('DELETE FROM login_limits').run();
     for (let i = 0; i < 30; i++) assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: i % 2 ? 'player' : 'admin', password }) })).status, 200, `lần ${i + 1}`);
     assert.equal(db.prepare("SELECT COALESCE(SUM(attempts),0) n FROM login_limits").get().n, 0);
-    // Failures still count: per account at loginMax, per IP at 10× loginMax.
+    // Failures still count: per account at loginMax, per IP at the configured loginIpMax.
     for (let i = 0; i < 20; i++) await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: `khong-co-${i}`, password: 'wrong' }) });
     assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'player', password }) })).status, 429);
   } finally { limited.closeIdleConnections(); await new Promise(resolve => limited.close(resolve)); }
 });
+test('successful logins on a shared LAN do not consume failure limits or erase other failures', async () => {
+  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 4 }));
+  limited.listen(0, '127.0.0.1'); await once(limited, 'listening');
+  const url = `http://127.0.0.1:${limited.address().port}/api/auth/login`;
+  const attempt = (username, value = password) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password: value }) });
+  db.prepare('DELETE FROM login_limits').run();
+  try {
+    assert.equal((await attempt('player', 'wrong')).status, 401);
+    for (let i = 0; i < 8; i++) assert.equal((await attempt(i % 2 ? 'player' : 'admin')).status, 200);
+    assert.equal(db.prepare("SELECT attempts FROM login_limits WHERE key='user:player'").get().attempts, 1);
+    assert.equal(db.prepare("SELECT attempts FROM login_limits WHERE key LIKE 'ip:%'").get().attempts, 1);
+    assert.equal((await attempt('player', 'wrong')).status, 401);
+    assert.equal((await attempt('player')).status, 429);
+    assert.equal((await attempt('admin')).status, 200);
+  } finally { db.prepare('DELETE FROM login_limits').run(); limited.closeIdleConnections(); await new Promise(resolve => limited.close(resolve)); }
+});
+
+test('IP failure budget blocks username spraying with remaining Retry-After and ignores forwarded headers', async () => {
+  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 3 }));
+  limited.listen(0, '127.0.0.1'); await once(limited, 'listening');
+  const url = `http://127.0.0.1:${limited.address().port}/api/auth/login`;
+  const attempt = username => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `192.0.2.${username.length}` }, body: JSON.stringify({ username, password: 'wrong' }) });
+  db.prepare('DELETE FROM login_limits').run();
+  try {
+    for (const name of ['missing-a', 'missing-bb', 'missing-ccc']) assert.equal((await attempt(name)).status, 401);
+    time += 120000;
+    const blocked = await attempt('missing-dddd');
+    assert.equal(blocked.status, 429);
+    assert.equal(blocked.headers.get('Retry-After'), '780');
+    assert.equal((await blocked.json()).retryAfter, 780);
+    time += 780001;
+    assert.equal((await attempt('missing-eeeee')).status, 401);
+  } finally { db.prepare('DELETE FROM login_limits').run(); limited.closeIdleConnections(); await new Promise(resolve => limited.close(resolve)); }
+});
+
+test('concurrent failed logins across app instances cannot exceed the reserved account budget', async () => {
+  const servers = [];
+  db.prepare('DELETE FROM login_limits').run();
+  try {
+    for (let i = 0; i < 2; i++) {
+      const instance = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 20 }));
+      instance.listen(0, '127.0.0.1'); await once(instance, 'listening'); servers.push(instance);
+    }
+    const responses = await Promise.all(Array.from({ length: 6 }, (_, i) => fetch(`http://127.0.0.1:${servers[i % 2].address().port}/api/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'player', password: 'wrong' })
+    })));
+    assert.equal(responses.filter(r => r.status === 401).length, 2);
+    assert.equal(responses.filter(r => r.status === 429).length, 4);
+    assert.equal(db.prepare("SELECT attempts FROM login_limits WHERE key='user:player'").get().attempts, 2);
+  } finally { db.prepare('DELETE FROM login_limits').run(); for (const instance of servers) { instance.closeIdleConnections(); await new Promise(resolve => instance.close(resolve)); } }
+});
+
+test('trusted proxy uses client IP boundaries, configured Origin and Secure cookies', async () => {
+  const proxied = http.createServer(await createApp({ db, now: () => time, trustedProxies: '127.0.0.1', publicOrigin: 'https://arena.example', secureCookies: true, loginMax: 20, loginIpMax: 1 }));
+  proxied.listen(0, '127.0.0.1'); await once(proxied, 'listening');
+  const url = `http://127.0.0.1:${proxied.address().port}/api/auth/login`;
+  const attempt = (headers = {}, value = 'wrong') => fetch(url, { method: 'POST', headers: {
+    'Content-Type': 'application/json', Origin: 'https://arena.example', 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '192.0.2.10', ...headers
+  }, body: JSON.stringify({ username: 'player', password: value }) });
+  db.prepare('DELETE FROM login_limits').run();
+  try {
+    assert.equal((await attempt()).status, 401);
+    assert.equal((await attempt()).status, 429);
+    // The first untrusted address from the right is the client, not attacker-supplied left entries.
+    assert.equal((await attempt({ 'X-Forwarded-For': '203.0.113.99, 192.0.2.11' })).status, 401);
+    assert.ok(db.prepare("SELECT 1 FROM login_limits WHERE key='ip:192.0.2.11'").get());
+    assert.equal(db.prepare("SELECT 1 FROM login_limits WHERE key='ip:203.0.113.99'").get(), undefined);
+    const valid = await attempt({ 'X-Forwarded-For': '192.0.2.12' }, password);
+    assert.equal(valid.status, 200);
+    assert.match(valid.headers.get('set-cookie'), /; Secure/);
+    assert.match(valid.headers.get('set-cookie'), /; HttpOnly/);
+    assert.match(valid.headers.get('set-cookie'), /; SameSite=Strict/);
+    for (const Origin of ['https://evil.example', 'null', 'http://arena.example']) assert.equal((await attempt({ Origin })).status, 403);
+    assert.equal((await attempt({ Origin: 'https://evil.example', 'X-Forwarded-Host': 'evil.example', Host: 'evil.example' })).status, 403);
+    assert.equal((await attempt({ 'X-Forwarded-Proto': 'http' })).status, 400);
+    assert.equal((await attempt({ 'Sec-Fetch-Site': 'cross-site' })).status, 403);
+  } finally { db.prepare('DELETE FROM login_limits').run(); proxied.closeIdleConnections(); await new Promise(resolve => proxied.close(resolve)); }
+});
+
+test('untrusted socket cannot spoof HTTPS or client IP through forwarded headers', async () => {
+  const untrusted = http.createServer(await createApp({ db, trustedProxies: '192.0.2.1', publicOrigin: 'https://arena.example', secureCookies: true }));
+  untrusted.listen(0, '127.0.0.1'); await once(untrusted, 'listening');
+  try {
+    const response = await fetch(`http://127.0.0.1:${untrusted.address().port}/api/auth/login`, { method: 'POST', headers: {
+      'Content-Type': 'application/json', Origin: 'https://arena.example', 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '192.0.2.20'
+    }, body: JSON.stringify({ username: 'player', password }) });
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get('set-cookie'), null);
+    assert.equal(db.prepare("SELECT 1 FROM login_limits WHERE key='ip:192.0.2.20'").get(), undefined);
+  } finally { untrusted.closeIdleConnections(); await new Promise(resolve => untrusted.close(resolve)); }
+});
+
 test('HTTPS configuration sets Secure cookies', async () => {
   const secure = http.createServer(await createApp({ db, secureCookies: true }));
   secure.listen(0, '127.0.0.1'); await once(secure, 'listening');
@@ -327,6 +419,21 @@ test('rule-set APIs isolate admin permissions, enforce CSRF and versioning',asyn
  response=await request('/api/admin/rule-sets/'+first.id+'/clone',{...opts,body:{name:'copy',version:1}});assert.equal(response.status,404);
  assert.equal((await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'stale',rules:base,expectedVersion:1}})).status,409);
  assert.equal((await request('/api/admin/rule-sets',{...opts,body:{name:'bad',rules:{...base,engine:'unknown'}}})).status,400);
+});
+
+test('rule deletion enforces admin, CSRF, stale versions and default protection', async () => {
+ const admin=await login('admin'),player=await login();
+ const created=await request('/api/admin/rule-sets',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{name:'Delete HTTP test',rules:require('../rules/default.json')}});
+ const rule=await created.json(),url='/api/admin/rule-sets/'+rule.id,body={expectedVersion:rule.version};
+ assert.equal((await request(url,{method:'DELETE',body})).status,401);
+ assert.equal((await request(url,{method:'DELETE',cookie:player.cookie,csrf:player.data.csrfToken,body})).status,403);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,body})).status,403);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{expectedVersion:0}})).status,409);
+ assert.equal((await request('/api/admin/rule-sets/ottv2-classic',{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{expectedVersion:require('../rules/default.json').version}})).status,400);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body})).status,200);
+ const listed=await (await request('/api/admin/rule-sets',{cookie:admin.cookie})).json();assert.ok(!listed.ruleSets.some(r=>r.id===rule.id));
+ assert.equal((await request(url+'?version=1',{cookie:admin.cookie})).status,200);
+ assert.equal((await request('/api/admin/tournaments',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{name:'Archived rules denied',ruleSetId:rule.id,ruleSetVersion:1}})).status,400);
 });
 
 test('tournament APIs enforce admin role, CSRF, revision checks and isolated rosters', async () => {

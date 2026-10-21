@@ -10,6 +10,23 @@ function setup() {
   const db=openDatabase(':memory:');db.prepare("INSERT INTO users(id,username,password_hash,role,created_at) VALUES(1,'admin','unused','admin',0)").run();
   const rules=new RuleSetService(db);return{db,rules};
 }
+
+test('deleting a custom rule hides it persistently while preserving immutable historical versions and defaults', () => {
+ const {db,rules}=setup();try{
+  const custom=rules.save({name:'Rule to delete',rules:DEFAULT_RULES,userId:1});
+  assert.throws(()=>rules.remove(custom.id,custom.version,999),e=>e.status===403);
+  assert.throws(()=>rules.remove(custom.id,0,1),e=>e.status===409);
+  for(const id of ['ottv2-classic','ottv2-obstacles','ottv2-powerups'])assert.throws(()=>rules.remove(id,rules.get(id).version,1),e=>e.status===400);
+  assert.equal(rules.remove(custom.id,custom.version,1).deleted,true);
+  assert.ok(!rules.list().some(r=>r.id===custom.id));
+  assert.deepEqual(rules.get(custom.id,1).rules,custom.rules);
+  assert.equal(rules.get(custom.id,1).archived,true);
+  assert.throws(()=>rules.save({id:custom.id,expectedVersion:1,name:'revive',rules:custom.rules,userId:1}),e=>e.status===400);
+  const restarted=new RuleSetService(db);
+  assert.ok(!restarted.list().some(r=>r.id===custom.id));
+  assert.equal(restarted.list().filter(r=>r.isDefault).length,3);
+ }finally{db.close();}
+});
 function manager() { return { disposed:0, async check(){},async prepare(source){return{hash:source.id,image:'test',compile_cpu_ms:1};},async start(){return{move:async r=>({stdout:JSON.stringify({request_id:r.request_id,move:r.legal_moves[0]}),cpu_ms:1}),async close(){}};},async dispose(){this.disposed++;} }; }
 function terrainRules(){return {...DEFAULT_RULES,boardSize:6,boardRows:4,boardCols:6,homes:[{row:0,col:5},{row:3,col:0}],randomExtraPiece:false,pieceTypes:['R'],playerPieceTypes:[['R'],['S','P']],startingPositions:[[[1,1]],[[2,4],[3,4]]],blockedCells:[[1,2]],voidCells:[[0,0]],maxMoves:8};}
 test('rectangular terrain and different armies enforce movement, preserve core captures and replay',async()=>{

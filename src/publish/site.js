@@ -37,7 +37,7 @@ async function buildSite({ db, dir, lookupCode, fileLimit = FILE_LIMIT }) {
   try {
     await fs.mkdir(path.join(temporary, 'assets', 'pieces'), { recursive: true });
     for (const name of await fs.readdir(PUBLIC)) await write(name === 'index.html' ? name : `assets/${name}`, await fs.readFile(path.join(PUBLIC, name), 'utf8'));
-    for (const name of ['tiles.js', 'tiles.css', 'hints.js', 'replay-nav.js']) await write(`assets/${name}`, await fs.readFile(path.join(WEB, name), 'utf8'));
+    for (const name of ['favicon.svg', 'tiles.js', 'tiles.css', 'hints.js', 'replay-nav.js']) await write(`assets/${name}`, await fs.readFile(path.join(WEB, name), 'utf8'));
     for (const name of await fs.readdir(path.join(WEB, 'pieces'))) await write(`assets/pieces/${name}`, await fs.readFile(path.join(WEB, 'pieces', name), 'utf8'));
     await write('_headers', HEADERS);
     const rows = db.prepare('SELECT * FROM publications ORDER BY tournament_id,version').all();

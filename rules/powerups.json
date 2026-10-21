@@ -1,6 +1,6 @@
 {
   "id": "ottv2-powerups",
-  "version": 1,
+  "version": 2,
   "engine": "rps-grid-v1",
   "name": "OTTv2 Power-ups",
   "randomExtraPiece": true,
@@ -117,14 +117,8 @@
         "shield",
         "dash"
       ],
-      "count": [1,2],
-      "region": {
-        "rowFrom": 3,
-        "rowTo": 5,
-        "colFrom": 3,
-        "colTo": 5
-      },
-      "symmetry": "point"
+      "count": [2,4],
+      "symmetry": "none"
     }
   ]
 }

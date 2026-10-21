@@ -19,6 +19,7 @@ const TABLES = [
   // Sample rule sets are seeded on every machine at start-up; only their content has to match, not the seeding time.
   { name: 'rule_sets', key: ['id'], ignore: ['created_at'], scope: () => 'system' },
   { name: 'rule_versions', key: ['rule_set_id', 'version'], ignore: ['created_at'], scope: () => 'system' },
+  { name: 'rule_set_archives', key: ['rule_set_id'], scope: () => 'system' },
   { name: 'team_profiles', key: ['user_id'], scope: () => 'system' },
   { name: 'team_repos', key: ['user_id'], scope: () => 'system' },
   { name: 'tournaments', key: ['id'], scope: r => `tournament:${r.id}` },

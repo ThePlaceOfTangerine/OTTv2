@@ -12,7 +12,9 @@
 <a href="#section-8">8. Phạm vi hiện có và những việc cần chuẩn bị</a>
 <a href="#section-9">Tạm dừng, tiếp tục và hủy loại trực tiếp</a>
 <a href="#section-10">Tạm dừng, tiếp tục và hủy vòng loại</a>
-<a href="#section-11">Hủy giải trước thi đấu</a></nav><main id="guide-content"><p>Tài liệu dành cho quản trị viên sử dụng mục <strong>Giải đấu</strong>. Nội dung mô tả chức năng hiện có: nhận bot, vòng loại tính điểm, chọn đội đi tiếp, loại trực tiếp và duyệt kết quả. Các thuật ngữ đều được giải thích theo cách dùng trên giao diện.</p>
+<a href="#section-11">Hủy giải trước thi đấu</a>
+<a href="#section-12">Power-up ngẫu nhiên hoặc đặt sẵn</a>
+<a href="#section-13">Ba luật mặc định và xóa bộ luật (21/10/2026)</a></nav><main id="guide-content"><p>Tài liệu dành cho quản trị viên sử dụng mục <strong>Giải đấu</strong>. Nội dung mô tả chức năng hiện có: nhận bot, vòng loại tính điểm, chọn đội đi tiếp, loại trực tiếp và duyệt kết quả. Các thuật ngữ đều được giải thích theo cách dùng trên giao diện.</p>
 <h2 id="section-1" tabindex="-1">1. Một giải diễn ra như thế nào?</h2>
 <p><strong>Tạo giải → lưu danh sách đội → mở nhận bài → đóng nhận bài → chờ kiểm tra xong → chốt bot → vòng loại tính điểm → chốt đội đi tiếp → tạo sơ đồ → loại trực tiếp → duyệt kết quả và kết thúc.</strong></p>
 <ul>
@@ -126,5 +128,14 @@
 <p><strong>Hủy thi đấu vòng loại</strong> chỉ được dùng sau khi tạm dừng và không còn ván đang chạy. Giải chuyển sang đã hủy, giữ lịch sử và bản xem lại, không thể tiếp tục, tạo lượt mới hoặc duyệt đội đi tiếp. Chưa hỗ trợ hủy giải ở giai đoạn chuẩn bị hoặc nhận bài.</p>
 <p>API admin: POST /api/admin/tournaments/:id/swiss/pause, /resume, /cancel, có CSRF; nhận expectedRevision của phiên vòng loại và reason 1–1000 ký tự. Migration 16 lưu điều khiển trong swiss_controls; mỗi thao tác tăng phiên bản phiên/giải và ghi người, thời gian, lý do trong nhật ký.</p>
 <h2 id="section-11" tabindex="-1">Hủy giải trước thi đấu</h2>
-<p>Khi giải đang chuẩn bị, nhận bài hoặc đã đóng nhưng chưa chốt bot, admin nhập lý do và bấm <strong>Hủy giải trước thi đấu</strong>. Thao tác cần đúng phiên bản dữ liệu và lưu nhật ký. Giải đã hủy không thể mở lại, sửa danh sách, nhận bài mới hoặc chốt bot; lịch sử và bài đã nhận vẫn giữ. Bài đã nhận tiếp tục được kiểm tra để giữ biên nhận/kết quả kiểm tra, không được dùng thi đấu trong giải đã hủy. Giải đã chốt bot hoặc đang thi đấu không dùng nút này; dùng điều khiển riêng của giai đoạn đang chạy. API: POST /api/admin/tournaments/:id/cancel, admin + CSRF, expectedRevision của giải và reason 1–500 ký tự.</p></main></div>
+<p>Khi giải đang chuẩn bị, nhận bài hoặc đã đóng nhưng chưa chốt bot, admin nhập lý do và bấm <strong>Hủy giải trước thi đấu</strong>. Thao tác cần đúng phiên bản dữ liệu và lưu nhật ký. Giải đã hủy không thể mở lại, sửa danh sách, nhận bài mới hoặc chốt bot; lịch sử và bài đã nhận vẫn giữ. Bài đã nhận tiếp tục được kiểm tra để giữ biên nhận/kết quả kiểm tra, không được dùng thi đấu trong giải đã hủy. Giải đã chốt bot hoặc đang thi đấu không dùng nút này; dùng điều khiển riêng của giai đoạn đang chạy. API: POST /api/admin/tournaments/:id/cancel, admin + CSRF, expectedRevision của giải và reason 1–500 ký tự.</p>
+<h2 id="section-12" tabindex="-1">Power-up ngẫu nhiên hoặc đặt sẵn</h2>
+<p>Trong Bộ luật, admin chọn rải power-up ngẫu nhiên trên toàn bàn hoặc tự đặt các ô cụ thể bằng công cụ. Không có vùng sinh cố định. Luật mẫu OTTv2 Power-ups bản 2 rải 2–4 ô ngẫu nhiên, tránh nhà, vị trí xuất phát, ô chặn và ô ngoài bản đồ. Chế độ tự đặt chỉ dùng những vị trí đã lưu, không rải thêm. Lưu bộ luật tạo phiên bản mới; giải đã ghim phiên bản cũ giữ nguyên luật lịch sử.</p>
+<h2 id="section-13" tabindex="-1">Ba luật mặc định và xóa bộ luật (21/10/2026)</h2>
+<ul>
+<li><strong>OTTv2 Classic:</strong> công cụ Ô cờ, Nhà A/B, Quân A/B; không có công cụ ô chặn hoặc power-up.</li>
+<li><strong>OTTv2 Obstacles:</strong> thêm duy nhất Ô chặn. Bản 2 dùng blockedCells; Tường đá được gộp vào Ô chặn khi chỉnh luật cũ, không còn công cụ trùng chức năng.</li>
+<li><strong>OTTv2 Power-ups:</strong> công cụ cơ bản và ba loại vật phẩm. Chọn random toàn bàn, nhập số tối thiểu/tối đa từ 1 đến 16 (hai số bằng nhau để có số cố định), hoặc chọn vị trí thủ công. Chế độ thủ công dùng đúng các ô được đặt, không sinh thêm.</li>
+</ul>
+<p>Ba luật mặc định được giữ lại. Muốn tạo luật riêng, chọn mẫu rồi Nhân bản và Lưu. Nút Xóa bộ luật gỡ bản riêng khỏi các danh sách chọn mới, có hộp thoại xác nhận; phiên bản lịch sử vẫn được giữ cho giải và replay. Không thể dùng luật đã xóa để tạo giải/trận thử mới. Lưu/chỉnh/xóa không tự đổi luật đã ghim của giải.</p></main></div>
 <footer><a href="/admin#tournaments">← Về mục Giải đấu</a><p>OTTv2 · Hướng dẫn tổ chức giải bot</p></footer></body></html>

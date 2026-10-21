@@ -391,6 +391,12 @@ function openDatabase(filename) {
     INSERT INTO migrations VALUES(22);
     COMMIT;
   `);
+  if (!db.prepare('SELECT 1 FROM migrations WHERE version=23').get()) db.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE rule_set_archives (rule_set_id TEXT PRIMARY KEY REFERENCES rule_sets(id), archived_by INTEGER NOT NULL REFERENCES users(id), archived_at INTEGER NOT NULL);
+    INSERT INTO migrations VALUES(23);
+    COMMIT;
+  `);
   return db;
 }
 module.exports = { openDatabase };

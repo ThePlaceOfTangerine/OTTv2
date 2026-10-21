@@ -8,7 +8,7 @@
   const reason = () => el('publication-reason').value.trim();
   const sheetLabels = { queued: 'Đang chờ / thử lại', done: 'Đã đồng bộ', failed: 'Thất bại' };
   const scheduleLabels = { pending: 'Đang chờ', done: 'Đã công bố', skipped: 'Bỏ qua (đang tạm hoãn)', cancelled: 'Đã hủy', failed: 'Lỗi' };
-  let data = null;
+  let data = null, loadSequence = 0;
   function render() {
     const paused = !!data.control.autoPaused, site = data.site, lastDeploy = site.deploys[0];
     status.textContent = [
@@ -27,9 +27,12 @@
       s.status === 'pending' ? action('Hủy lịch', () => send(`/api/admin/publication-schedules/${s.id}/cancel`, {})) : '—']));
   }
   async function load() {
+    const request = ++loadSequence;
     const id = tournamentId(); if (!id) { el('publication-panel').hidden = true; return; }
     el('publication-panel').hidden = false;
-    data = await api(`/api/admin/tournaments/${encodeURIComponent(id)}/publications`); render();
+    const next = await api(`/api/admin/tournaments/${encodeURIComponent(id)}/publications`);
+    if (request !== loadSequence || id !== tournamentId()) return;
+    data = next; render();
   }
   async function send(url, body, replace = true) {
     try { const result = await postAdmin(url, body); if (replace && result?.publications) { data = result; render(); } else await load(); }
@@ -40,6 +43,5 @@
   el('publication-schedule').addEventListener('click', () => send(`${base()}/publication-schedules`, { reason: reason(), publishAt: fromLocal(el('publication-at').value) }));
   el('publication-pause').addEventListener('click', () => send(`${base()}/publication-control`, { reason: reason(), paused: !data?.control.autoPaused }));
   el('publication-deploy').addEventListener('click', () => send('/api/admin/site/deploy', { tournamentId: tournamentId() }, false));
-  el('tournament-select').addEventListener('change', () => load().catch(error => { status.textContent = error.message; }));
-  document.addEventListener('admin-ready', () => load().catch(error => { status.textContent = error.message; }));
+  document.addEventListener('tournament-updated', () => load().catch(error => { status.textContent = error.message; }));
 })();

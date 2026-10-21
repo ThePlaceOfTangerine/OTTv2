@@ -1,4 +1,4 @@
-// Tournament setup and qualifier intake. Swiss execution has its own TODO item.
+// Tournament setup, intake and execution controls.
 (() => {
   if (!admin) return;
   let selected = null, users = [], rules = [], page = 0, busy = false, sequence = 0;
@@ -22,6 +22,19 @@
     return saved.length !== teamIds.size || saved.some(entrant => !teamIds.has(entrant.userId));
   };
   function controls() {
+    const progress = tournamentProgress({ tournament: selected, swiss: swissData, bracket: bracketData, finalRule: finalRuleData, intake: finalIntakeData, dirtyRoster: rosterChanged() });
+    el('tournament-progress-step').textContent = `Bước ${progress.step}/6 · Việc cần làm tiếp theo`;
+    el('tournament-progress-title').textContent = progress.title;
+    el('tournament-progress-text').textContent = progress.text;
+    const jump = el('tournament-progress-jump');
+    jump.disabled = busy;
+    jump.onclick = () => {
+      const target = el(progress.target);
+      for (let node = target.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS') node.open = true;
+      if (!target.matches('button,input,select,textarea,a')) target.setAttribute('tabindex', '-1');
+      target.scrollIntoView({ block: 'center' });
+      target.focus({ preventScroll: true });
+    };
     for (const id of ['tournament-new', 'tournament-refresh', 'tournament-select', 'tournament-prev', 'tournament-next']) el(id).disabled = busy;
     const locked = !!selected && selected.status !== 'draft';
     el('tournament-fields').disabled = busy || locked;
@@ -107,11 +120,15 @@
     controls();
   }
   function render() {
+    if (selected?.stages?.[0]?.status !== 'locked') {
+      swissData = null; bracketData = null; finalRuleData = null; finalIntakeData = null;
+    }
     const config = selected?.config || defaults;
     el('tournament-name').value = selected?.name || '';
     el('tournament-opens').value = toLocal(selected?.opensAt);
     el('tournament-closes').value = toLocal(selected?.closesAt);
     for (const [key, suffix] of Object.entries(fieldIds)) el(`tournament-${suffix}`).value = config[key];
+    updateConfigSummary();
     el('tournament-rule').replaceChildren();
     const choices = rules.map(rule => ({ id: rule.id, version: rule.version, name: rule.name }));
     if (selected && !choices.some(rule => rule.id === selected.ruleSetId && rule.version === selected.ruleSetVersion)) choices.unshift({ id: selected.ruleSetId, version: selected.ruleSetVersion, name: 'Luật đã chọn của giải' });
@@ -139,7 +156,15 @@
     el('tournament-locked-bots').replaceChildren();
     if (stage?.status === 'locked') for (const entrant of stage.entrants) el('tournament-locked-bots').append(textNode('li', `${entrant.username}: ${entrant.snapshot ? 'v' + entrant.snapshot.version + ' · ' + entrant.snapshot.submissionId : 'không đủ điều kiện (' + entrant.exclusionReason + ')'}`));
     renderTeams(); controls();
+    document.dispatchEvent(new CustomEvent('tournament-updated', { detail: { id: selected?.id || '' } }));
   }
+  function updateConfigSummary() {
+    el('tournament-config-summary').textContent = `Cấu hình: tối đa ${el('tournament-capacity').value} đội · ${el('tournament-rounds').value} lượt vòng loại · ${el('tournament-games').value} ván/cặp vòng loại · ${el('tournament-top').value} đội đi tiếp · ${el('tournament-bestof').value} ván/cặp loại trực tiếp · tối đa ${el('tournament-extra').value} cặp phụ khi hòa. Mở phần điều chỉnh nếu tổ chức giải ít đội; số lượt vòng loại phải nhỏ hơn số bot thực tế.`;
+  }
+  for (const suffix of Object.values(fieldIds)) el(`tournament-${suffix}`).addEventListener('input', updateConfigSummary);
+  el('tournament-form').addEventListener('invalid', event => {
+    if (el('tournament-advanced').contains(event.target)) el('tournament-advanced').open = true;
+  }, true);
   async function loadList(preferredId) {
     const data = await api(`/api/admin/tournaments?page=${page}`);
     const select = el('tournament-select'); select.replaceChildren(textNode('option', 'Chọn một giải đã tạo'));
@@ -330,7 +355,7 @@
   }));
   el('tournament-select').addEventListener('change', () => {
     const id = el('tournament-select').value;
-    work(async () => { selected = id ? await api(`/api/admin/tournaments/${id}`) : null; render(); await loadSwiss(); notice('Đã tải dữ liệu. Lưu thay đổi trước khi chuyển sang giải khác.'); });
+    work(async () => { const next = id ? await api(`/api/admin/tournaments/${id}`) : null; selected = next; swissData = null; bracketData = null; finalRuleData = null; finalIntakeData = null; clearTimeout(swissTimer); render(); await loadSwiss(); notice('Đã tải dữ liệu. Lưu thay đổi trước khi chuyển sang giải khác.'); });
   });
   el('tournament-new').addEventListener('click', () => { if (busy) return; selected = null; swissData = null; clearTimeout(swissTimer); renderSwiss(); el('tournament-select').value = ''; render(); notice('Đang tạo giải mới.'); el('tournament-name').focus(); });
   el('tournament-refresh').addEventListener('click', () => work(async () => { await refresh(); notice('Đã tải lại dữ liệu từ máy chủ.'); }));

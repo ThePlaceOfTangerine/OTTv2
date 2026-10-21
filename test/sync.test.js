@@ -59,6 +59,8 @@ test('online → LAN (bootstrap + handover) → online round trip keeps data ide
     A.db.prepare("INSERT INTO team_repos(user_id,full_name,verify_code,status,updated_at) VALUES (2,'team2/bot','OTT-x','pending',0)").run();
     const { tournaments, swiss, submissions } = A.app.locals;
     const law = A.app.locals.ruleSets.save({ userId: 1, name: 'Nhanh', rules: { ...DEFAULT_RULES, maxMoves: 8 } });
+    const archived = A.app.locals.ruleSets.save({ userId: 1, name: 'Đã xóa trước đồng bộ', rules: DEFAULT_RULES });
+    A.app.locals.ruleSets.remove(archived.id, archived.version, 1);
     let t = tournaments.create(1, { name: 'Giải đồng bộ', ruleSetId: law.id, ruleSetVersion: law.version, config: { swissRounds: 2, topN: 4 } });
     t = tournaments.replaceEntrants(t.id, 1, { expectedRevision: t.revision, userIds: [2, 3, 4, 5, 6, 7] });
     t = tournaments.stages.open(t.id, 1, { expectedRevision: t.revision, closesAt: Date.now() + 1500 });

@@ -148,3 +148,15 @@ API admin: POST /api/admin/tournaments/:id/swiss/pause, /resume, /cancel, có CS
 ## Hủy giải trước thi đấu
 
 Khi giải đang chuẩn bị, nhận bài hoặc đã đóng nhưng chưa chốt bot, admin nhập lý do và bấm **Hủy giải trước thi đấu**. Thao tác cần đúng phiên bản dữ liệu và lưu nhật ký. Giải đã hủy không thể mở lại, sửa danh sách, nhận bài mới hoặc chốt bot; lịch sử và bài đã nhận vẫn giữ. Bài đã nhận tiếp tục được kiểm tra để giữ biên nhận/kết quả kiểm tra, không được dùng thi đấu trong giải đã hủy. Giải đã chốt bot hoặc đang thi đấu không dùng nút này; dùng điều khiển riêng của giai đoạn đang chạy. API: POST /api/admin/tournaments/:id/cancel, admin + CSRF, expectedRevision của giải và reason 1–500 ký tự.
+
+## Power-up ngẫu nhiên hoặc đặt sẵn
+
+Trong Bộ luật, admin chọn rải power-up ngẫu nhiên trên toàn bàn hoặc tự đặt các ô cụ thể bằng công cụ. Không có vùng sinh cố định. Luật mẫu OTTv2 Power-ups bản 2 rải 2–4 ô ngẫu nhiên, tránh nhà, vị trí xuất phát, ô chặn và ô ngoài bản đồ. Chế độ tự đặt chỉ dùng những vị trí đã lưu, không rải thêm. Lưu bộ luật tạo phiên bản mới; giải đã ghim phiên bản cũ giữ nguyên luật lịch sử.
+
+## Ba luật mặc định và xóa bộ luật (21/10/2026)
+
+- **OTTv2 Classic:** công cụ Ô cờ, Nhà A/B, Quân A/B; không có công cụ ô chặn hoặc power-up.
+- **OTTv2 Obstacles:** thêm duy nhất Ô chặn. Bản 2 dùng blockedCells; Tường đá được gộp vào Ô chặn khi chỉnh luật cũ, không còn công cụ trùng chức năng.
+- **OTTv2 Power-ups:** công cụ cơ bản và ba loại vật phẩm. Chọn random toàn bàn, nhập số tối thiểu/tối đa từ 1 đến 16 (hai số bằng nhau để có số cố định), hoặc chọn vị trí thủ công. Chế độ thủ công dùng đúng các ô được đặt, không sinh thêm.
+
+Ba luật mặc định được giữ lại. Muốn tạo luật riêng, chọn mẫu rồi Nhân bản và Lưu. Nút Xóa bộ luật gỡ bản riêng khỏi các danh sách chọn mới, có hộp thoại xác nhận; phiên bản lịch sử vẫn được giữ cho giải và replay. Không thể dùng luật đã xóa để tạo giải/trận thử mới. Lưu/chỉnh/xóa không tự đổi luật đã ghim của giải.

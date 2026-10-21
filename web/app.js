@@ -5,11 +5,21 @@ const panel = document.getElementById('login-panel');
 const dashboard = document.getElementById('dashboard');
 const message = document.getElementById('message');
 let csrfToken;
+let loginRetryUntil = 0, loginRetryTimer = null;
+
+function updateLoginButton() {
+  clearTimeout(loginRetryTimer);
+  const remaining = Math.max(0, Math.ceil((loginRetryUntil - Date.now()) / 1000));
+  const button = document.getElementById('submit');
+  button.disabled = remaining > 0;
+  button.textContent = remaining ? `Thử lại sau ${remaining} giây` : 'Đăng nhập';
+  if (remaining) loginRetryTimer = setTimeout(updateLoginButton, 1000);
+}
 
 async function api(url, options = {}) {
   const response = await fetch(url, { ...options, headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...options.headers } });
   const data = await response.json();
-  if (!response.ok) { const error = new Error(data.error); error.status = response.status; throw error; }
+  if (!response.ok) { const error = new Error(data.error); error.status = response.status; const seconds = Number(response.headers.get('Retry-After') || data.retryAfter); if (Number.isFinite(seconds) && seconds > 0) error.retryAfter = seconds; throw error; }
   return data;
 }
 async function showSession(data) {
@@ -38,14 +48,16 @@ async function showSession(data) {
   if (!admin) document.dispatchEvent(new Event('portal-ready'));
 }
 document.getElementById('login-form').addEventListener('submit', async event => {
-  event.preventDefault(); message.textContent = '';
+  event.preventDefault();
+  if (Date.now() < loginRetryUntil) return;
+  message.textContent = '';
   const submit = document.getElementById('submit'); submit.disabled = true;
   try {
     const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: document.getElementById('username').value.trim(), password: document.getElementById('password').value }) });
     document.getElementById('password').value = '';
     await showSession(data);
-  } catch (error) { message.textContent = error.message; }
-  finally { submit.disabled = false; }
+  } catch (error) { message.textContent = error.message; if (error.status === 429 && error.retryAfter) loginRetryUntil = Date.now() + error.retryAfter * 1000; }
+  finally { updateLoginButton(); }
 });
 document.getElementById('logout').addEventListener('click', async () => {
   try { await api('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } }); location.reload(); }
@@ -377,13 +389,13 @@ async function loadSubmissions() {
     const info = document.createElement('div'), title = document.createElement('strong'); title.textContent = `v${submission.version} · ${submission.filename}`;
     const badge = document.createElement('span'); badge.className = `status-badge ${submission.status.toLowerCase().replace(' ', '-')}`; badge.textContent = submissionLabels[submission.status] || submission.status;
     info.append(title, badge);
-    if (submission.active) { const active = document.createElement('span'); active.className = 'status-badge active'; active.textContent = 'DÙNG THI ĐẤU'; info.append(active); }
+    if (submission.active) { const active = document.createElement('span'); active.className = 'status-badge active'; active.textContent = submissionStageId ? 'ĐANG CHỌN CHO GIAI ĐOẠN NÀY' : 'ĐANG CHỌN NGOÀI GIẢI'; info.append(active); }
     const language = submission.language || (submission.filename.endsWith('.py') ? 'python' : submission.filename.endsWith('.cpp') ? 'cpp' : submission.status === 'Rejected' ? 'Không xác định' : 'Đang nhận dạng');
     const detail = document.createElement('p'); detail.textContent = `${language} · Lần kiểm tra: ${submission.attempts}${submission.error_type === 'system' ? ' · Lỗi máy chủ, không quy thành lỗi bot' : ''}${submission.status === 'Rejected' ? ' · Mở chi tiết để xem cách sửa.' : ''}`; info.append(detail);
     const actions = document.createElement('div'); actions.className = 'submission-actions';
     const view = document.createElement('button'); view.type = 'button'; view.textContent = 'Chi tiết & trận thử';
     view.addEventListener('click', () => { selectedSubmission = submission.id; loadSubmissionDetail().catch(error => { submissionMessage.textContent = error.message; }); }); actions.append(view);
-    if (submission.status === 'Accepted' && !submission.active && (!submissionStage || submissionStage.canSubmit)) { const activate = document.createElement('button'); activate.type = 'button'; activate.textContent = 'Chọn bản này thi đấu'; activate.addEventListener('click', () => submissionAction(submission.id, 'activate')); actions.append(activate); }
+    if (submission.status === 'Accepted' && !submission.active && (!submissionStage || submissionStage.canSubmit)) { const activate = document.createElement('button'); activate.type = 'button'; activate.textContent = submissionStageId ? 'Chọn bản này cho giai đoạn này' : 'Chọn bản này ngoài giải'; activate.addEventListener('click', () => submissionAction(submission.id, 'activate')); actions.append(activate); }
     if (submission.job_status === 'blocked' && submission.error_type === 'system') { const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Thử lại'; retry.addEventListener('click', () => submissionAction(submission.id, 'retry')); actions.append(retry); }
     row.append(info, actions); list.append(row);
   }

@@ -3,14 +3,16 @@
 const workspaceAdmin = location.pathname.startsWith('/admin');
 document.querySelector('.workspace-sidebar .brand').href = workspaceAdmin ? '/admin' : '/portal';
 const workspaceViews = workspaceAdmin ? {
+  start: ['Bắt đầu', 'Các bước tổ chức giải và cách giới thiệu cho người xem lần đầu.'],
   tournaments: ['Giải đấu', 'Quản lý vòng loại tính điểm, loại trực tiếp và kết quả giải.'],
   monitor: ['Giám sát', 'Theo dõi bài nộp và các trận đang diễn ra.'],
   users: ['Thí sinh', 'Cấp tài khoản và quản lý quyền tham gia.'],
-  scores: ['Vòng điểm', 'Tổ chức vòng đấu và theo dõi bảng xếp hạng.'],
+  scores: ['Điểm ngoài giải', 'Luồng xếp hạng cũ, không dùng để điều hành giải trong mục Giải đấu.'],
   rules: ['Bộ luật', 'Lưu từng phiên bản để mọi trận đấu có thể xem lại.'],
   practice: ['Đấu thử', 'Chọn hai bot và một bộ luật. Kết quả không tính điểm.'],
   help: ['Hướng dẫn', 'Các bước chuẩn bị và điều hành giải.']
 } : {
+  start: ['Bắt đầu', 'Làm quen với trò chơi và nộp bot đầu tiên trong 4 bước.'],
   bots: ['Bot của tôi', 'Nộp file code, xem kết quả kiểm tra và chọn bản để thi đấu.'],
   scores: ['Bảng xếp hạng', 'Kết quả thi đấu theo từng vòng do ban tổ chức tạo.'],
   help: ['Hướng dẫn', 'Tải mã mẫu, nộp thử và học cách chọn nước đi.']
@@ -45,11 +47,16 @@ function configureWorkspace(user) {
   document.body.dataset.session = user.mustChangePassword ? 'password' : 'active';
   document.getElementById('welcome').textContent = user.username;
   if (user.mustChangePassword) {
+    document.getElementById('close-password').hidden = true;
     document.getElementById('heading').textContent = 'Đặt mật khẩu riêng';
     document.getElementById('page-description').textContent = 'Đổi mật khẩu được cấp để bắt đầu tham gia.';
     return;
   }
   workspaceReady = true;
+  document.getElementById('start-panel').hidden = false;
+  document.getElementById('start-contestant').hidden = workspaceAdmin;
+  document.getElementById('start-organizer').hidden = !workspaceAdmin;
+  document.getElementById('close-password').hidden = false;
   const nav = document.getElementById('workspace-nav');
   nav.hidden = false;
   nav.replaceChildren(...Object.entries(workspaceViews).map(([key, [label]], index) => {

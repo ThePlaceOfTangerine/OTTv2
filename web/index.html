@@ -15,12 +15,40 @@
         <button id="open-password" class="text-button" type="button" hidden>Đổi mật khẩu</button>
         <button id="logout" class="text-button" type="button">Đăng xuất</button>
       </div>
-      <a class="legacy-link" href="/legacy/">Chơi trực tiếp <span aria-hidden="true">↗</span></a>
+      <a class="legacy-link" href="/legacy/">Chơi trực tiếp (ngoài giải) <span aria-hidden="true">↗</span></a>
     </div>
   </aside>
   <main id="main-content">
-    <header class="page-header"><div><p class="eyebrow">ĐẤU TRƯỜNG CHIẾN THUẬT</p><h1 id="heading" tabindex="-1">Chào mừng trở lại.</h1>
+    <header class="page-header"><div><p class="eyebrow">ĐẤU TRƯỜNG CHIẾN THUẬT</p><h1 id="heading" tabindex="-1">Chào mừng đến OTTv2</h1>
       <p id="page-description">Đăng nhập để nộp bot và tham gia thi đấu.</p></div><span class="edition-label">BÚA / BAO / KÉO</span></header>
+  <section data-view="start" id="start-panel" aria-labelledby="start-title" hidden>
+    <h2 id="start-title">Lần đầu sử dụng OTTv2</h2>
+    <p>Đây là cuộc thi lập trình cho trò chơi Búa · Bao · Kéo trên bàn cờ. <strong>Bot là chương trình tự chơi thay bạn.</strong> Bạn viết cách chọn nước đi; máy chủ cho các bot thi đấu và ghi lại kết quả.</p>
+    <div id="start-contestant" hidden>
+      <h3>Nộp bot đầu tiên</h3>
+      <ol class="start-steps">
+        <li><strong>Tải một mẫu:</strong> chọn <a href="/templates/python.py">Python</a> hoặc <a href="/templates/cpp.cpp">C++</a>. Có thể nộp nguyên mẫu để làm quen.</li>
+        <li><strong>Mở <a href="#bots">Bot của tôi</a>, chọn nơi nộp bài.</strong> Chọn đúng tên giải và giai đoạn do ban tổ chức thông báo. “Luyện tập ngoài giải” chỉ để thử, không phải bài dự thi.</li>
+        <li><strong>Chọn file, bấm “Nộp bot”, chờ kiểm tra.</strong> “Sẵn sàng thi đấu” nghĩa là chương trình chạy hợp lệ; không cần thắng hai ván thử. Nếu báo “Cần sửa bài”, mở chi tiết để xem gợi ý.</li>
+        <li><strong>Kiểm tra bản đang chọn trong đúng nơi nộp bài.</strong> Bản đã chốt mới là bản dùng cho giai đoạn đó. Xem kết quả tại <a href="#scores">Bảng xếp hạng</a>.</li>
+      </ol>
+      <p>Chưa thấy tên giải? Bấm “Cập nhật giải và trạng thái” tại Bot của tôi. Nếu vẫn chưa có, liên hệ ban tổ chức để kiểm tra danh sách đội và lịch nhận bài.</p>
+      <a class="start-action" href="#bots">Bắt đầu nộp bot →</a>
+    </div>
+    <div id="start-organizer" hidden>
+      <h3>Điều hành một giải</h3>
+      <ol class="start-steps">
+        <li><strong>Chuẩn bị:</strong> vào <a href="#practice">Đấu thử</a> để kiểm tra Docker; cấp tài khoản tại <a href="#users">Thí sinh</a>.</li>
+        <li><strong>Tạo giải:</strong> vào <a href="#tournaments">Giải đấu</a>, chọn luật, lưu cấu hình và danh sách đội.</li>
+        <li><strong>Nhận bài:</strong> mở nhận bài trong giải, thông báo tên giải và hạn nộp. Hết hạn, đóng nhận bài, chờ kiểm tra xong rồi chốt bot.</li>
+        <li><strong>Thi đấu và duyệt:</strong> chạy vòng loại, duyệt đội đi tiếp, tạo và chạy loại trực tiếp rồi duyệt kết quả. Thực hiện trong giải đang chọn.</li>
+      </ol>
+      <p>Nếu đổi luật trước loại trực tiếp, cần công bố luật, mở đợt nộp lại và chốt đủ bot mới. <a href="/assets/tournament-guide.html" target="_blank" rel="noopener">Hướng dẫn đầy đủ (tab mới)</a>.</p>
+      <a class="start-action" href="#tournaments">Mở quản lý giải →</a>
+      <details><summary>Giới thiệu cho giám khảo và người xem</summary><p>Các đội nộp chương trình tự chơi. Vòng loại cho các đội gặp đối thủ có điểm gần nhau; các đội đứng đầu vào vòng loại trực tiếp, đội thắng đi tiếp đến chung kết.</p><p>Mở giải để xem bảng điểm và kết quả từng cặp. Mở bản xem lại, bấm “Tự động chạy” để theo dõi nước đi. Phân biệt kết quả tạm thời và kết quả đã duyệt.</p><p>Trang kết quả công khai cho khách chưa có. Người phụ trách trình chiếu bằng tài khoản được cấp; không chia sẻ tài khoản quản trị.</p></details>
+    </div>
+    <details><summary>Các từ thường gặp</summary><dl><dt>Bot</dt><dd>Chương trình nhận bàn cờ và trả về nước đi.</dd><dt>Phiên bản</dt><dd>Mỗi lần nộp tạo một bản mới: v1, v2…</dd><dt>Chốt bot</dt><dd>Lưu cố định bot cho một giai đoạn; nộp mới không thay bản đã chốt.</dd><dt>Ván và cặp đấu</dt><dd>Một cặp gồm hai đội, có thể chơi nhiều ván.</dd><dt>Hạt giống</dt><dd>Thứ tự ưu tiên xếp nhánh theo danh sách đội đi tiếp đã duyệt.</dd></dl></details>
+  </section>
   <section data-view="help" id="resources-panel" aria-labelledby="resources-heading" hidden>
     <h2 id="resources-heading">Bắt đầu từ mã mẫu</h2>
     <p class="muted">Bot là chương trình chơi cờ thay bạn. Tải một mẫu, nộp thử, rồi sửa cách chọn nước đi để bot chơi tốt hơn.</p>
@@ -44,13 +72,13 @@
     <p id="password-help" class="muted">Mật khẩu mới phải khác mật khẩu hiện tại, có ít nhất 12 ký tự và tối đa 72 byte. Ký tự có dấu có thể chiếm nhiều byte. Sau khi đổi, các phiên đăng nhập khác sẽ hết hiệu lực.</p><button type="submit">Lưu mật khẩu mới</button><p id="password-message" role="status"></p></form>
   </section>
   <section data-view="bots" id="submission-panel" hidden>
-    <div class="panel-heading"><div><h2>Nộp bài mới</h2><p class="muted">Chọn file code của bạn. Bản mới nhất vượt qua kiểm tra sẽ được dùng thi đấu.</p></div><span class="small-tag">.py / .cpp / .zip</span></div>
+    <div class="panel-heading"><div><h2>Nộp bài mới</h2><p class="muted">Chọn đúng nơi nộp bài, rồi tải file chương trình lên. Bài luyện tập không phải bài dự thi.</p></div><span class="small-tag">.py / .cpp / .zip</span></div>
     <details class="contestant-guide"><summary>Lần đầu nộp bài? Xem 4 bước</summary>
       <ol><li><strong>Tải mã mẫu:</strong> chọn <a href="/templates/python.py">Python</a> hoặc <a href="/templates/cpp.cpp">C++</a>. Chưa cần sửa gì, bạn có thể nộp nguyên file.</li>
       <li><strong>Chọn file và bấm Nộp bot.</strong> Nếu nộp một file, để trống ô “File chính trong ZIP”.</li>
       <li><strong>Chờ trang báo Sẵn sàng thi đấu.</strong> Hệ thống tự kiểm tra và cho bot chơi hai ván thử. Không bắt buộc thắng.</li>
       <li><strong>Xem bot chơi:</strong> bấm “Chi tiết &amp; trận thử”, chọn một trận rồi bấm “Tự động chạy”.</li></ol>
-      <p>Mỗi lần nộp tạo một bản mới: v1, v2… Bản mới nhất vượt qua kiểm tra được chọn thi đấu. Nếu bản mới lỗi, bản đang chọn trước đó vẫn được giữ.</p>
+      <p>Mỗi lần nộp tạo một bản mới: v1, v2… Nếu đã chọn riêng một bản cho giải, hãy kiểm tra lại lựa chọn sau khi nộp. Bản đã chốt không đổi khi nộp mới.</p>
       <p>Muốn bot chơi tốt hơn? Mở file mẫu, tìm “THAY CHIẾN THUẬT Ở ĐÂY”, sửa hàm score rồi nộp lại. Luôn chọn trong legal_moves để hỗ trợ cả hướng đi mới và power-up. <a href="/docs/PROTOCOL.md">Xem ví dụ và luật chơi →</a></p>
     </details>
     <label for="submission-stage">Nơi nộp bài</label><select id="submission-stage"><option value="">Luyện tập ngoài giải (luật cơ bản)</option></select>
@@ -58,7 +86,7 @@
     <form id="submission-form">
       <fieldset id="submission-upload-fields"><legend>Nộp mã nguồn</legend>
       <div class="submission-fields"><div><label for="bot-file">File code của bạn (.py, .cpp hoặc .zip)</label><input id="bot-file" name="bot" type="file" accept=".py,.cpp,.zip" required></div>
-      <div><label for="bot-entry">File chính trong ZIP <span class="optional">· thường để trống</span></label><input id="bot-entry" name="entry" placeholder="Ví dụ: main.py hoặc src/main.cpp" maxlength="180" aria-describedby="entry-help"><p id="entry-help" class="muted">Để trống nếu nộp file đơn hoặc ZIP có main.py / main.cpp.</p></div></div>
+      <details><summary>Tùy chọn khi nộp ZIP nhiều file</summary><label for="bot-entry">File chính trong ZIP <span class="optional">· thường để trống</span></label><input id="bot-entry" name="entry" placeholder="Ví dụ: main.py hoặc src/main.cpp" maxlength="180" aria-describedby="entry-help"><p id="entry-help" class="muted">Để trống nếu nộp file đơn hoặc ZIP có main.py / main.cpp.</p></details></div>
       <p class="muted">Một file tối đa 1 MiB (khoảng 1 MB). Nếu có nhiều file, nén thành ZIP tối đa 5 MiB, 64 file cùng ngôn ngữ.</p>
       <button id="submit-bot" type="submit">Nộp bot</button>
       </fieldset>
@@ -76,12 +104,21 @@
     <p class="muted">Tạo giải, nhận/chốt bot, chạy vòng loại tính điểm, duyệt đội đi tiếp rồi chạy loại trực tiếp và duyệt kết quả. Hiện có thể giữ cùng bot/luật giữa hai giai đoạn; mục Vòng điểm vẫn là vòng xếp hạng cũ.</p>
     <div class="tournament-toolbar"><div><label for="tournament-select">Giải đã tạo</label><select id="tournament-select"><option value="">Chưa có giải</option></select></div><button id="tournament-refresh" type="button" class="secondary-button">Tải lại dữ liệu</button></div>
     <div class="tournament-pagination"><button id="tournament-prev" type="button" class="secondary-button" hidden>Trang trước</button><span id="tournament-page"></span><button id="tournament-next" type="button" class="secondary-button" hidden>Trang sau</button></div>
+    <aside class="tournament-progress" aria-labelledby="tournament-progress-title">
+      <p id="tournament-progress-step" class="eyebrow">Việc cần làm tiếp theo</p>
+      <h3 id="tournament-progress-title">Tạo hoặc chọn giải</h3>
+      <p id="tournament-progress-text">Chọn giải đã tạo hoặc điền cấu hình giải mới bên dưới.</p>
+      <button id="tournament-progress-jump" type="button" class="secondary-button">Đến phần cần thao tác</button>
+      <p class="muted">1. Chuẩn bị → 2. Nhận bài → 3. Vòng loại → 4. Duyệt đội → 5. Loại trực tiếp → 6. Duyệt kết quả</p>
+    </aside>
     <p id="tournament-meta" class="muted"></p>
     <p id="tournament-message" role="status" aria-live="polite" tabindex="-1"></p>
     <form id="tournament-form">
       <fieldset id="tournament-fields"><legend id="tournament-form-title">Tạo giải mới</legend>
         <label for="tournament-name">Tên giải</label><input id="tournament-name" required maxlength="120" autocomplete="off">
         <label for="tournament-rule">Phiên bản luật vòng loại</label><select id="tournament-rule" required></select>
+        <p id="tournament-config-summary" class="muted"></p>
+        <details id="tournament-advanced"><summary>Điều chỉnh số đội, số vòng và số ván</summary>
         <div class="tournament-grid">
           <div><label for="tournament-capacity">Sức chứa đội</label><input id="tournament-capacity" type="number" min="2" max="4000" value="150" required aria-describedby="tournament-config-help"></div>
           <div><label for="tournament-rounds">Số lượt đấu vòng loại</label><input id="tournament-rounds" type="number" min="1" max="20" value="8" required></div>
@@ -91,6 +128,7 @@
           <div><label for="tournament-extra">Số cặp đấu thêm khi hòa</label><input id="tournament-extra" type="number" min="1" max="10" value="3" required></div>
         </div>
         <p id="tournament-config-help" class="muted">Mặc định dành cho giải dưới 150 đội. Số vòng loại nhỏ hơn sức chứa; số đội vào vòng loại trực tiếp không vượt sức chứa. Mỗi cặp vòng loại đổi bên. Hòa sau các cặp phụ thì xét hạt giống.</p>
+        </details>
         <div class="tournament-grid"><div><label for="tournament-opens">Mở nhận bài (giờ Việt Nam)</label><input id="tournament-opens" type="datetime-local"></div><div><label for="tournament-closes">Đóng nhận bài (giờ Việt Nam)</label><input id="tournament-closes" type="datetime-local"></div></div>
         <p class="muted">Để trống giờ mở để mở ngay khi bấm Mở nhận bài. Phải lưu hạn đóng trước khi mở; thời điểm đóng phải nằm trong tương lai.</p>
         <button id="tournament-save" type="submit">Tạo giải</button>
@@ -170,7 +208,7 @@
   </section>
   <section data-view="help" id="admin-guide" hidden aria-labelledby="admin-guide-title">
     <div class="eyebrow">HƯỚNG DẪN CHO BAN TỔ CHỨC</div><h2 id="admin-guide-title">Khởi động, chạy thử và điều hành giải</h2>
-    <p class="muted">Trang quản trị dùng để cấp tài khoản, theo dõi bài nộp và tổ chức vòng tính điểm. Các nút chạy trận yêu cầu máy chủ Node.js và Docker đang hoạt động.</p>
+    <p class="muted">Để tổ chức giải, làm theo mục Bắt đầu và Giải đấu. Hướng dẫn dưới đây mô tả khu chạy thử và vòng điểm ngoài giải; không dùng thay luồng giải chính thức. Các nút chạy trận yêu cầu máy chủ Node.js và Docker đang hoạt động.</p>
     <ol class="admin-steps">
       <li><strong>Kiểm tra máy chủ.</strong> Mở Docker Desktop ở chế độ Linux containers. Trong <a href="#match-panel">Đấu thử theo bộ luật</a>, bấm “Kiểm tra Docker”; chỉ tiếp tục khi máy chủ báo sẵn sàng.</li>
       <li><strong>Cấp tài khoản.</strong> Dán danh sách tại <a href="#admin-users">Tài khoản thí sinh</a> rồi chọn “Tạo tài khoản”. Mật khẩu ban đầu trùng tên tài khoản. Gửi tên tài khoản cho từng thí sinh và yêu cầu đổi mật khẩu ngay lần đăng nhập đầu tiên.</li>
@@ -207,7 +245,7 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
     </form><p id="score-message" role="status"></p>
   </section>
   <section data-view="scores" id="portal-swiss-panel" hidden><h2>Điểm vòng loại của giải</h2><label for="portal-swiss-select">Giải tham gia</label><select id="portal-swiss-select"></select><button id="portal-swiss-refresh" type="button">Cập nhật điểm vòng loại</button><p id="portal-swiss-status" role="status"></p><div id="portal-swiss-standings" class="admin-scroll"></div><h3>Sơ đồ vòng loại trực tiếp</h3><div id="portal-bracket"></div></section>
-  <section data-view="scores" id="scores-panel" hidden><h2>Điểm xếp hạng ngoài giải</h2><p class="muted">Điểm xếp hạng bắt đầu từ 1500 ở mỗi vòng, tăng hoặc giảm theo kết quả và đối thủ. Bảng này thuộc luồng cũ, không quyết định thứ hạng vòng loại của giải.</p><label for="score-round">Vòng điểm</label><select id="score-round"></select><button id="refresh-scores" type="button">Làm mới bảng điểm</button><p id="score-status" role="status"></p><div id="score-actions"></div><div id="standings" class="admin-scroll"></div><div id="score-matches" class="admin-scroll"></div></section>
+  <section data-view="scores" id="scores-panel" hidden><details><summary>Điểm ngoài giải (luồng cũ, tùy chọn)</summary><h2>Điểm xếp hạng ngoài giải</h2><p class="muted">Điểm xếp hạng bắt đầu từ 1500 ở mỗi vòng, tăng hoặc giảm theo kết quả và đối thủ. Bảng này thuộc luồng cũ, không quyết định thứ hạng vòng loại của giải.</p><label for="score-round">Vòng điểm</label><select id="score-round"></select><button id="refresh-scores" type="button">Làm mới bảng điểm</button><p id="score-status" role="status"></p><div id="score-actions"></div><div id="standings" class="admin-scroll"></div><div id="score-matches" class="admin-scroll"></div></details></section>
   <section data-view="rules" id="rule-panel" hidden aria-labelledby="rule-panel-title">
     <div class="panel-heading"><div><h2 id="rule-panel-title">Thiết kế bàn cờ</h2><p class="muted">Chỉnh bản đồ và quân cờ. Búa ăn Kéo, Kéo ăn Bao, Bao ăn Búa luôn giữ nguyên trong trình chỉnh trực quan.</p></div><div class="admin-actions"><button id="rule-new" type="button">Tạo luật mới</button><button id="rule-clone" type="button" class="secondary-button">Nhân bản</button></div></div>
     <div class="submission-fields"><div><label for="rule-select">Bộ luật đã lưu</label><select id="rule-select"></select></div><div id="rule-history-field"><label for="rule-version">Phiên bản</label><select id="rule-version"></select></div></div>
@@ -298,4 +336,4 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
   </dialog>
   <p id="message" role="status" aria-live="polite"></p>
   <footer><a href="/portal">Khu vực thí sinh</a><a href="/admin">Khu vực quản trị</a><a class="footer-legacy" href="/legacy/">Chơi trực tiếp ↗</a><span>OTTv2 / Nền tảng thi đấu bot</span></footer>
-</main></div><script src="/assets/admin.js" defer></script><script src="/assets/brackets.js" defer></script><script src="/assets/tournaments.js" defer></script><script src="/assets/portal-swiss.js" defer></script><script src="/assets/bot-picker.js" defer></script><script src="/assets/rules.js" defer></script><script src="/assets/admin-choices.js" defer></script></body></html>
+</main></div><script src="/assets/admin.js" defer></script><script src="/assets/brackets.js" defer></script><script src="/assets/tournament-progress.js" defer></script><script src="/assets/tournaments.js" defer></script><script src="/assets/portal-swiss.js" defer></script><script src="/assets/bot-picker.js" defer></script><script src="/assets/rules.js" defer></script><script src="/assets/admin-choices.js" defer></script></body></html>

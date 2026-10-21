@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const path = require('node:path');
 const bcrypt = require('bcryptjs');
+const { httpConfig } = require('./http-config');
 const { MatchService } = require('./sandbox/match-service');
 const { SAMPLES } = require('./sandbox/samples');
 const multer = require('multer');
@@ -21,8 +22,10 @@ const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 const random = () => crypto.randomBytes(32).toString('hex');
 const TTL = 8 * 60 * 60 * 1000;
 
-async function createApp({ db, secureCookies = false, now = Date.now, loginMax = 10, matchService, submissionService, submissionOptions, swissOptions, bracketOptions } = {}) {
+async function createApp({ db, secureCookies = false, trustedProxies = '', publicOrigin = '', now = Date.now, loginMax = 10, loginIpMax = Math.max(100, loginMax * 10), matchService, submissionService, submissionOptions, swissOptions, bracketOptions } = {}) {
+  const config = httpConfig({ trustedProxies, publicOrigin, secureCookies });
   const app = express();
+  app.set('trust proxy', config.trustProxy);
   const matches = matchService || new MatchService(db);
   app.locals.matches = matches;
   const ruleSets = matches.ruleSets || new RuleSetService(db);
@@ -86,9 +89,10 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     next();
   };
   app.post('/api/auth/login', async (req, res) => {
+    if (config.origin && req.protocol !== new URL(config.origin).protocol.slice(0, -1)) return res.status(400).json({ error: 'Giao thức truy cập không khớp cấu hình website.' });
     if (req.get('Sec-Fetch-Site') === 'cross-site') return res.status(403).json({ error: 'Yêu cầu khác nguồn.' });
     if (req.get('Origin')) {
-      const expected = `${req.protocol}://${req.get('host')}`;
+      const expected = config.origin || `${req.protocol}://${req.get('host')}`;
       if (req.get('Origin') !== expected) return res.status(403).json({ error: 'Yêu cầu khác nguồn.' });
     }
     const { username, password } = req.body || {};
@@ -97,19 +101,24 @@ async function createApp({ db, secureCookies = false, now = Date.now, loginMax =
     const time = now();
     db.prepare('DELETE FROM login_limits WHERE expires_at<=?').run(time);
     db.prepare('DELETE FROM sessions WHERE expires_at<=?').run(time);
-    const keys = [`ip:${req.socket.remoteAddress}`, `user:${username.toLowerCase()}`];
-    for (const key of keys) {
-      const entry = db.prepare('SELECT attempts FROM login_limits WHERE key=?').get(key);
-      if (entry && entry.attempts >= loginMax) {
-        res.set('Retry-After', '900');
-        return res.status(429).json({ error: 'Quá nhiều lần đăng nhập. Thử lại sau 15 phút.' });
-      }
+    const limits = [[`ip:${req.ip}`, loginIpMax], [`user:${username.toLowerCase()}`, loginMax]];
+    const blocked = limits.map(([key, max]) => ({ entry: db.prepare('SELECT attempts,expires_at FROM login_limits WHERE key=?').get(key), max }))
+      .filter(({ entry, max }) => entry && entry.attempts >= max);
+    if (blocked.length) {
+      const retryAfter = Math.max(1, ...blocked.map(({ entry }) => Math.ceil((entry.expires_at - time) / 1000)));
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: `Quá nhiều lần đăng nhập. Thử lại sau ${retryAfter} giây.`, retryAfter });
     }
-    for (const key of keys) db.prepare(`INSERT INTO login_limits VALUES (?,1,?)
-      ON CONFLICT(key) DO UPDATE SET attempts=attempts+1`).run(key, time + 900000);
+    // Reserve before bcrypt yields, so concurrent requests cannot bypass the limit.
+    const reservations = limits.map(([key]) => {
+      db.prepare(`INSERT INTO login_limits VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=attempts+1`).run(key, time + 900000);
+      return { key, expiresAt: db.prepare('SELECT expires_at FROM login_limits WHERE key=?').get(key).expires_at };
+    });
     const user = db.prepare('SELECT * FROM users WHERE username=? AND deleted_at IS NULL').get(username);
     const valid = await bcrypt.compare(password, user ? user.password_hash : dummyHash);
     if (!valid || !user || user.locked || !db.prepare('SELECT 1 FROM users WHERE id=? AND password_hash=? AND locked=0').get(user.id, user.password_hash)) return res.status(401).json({ error: 'Tài khoản hoặc mật khẩu không đúng.' });
+    // Refund only this request, never other failures or a newer limit window.
+    for (const { key, expiresAt } of reservations) db.prepare('UPDATE login_limits SET attempts=MAX(0,attempts-1) WHERE key=? AND expires_at=?').run(key, expiresAt);
     const token = random();
     const csrfToken = random();
     db.exec('BEGIN');

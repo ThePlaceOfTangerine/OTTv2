@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OTTv2 · Kết quả giải đấu</title>
+<link rel="stylesheet" href="assets/public.css"><link rel="stylesheet" href="assets/tiles.css">
+<script src="assets/tiles.js" defer></script><script src="assets/hints.js" defer></script><script src="assets/replay-nav.js" defer></script><script src="assets/viewer.js" defer></script><script src="assets/public.js" defer></script>
+</head>
+<body>
+<header class="top"><p class="eyebrow">ĐẤU TRƯỜNG BOT · BÚA / BAO / KÉO</p><h1>Kết quả giải đấu</h1><p id="generated" class="muted"></p></header>
+<main>
+  <section class="card"><label for="tournament">Giải đấu</label><select id="tournament"></select><p id="status" role="status" aria-live="polite"></p></section>
+  <section class="card"><h2>Tra cứu đội</h2>
+    <form id="lookup"><label for="code">Mã tra cứu của đội (xem trong portal, mục Đội &amp; GitHub)</label>
+      <div class="row"><input id="code" maxlength="20" autocomplete="off" spellcheck="false" placeholder="20 ký tự 0–9, a–f" required><button type="submit">Tra cứu</button></div></form>
+    <div id="team" aria-live="polite"></div></section>
+  <section class="card"><h2>Bảng xếp hạng vòng loại</h2><p id="standings-note" class="muted"></p><div id="standings" class="scroll"></div></section>
+  <section class="card"><h2>Đội vào vòng loại trực tiếp</h2><ol id="qualified" class="qualified"></ol></section>
+  <section class="card"><h2>Vòng loại trực tiếp</h2><div id="bracket"></div></section>
+  <section class="card" id="viewer" hidden aria-labelledby="viewer-title">
+    <div class="row between"><h2 id="viewer-title">Xem lại ván</h2><button id="viewer-close" type="button" class="secondary">Đóng</button></div>
+    <p id="viewer-status" role="status"></p>
+    <div class="row"><button id="viewer-play" type="button">Tự chạy</button><button id="viewer-prev" type="button" class="secondary" title="Phím P">◀ Pha trước</button><button id="viewer-next" type="button" class="secondary" title="Phím N">Pha tiếp ▶</button><label for="viewer-turn" class="grow">Nước đi <span id="viewer-label"></span><input id="viewer-turn" type="range" min="0" value="0"></label></div>
+    <div class="board-wrap"><div id="viewer-board" class="board"></div></div>
+    <p class="muted keys">Phím tắt: ← → từng nước · Home/End · Space chạy/dừng · N/P pha ăn quân hoặc nhặt ô tiếp theo/trước đó. Bấm một nước trong danh sách để quay lại.</p>
+    <ol id="viewer-log" class="log"></ol>
+  </section>
+</main>
+<footer class="muted">Dữ liệu tĩnh, cập nhật theo từng lần ban tổ chức công bố. Trạng thái theo thời gian thực xem trong portal sau khi đăng nhập.</footer>
+</body>
+</html>

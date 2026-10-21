@@ -37,7 +37,7 @@ closeList();
 const page = `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quy tắc và cách tổ chức giải · OTTv2</title><link rel="icon" href="/assets/favicon.svg"><link rel="stylesheet" href="/assets/tournament-guide.css"></head>
 <body><a class="skip-link" href="#guide-content">Đến nội dung hướng dẫn</a>
-<header><a href="/admin#tournaments">← Về mục Giải đấu</a><p class="eyebrow">DÀNH CHO BAN TỔ CHỨC</p><h1>Quy tắc và cách tổ chức giải đấu</h1><p>Hiểu thể thức, cách tính điểm và từng thao tác từ tạo giải đến duyệt đội vô địch.</p><span class="guide-version">Theo chức năng hiện có · Cập nhật 19/10/2026</span></header>
+<header><a href="/admin#tournaments">← Về mục Giải đấu</a><p class="eyebrow">DÀNH CHO BAN TỔ CHỨC</p><h1>Quy tắc và cách tổ chức giải đấu</h1><p>Hiểu thể thức, cách tính điểm và từng thao tác từ tạo giải đến duyệt đội vô địch.</p><span class="guide-version">Theo chức năng hiện có · Cập nhật 20/10/2026</span></header>
 <div class="guide-layout"><nav aria-label="Mục lục hướng dẫn"><strong>Trong tài liệu này</strong>${toc.join('\n')}</nav><main id="guide-content">${html.join('\n')}</main></div>
 <footer><a href="/admin#tournaments">← Về mục Giải đấu</a><p>OTTv2 · Hướng dẫn tổ chức giải bot</p></footer></body></html>\n`;
 fs.writeFileSync(path.join(root, 'web/tournament-guide.html'), page);

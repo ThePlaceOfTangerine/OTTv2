@@ -120,7 +120,7 @@ test('migration from the actual qualifier-only stage constraint preserves locked
   assert.equal(f.db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1);
   assert.deepEqual(f.db.prepare('PRAGMA foreign_key_check').all(), []);
   assert.throws(() => f.db.prepare('UPDATE tournament_stage_entrants SET snapshot_json=? WHERE stage_id=?').run('{}', f.qualifier), /immutable/);
-  assert.equal(f.db.prepare('SELECT MAX(version) n FROM migrations').get().n, 16);
+  assert.equal(f.db.prepare('SELECT MAX(version) n FROM migrations').get().n, 22);
 }));
 
 test('final lock is atomic, requires every approved team, freezes new bots and runner uses final source', () => fixture(async f => {

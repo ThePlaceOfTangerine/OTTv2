@@ -1,0 +1,34 @@
+#!/bin/sh
+# Contestant USB self-test (only with OTTCONF/SELFTEST): prints OTT-SELFTEST lines on the serial console for usb/boot-test.js.
+# OTTCONF/SELFTEST may hold "OTHER_PORT=<n>": a second port on the portal host that the firewall must block.
+# The serial console is where usb/boot-test.js reads results (a getty also owns it, so write to it directly).
+exec >/dev/ttyS0 2>&1
+say() { echo "OTT-SELFTEST $*"; }
+portal=$(sed -n 's/^PORTAL_URL=\([^[:space:]]*\).*/\1/p' /run/ottconf/portal.env | tr -d '\r')
+host=$(printf %s "$portal" | sed 's#^https\?://\([^:/]*\).*#\1#')
+other=$(sed -n 's/^OTHER_PORT=\([0-9]*\).*/\1/p' /run/ottconf/SELFTEST | tr -d '\r')
+code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1" 2>/dev/null || true; }
+for i in $(seq 1 60); do [ "$(code "$portal/api/health")" = 200 ] && break; sleep 2; done
+say "portal=$(code "$portal/api/health")"
+say "internet=$(code http://1.1.1.1/)"
+say "other_port=$(code "http://$host:${other:-1}/")"
+say "dns=$(getent hosts deb.debian.org >/dev/null 2>&1 && echo resolved || echo blocked)"
+say "firewall_policy=$(nft list chain inet ott output 2>/dev/null | grep -o 'policy [a-z]*' | head -n 1 | tr ' ' '_')"
+say "homepage=$(grep -o '"URL": "[^"]*"' /etc/firefox/policies/policies.json | head -n 1 | cut -d'"' -f4)"
+for i in $(seq 1 60); do pgrep -u thisinh xfce4-session >/dev/null && pgrep -u thisinh -f firefox >/dev/null && break; sleep 2; done
+say "desktop=$(pgrep -u thisinh xfce4-session >/dev/null && echo up || echo down)"
+say "browser=$(pgrep -u thisinh -f firefox >/dev/null && echo up || echo down)"
+say "sudo=$(command -v sudo >/dev/null && echo present || echo absent)"
+say "root_password=$(passwd -S root | cut -d' ' -f2)"
+work=/home/thisinh/bai-lam
+if [ -f "$work/.selftest-marker" ]; then say "persistence=found:$(cat "$work/.selftest-marker")"
+else runuser -u thisinh -- sh -c "date -u +%s > '$work/.selftest-marker'" && sync && say "persistence=created"; fi
+say "dirty_expire=$(sysctl -n vm.dirty_expire_centisecs)"
+say "persist_mount=$(findmnt -rn -o TARGET "$work" >/dev/null && echo yes || echo no)"
+say "mounted=$(lsblk -rno NAME,LABEL,MOUNTPOINTS | awk '$3 != "" {print $1 ":" $2 ":" $3}' | tr '\n' ' ')"
+runuser -u thisinh -- env HOME=/home/thisinh /usr/local/bin/chay-thu /opt/ott/bots/templates/python/main.py --no-open --games 1 --seed selftest --out /tmp/selftest.html >/tmp/selftest-run.log 2>&1
+say "ott_run=$? replay=$([ -s /tmp/selftest.html ] && echo yes || echo no)"
+say "gxx=$(g++ -dumpfullversion) python=$(python3 -c 'import sys;print(sys.version.split()[0])')"
+say "secureboot=$(od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | awk '{print $NF}')"
+journalctl -b --no-pager -o short-monotonic -u ott-conf -u ott-firewall -u ott-portal -u ott-clock -u lightdm | tail -n 40 | sed "s/^/OTT-LOG /"
+say done

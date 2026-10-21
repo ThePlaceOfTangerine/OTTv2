@@ -1,0 +1,6 @@
+.setup{max-width:760px}
+.setup .choice{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font-weight:400;line-height:1.6}
+.setup .choice input{width:auto;min-height:0;margin-top:5px;flex-shrink:0}
+.setup #setup-message{color:#a33a2b}
+.setup .unavailable{opacity:.55}
+@media print{.setup form,.setup .page-header,#print-credentials,#done-link{display:none}}

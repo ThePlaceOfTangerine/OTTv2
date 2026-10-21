@@ -72,6 +72,7 @@ class TournamentStages {
   lock(id, actorId, body) {
     return this.change(id, actorId, body, (tournament, stage) => {
       if (this.status(stage) !== 'closing') fail(409, 'Phải kết thúc nhận bài trước khi chốt bot.');
+      if (this.repos?.pending(stage.id)) fail(409, 'Đang lấy commit tại hạn nộp từ GitHub của các đội. Chờ hoàn tất rồi chốt bot.');
       if (this.db.prepare("SELECT 1 FROM bot_submissions WHERE stage_id=? AND job_status IN ('queued','running','blocked') LIMIT 1").get(stage.id)) fail(409, 'Còn bài đang chờ hoặc lỗi hạ tầng. Xử lý hết trước khi chốt bot.');
       const entrants = this.db.prepare('SELECT * FROM tournament_stage_entrants WHERE stage_id=? ORDER BY user_id').all(stage.id);
       let accepted = 0;

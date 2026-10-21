@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const DEFAULT_RULES = require('../../rules/default.json');
 const Movement = require('./movement');
+const Tiles = require('./tiles');
 const clone = value => structuredClone(value);
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 function validateRules(input) {
@@ -51,6 +52,7 @@ function validateRules(input) {
   }
   if (!Number.isInteger(r.maxMoves) || r.maxMoves < 1 || r.maxMoves > 5000 || !Number.isInteger(r.repetitionLimit) || r.repetitionLimit < 2 || r.repetitionLimit > 10 || r.noLegalMoves !== 'loss') fail();
   if(r.powerUps&&rows*cols-unavailable.size-occupied.size-2<1)fail('Cần ít nhất một ô trống để đặt power-up.');
+  Tiles.validateTiles(r, { rows, cols, inside, unavailable, homes: r.homes, starts: occupied });
   return freeze(r);
 }
 function seededRandom(seed) {
@@ -79,11 +81,21 @@ class GameEngine {
       const count=1+Math.floor(random()*Math.min(3,free.length));
       this._state.powerUps=shuffle(free,random).slice(0,count);
     }
+    // Only RuleSets with tileTypes get state.tiles, so older rules keep identical snapshots and replays.
+    if (this.rules.tileTypes) {
+      this._state.tiles = Tiles.placeTiles(this.rules, board.length, board[0].length, random, shuffle);
+      for (const tile of this._state.tiles) if (!Tiles.tileType(this.rules, tile.type).passable) this.unavailable.add(`${tile.row},${tile.col}`);
+    }
+    this.lastChanges = [];
     this.seen = new Map([[this.positionKey(), 1]]);
     this.checkTerminal();
   }
   snapshot() { return clone(this._state); }
-  positionKey() { return JSON.stringify(this._state.powerUps?[this._state.board,this._state.currentTurn,this._state.powerUps]:[this._state.board, this._state.currentTurn]); }
+  positionKey() {
+    const key = this._state.powerUps ? [this._state.board, this._state.currentTurn, this._state.powerUps] : [this._state.board, this._state.currentTurn];
+    if (this._state.tiles) key.push(this._state.tiles);
+    return JSON.stringify(key);
+  }
   legalMoves(player = this._state.currentTurn) {
     const { board } = this._state, moves = [], rows = board.length, cols = board[0].length;
     for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
@@ -109,7 +121,7 @@ class GameEngine {
           const target=board[nr][nc],pawn=config?.kind==='pawn';
           if(!target){if(!pawn||dc===0)moves.push({fromRow:row,fromCol:col,toRow:nr,toCol:nc});}
           else{
-            if(target.player!==player&&(!pawn||dc!==0)&&(this.rules.beats[piece.type]===target.type||(piece.powered&&piece.type===target.type)))moves.push({fromRow:row,fromCol:col,toRow:nr,toCol:nc});
+            if(target.player!==player&&(!pawn||dc!==0)&&(this.rules.beats[piece.type]===target.type||(piece.powered&&piece.type===target.type)||Tiles.effect(piece.effect)?.canCapture?.(piece,target)))moves.push({fromRow:row,fromCol:col,toRow:nr,toCol:nc});
             break;
           }
         }
@@ -125,21 +137,59 @@ class GameEngine {
     for (const p of [0, 1]) { const h = this.rules.homes[1 - p]; if (this._state.board[h.row][h.col]?.player === p) { this.finish(p, 'reached_home'); return; } }
     if (!this.legalMoves().length) { this.finish(1 - this._state.currentTurn, 'no_legal_moves'); return; }
     if ((this.seen.get(this.positionKey()) || 0) >= this.rules.repetitionLimit) { this.finish(null, 'repetition'); return; }
-    if (this._state.moveCount >= this.rules.maxMoves) this.finish(null, 'move_limit');
+    if (this._state.moveCount >= this.rules.maxMoves) {
+      if (this.rules.onMoveLimit !== 'material') { this.finish(null, 'move_limit'); return; }
+      this.finish(counts[0] === counts[1] ? null : counts[0] > counts[1] ? 0 : 1, 'material');
+    }
+  }
+  // Entering a tile: legacy powerUps set powered; an effect tile gives its effect (replacing any other) and disappears.
+  pickUp(row, col, set, changes) {
+    const board = this._state.board;
+    if (this._state.powerUps?.some(p => p[0] === row && p[1] === col)) {
+      set(row, col, { ...board[row][col], powered: true });
+      this._state.powerUps = this._state.powerUps.filter(p => p[0] !== row || p[1] !== col);
+      changes.push({ row, col, tile: null });
+    }
+    const index = this._state.tiles?.findIndex(t => t.row === row && t.col === col) ?? -1;
+    const effect = index >= 0 && Tiles.tileType(this.rules, this._state.tiles[index].type).effect;
+    if (effect) {
+      set(row, col, { ...board[row][col], effect });
+      this._state.tiles.splice(index, 1);
+      changes.push({ row, col, tile: null });
+    }
+  }
+  // Dash: after a capture, one more step in the unit direction of the move (sign of each axis). The step may capture only by normal RPS rules
+  // and never enters a home, a wall or the board edge; a shielded target breaks the shield and the dasher stays.
+  dash(fr, fc, tr, tc, set, changes, shieldBreaks) {
+    const board = this._state.board, nr = tr + Math.sign(tr - fr), nc = tc + Math.sign(tc - fc), piece = board[tr][tc];
+    if (nr < 0 || nc < 0 || nr >= board.length || nc >= board[0].length || this.unavailable.has(`${nr},${nc}`) || this.rules.homes.some(h => h.row === nr && h.col === nc)) return null;
+    const occupant = board[nr][nc];
+    if (occupant && (occupant.player === piece.player || this.rules.beats[piece.type] !== occupant.type)) return null;
+    if (occupant && shieldBreaks(nr, nc)) return { toRow: tr, toCol: tc, blocked: true };
+    set(tr, tc, null); set(nr, nc, piece); this.pickUp(nr, nc, set, changes);
+    return { toRow: nr, toCol: nc, captured: !!occupant };
   }
   apply(move) {
     if (this._state.status !== 'playing') throw new Error('Game is finished');
     const fields = ['fromRow','fromCol','toRow','toCol'];
     if (!move || fields.some(k => !Number.isInteger(move[k])) || !this.legalMoves().some(m => fields.every(k => m[k] === move[k]))) throw new Error('Illegal move');
     const { fromRow: fr, fromCol: fc, toRow: tr, toCol: tc } = move;
-    const captured = !!this._state.board[tr][tc], playerIndex = this._state.currentTurn;
-    this._state.board[tr][tc] = this._state.board[fr][fc]; this._state.board[fr][fc] = null;
-    if(this._state.powerUps?.some(p=>p[0]===tr&&p[1]===tc)){
-      this._state.board[tr][tc].powered=true;
-      this._state.powerUps=this._state.powerUps.filter(p=>p[0]!==tr||p[1]!==tc);
+    const board = this._state.board, playerIndex = this._state.currentTurn, mover = board[fr][fc];
+    // Every cell write is recorded so replays (and the UI) can apply moves without knowing the rules.
+    const changes = this.lastChanges = [];
+    const set = (row, col, piece) => { board[row][col] = piece; changes.push({ row, col, piece: piece && clone(piece) }); };
+    const shieldBreaks = (row, col) => {
+      if (!Tiles.effect(board[row][col]?.effect)?.blocksCapture) return false;
+      const { effect, ...broken } = board[row][col]; set(row, col, broken); return true;
+    };
+    let captured = !!board[tr][tc], blocked = false, bonus = null;
+    if (captured && shieldBreaks(tr, tc)) { captured = false; blocked = true; }
+    else {
+      set(fr, fc, null); set(tr, tc, mover); this.pickUp(tr, tc, set, changes);
+      if (captured && Tiles.effect(mover.effect)?.dash) bonus = this.dash(fr, fc, tr, tc, set, changes, shieldBreaks);
     }
     this._state.currentTurn = 1 - playerIndex; this._state.moveCount++;
-    this._state.lastMove = { playerIndex, fromRow: fr, fromCol: fc, toRow: tr, toCol: tc, captured };
+    this._state.lastMove = { playerIndex, fromRow: fr, fromCol: fc, toRow: tr, toCol: tc, captured, ...(blocked ? { blocked: true } : {}), ...(bonus ? { bonus_step: bonus } : {}) };
     const key = this.positionKey(); this.seen.set(key, (this.seen.get(key) || 0) + 1);
     this.checkTerminal(); return this.snapshot();
   }

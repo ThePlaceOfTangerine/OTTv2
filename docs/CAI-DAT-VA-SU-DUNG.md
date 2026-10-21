@@ -1,6 +1,6 @@
 # Hướng dẫn tải, cài đặt và sử dụng OTTv2
 
-Cập nhật: 19/10/2026. Tài liệu dành cho người tải dự án lần đầu và ban tổ chức. Đây là hướng dẫn chạy bản hiện tại; các chức năng chưa hoàn thành được theo dõi trong [TODO](../TODO.md).
+Cập nhật: 20/10/2026. Tài liệu dành cho người tải dự án lần đầu và ban tổ chức. Giáo viên dùng gói lớp học (không cần Git, npm, Docker hay quyền quản trị) xem [LOP-HOC.md](LOP-HOC.md). Đây là hướng dẫn chạy bản hiện tại; các chức năng chưa hoàn thành được theo dõi trong [TODO](../TODO.md).
 
 ## 1. Chuẩn bị
 
@@ -56,7 +56,7 @@ Tắt server bằng Ctrl+C. Những lần sau chỉ cần mở Docker và chạy
 ## 4. Ban tổ chức chạy một giải
 
 1. Vào admin, kiểm tra Docker và chạy đấu thử bằng bot mẫu.
-2. Tạo/cấp tài khoản đội; có thể nhập CSV với cột username. Thông tin đăng nhập cần gửi riêng cho từng đội.
+2. Tạo/cấp tài khoản đội bằng CSV `team_id,password_temp,team_name,leader_email` (để trống password_temp thì hệ thống tự tạo); định dạng cũ chỉ có cột username vẫn dùng được. Thông tin đăng nhập cần gửi riêng cho từng đội. Muốn đội nộp bằng GitHub, cấu hình GitHub App theo [hướng dẫn GitHub](GITHUB.md).
 3. Vào **Giải đấu**, tạo giải, chọn đúng phiên bản luật và cấu hình số lượt/số đội đi tiếp/số ván. Số lượt vòng loại phải nhỏ hơn số bot thực tế.
 4. Chọn đội rồi bấm **Lưu danh sách đội**. Tick đội chưa đồng nghĩa đã lưu.
 5. Mở nhận bài theo lịch, yêu cầu thí sinh chọn đúng nơi nộp. Đóng nhận bài hoặc chờ hết hạn; chờ hàng đợi kiểm tra xong rồi chốt bot vòng loại.
@@ -75,7 +75,7 @@ Vòng loại và loại trực tiếp có tạm dừng/tiếp tục/hủy kèm l
 1. Đăng nhập portal, đổi mật khẩu tạm khi được yêu cầu.
 2. Mở hướng dẫn và tải bot mẫu Python hoặc C++.
 3. Chọn **Nơi nộp bài** đúng giải/giai đoạn; đọc mô tả luật, thông báo và hạn nộp theo giờ Việt Nam. Luyện tập ngoài giải không tự trở thành bài thi.
-4. Nộp file .py, .cpp hoặc ZIP; khai báo file chạy nếu cần. Một file mã nguồn tối đa 1 MiB, ZIP tối đa 5 MiB.
+4. Nộp file .py, .cpp hoặc ZIP; khai báo file chạy nếu cần. Một file mã nguồn tối đa 1 MiB, ZIP tối đa 5 MiB. Nếu BTC bật GitHub: điền thành viên và xác minh repo ở mục **Đội & GitHub**, rồi bấm **Nộp commit mới nhất**; khi hết hạn hệ thống tự lấy commit cuối đã push trước hạn. Xem [nộp bằng GitHub](GITHUB.md).
 5. Giữ mã biên nhận, theo dõi kết quả kiểm tra, xem chi tiết lỗi và bản xem lại. Chỉ bài hợp lệ mới được chọn để thi đấu.
 6. Có thể chọn riêng bài hợp lệ trong giai đoạn trước hạn. Nếu chưa chọn, hệ thống dùng bản hợp lệ mới nhất trong chính giai đoạn đó. Sau chốt, bot không thay đổi theo lần nộp tiếp theo.
 7. Khi có đợt nộp lại chính thức, chọn đúng đợt mới và nộp lại; bài vòng loại không tự chuyển sang.
@@ -118,7 +118,7 @@ HOST=0.0.0.0 PORT=3000 npm start
 
 Thí sinh truy cập http://IP-LAN-CUA-SERVER:3000/portal; thay IP bằng địa chỉ thực, kiểm tra firewall và cùng mạng. Chỉ dùng trong LAN thử nghiệm tin cậy khi các mục bảo vệ mạng chưa hoàn tất. Không dùng 0.0.0.0 làm địa chỉ truy cập.
 
-Các biến môi trường khác: DB_PATH (file SQLite), SUBMISSIONS_PATH (thư mục bài/artifact), SANDBOX_IMAGE (image chấm), DOCKER_BIN (đường dẫn Docker), BOT_WORKERS (số việc kiểm tra bài đồng thời), COOKIE_SECURE=true khi dùng HTTPS. DB_PATH và SUBMISSIONS_PATH cần được cấu hình nhất quán để không trộn dữ liệu giữa môi trường. Server hiện đọc biến môi trường của tiến trình, không tự nạp file .env.
+Các biến môi trường khác: DB_PATH (file SQLite), SUBMISSIONS_PATH (thư mục bài/artifact), SANDBOX_IMAGE (image chấm), DOCKER_BIN (đường dẫn Docker), BOT_WORKERS (số việc kiểm tra bài đồng thời), COOKIE_SECURE=true khi dùng HTTPS. Nộp bằng GitHub: GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY_PATH (hoặc GITHUB_APP_PRIVATE_KEY), GITHUB_APP_SLUG, GITHUB_WEBHOOK_SECRET; chống bot cho form upload: TURNSTILE_SITE_KEY, TURNSTILE_SECRET (không đặt khi chạy offline). Chi tiết trong [GITHUB.md](GITHUB.md). Máy chấm phân tán: LOCAL_GRADING=0 để coordinator không tự chấm, GRADER_IMAGE để bắt buộc image; trên máy chấm chạy `npm run grader` với COORDINATOR_URL, GRADER_ID, GRADER_SECRET, GRADER_SLOTS (tạo khóa ở admin → Giám sát). Chọn sandbox bằng SANDBOX_BACKEND=docker (mặc định), bwrap (WSL2/Linux) hoặc windows-job (lớp học, thử nghiệm, chưa chặn mạng/file; Python qua OTT_PYTHON hoặc python\ trong gói, C++ qua OTT_GXX/cpp\/Dev-C++, header thêm qua OTT_CPP_INCLUDE). File data/settings.json (do trang /setup ghi, đổi chỗ bằng OTT_SETTINGS) bổ sung SANDBOX_BACKEND, HOST, PORT khi các biến này chưa được đặt. Khi chưa có tài khoản admin, mở /admin trên chính máy chủ sẽ chuyển sang trang cài đặt lần đầu. Xem [GRADERS.md](GRADERS.md). Công bố kết quả: PUBLIC_SITE_DIR (thư mục site tĩnh, mặc định data/public-site, xem tại /site/), PUBLIC_SITE_URL, SITE_AUTO_DEPLOY=1, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_PAGES_PROJECT, WRANGLER_VERSION, GOOGLE_SERVICE_ACCOUNT_FILE, GOOGLE_SHEET_ID; lệnh npm run site:build / site:deploy. Xem [PUBLISHING.md](PUBLISHING.md). Trên Windows có thể chạy `powershell -ExecutionPolicy Bypass -File scripts\start-server.ps1 [-AutoDeploy]`: script đọc khóa Cloudflare/Google trong thư mục secrets ngoài repo (mặc định `E:\OTTv2-local\secrets`: `cloudflare-token.txt`, `cloudflare-account.txt`, `google-sa.json`, `google-sheet-id.txt`), đặt biến rồi `npm start`. Thi LAN và sự cố: SNAPSHOT_DIR (ổ ngoài, bắt buộc tự đặt), SNAPSHOT_INTERVAL_MINUTES (mặc định 15), SNAPSHOT_KEEP (mặc định 24); lệnh npm run offline:check (kiểm tra máy trước ngày thi) và npm run restore -- <snapshot> (khôi phục khi server đã dừng). Nhập bài từ thư mục/USB ở mục Giải đấu. Thử tải và đo (Phase 8, chạy trên Linux/WSL): node scripts/load-test.js, node scripts/load-real-games.js, node scripts/bench-standings.js <db> (xem CAPACITY.md). Mật khẩu được băm bằng scrypt; tài khoản cũ dùng bcrypt tự chuyển ở lần đăng nhập đầu. USB boot (phòng thi): OTT_GRUB_PASSWORD đặt mật khẩu khóa menu GRUB khi dựng ảnh; npm run usb:build -- grader|thisinh [--with-wifi], npm run usb:test -- grader|thisinh [--bios], npm run usb:config -- grader|thisinh|check (cần distro WSL ott-build, xem USB-BOOT.md); máy chấm đăng ký bằng mã dùng GRADER_CONFIG_FILE và GRADER_CREDENTIALS_FILE. Chạy thử bot cục bộ: npm run ott-run -- <main.py|main.cpp|bot.zip> (xem LOP-HOC.md). Đồng bộ máy online ↔ LAN: npm run sync (identity, add-peer, export, import), passphrase qua OTT_SYNC_PASSPHRASE hoặc gõ khi được hỏi. Xem [RUNBOOK.md](RUNBOOK.md). DB_PATH và SUBMISSIONS_PATH cần được cấu hình nhất quán để không trộn dữ liệu giữa môi trường. Server hiện đọc biến môi trường của tiến trình, không tự nạp file .env. File tạm khi chấm (thư mục ott-source-*, helper windows-job, thư mục làm việc của máy chấm) nằm trong thư mục tạm của hệ điều hành; muốn giữ chúng ngoài ổ C, đặt `$env:TEMP` và `$env:TMP` (ví dụ E:OTTv2-local	mp) trước khi chạy npm start hoặc npm run grader.
 
 Triển khai Internet cần cấu hình HTTPS/proxy, tài khoản và đánh giá tải trước; xem [phương án triển khai](DEPLOYMENT.md). Dự án chưa được chứng nhận chịu tải 150 đội đồng thời.
 
@@ -138,6 +138,6 @@ Triển khai Internet cần cấu hình HTTPS/proxy, tài khoản và đánh gi�
 
 ## 9. Kiểm thử và bảo trì tài liệu
 
-npm test chạy bộ kiểm thử unit/API. npm run test:stages kiểm tra luồng giai đoạn/giải bằng Docker; các test Docker cần Engine/image hoạt động, có thể mất thời gian. Xem các lệnh test:* trong package.json. Không chạy script demo-six-teams.js trên DB thật nếu chưa chủ động sao lưu và chấp nhận tạo dữ liệu mẫu.
+npm test chạy bộ kiểm thử unit/API. npm run test:stages kiểm tra luồng giai đoạn/giải bằng Docker; các test Docker cần Engine/image hoạt động, có thể mất thời gian. Không cần Docker nhưng cần Python: npm run test:ott-run (chạy thử bot cục bộ) và npm run test:windows-job (Windows). Xem các lệnh test:* trong package.json. Không chạy script demo-six-teams.js trên DB thật nếu chưa chủ động sao lưu và chấp nhận tạo dữ liệu mẫu.
 
 Người sửa dự án phải cập nhật tài liệu này cùng README khi đổi yêu cầu môi trường, lệnh cài/chạy, tài khoản ban đầu, biến môi trường, luồng sử dụng hoặc giới hạn tính năng. Cập nhật ngày và TODO kèm bằng chứng thực tế. Nếu sửa quy tắc giải, cập nhật QUY-TAC-GIAI-DAU.md rồi chạy node scripts/build-tournament-guide.js để trang hướng dẫn admin đồng bộ. Không đánh dấu thử tải/khôi phục/triển khai là hoàn thành chỉ vì đã có mã.

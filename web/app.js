@@ -41,9 +41,9 @@ async function showSession(data) {
   }
   configureWorkspace(data.user);
   const overview = await api(`/api/${admin ? 'admin' : 'portal'}/overview`);
-  document.getElementById('overview').textContent = admin ? `${overview.contestants} thí sinh · ${overview.locked} tài khoản bị khóa` : 'Tài khoản thí sinh đang hoạt động.';
+  document.getElementById('overview').textContent = admin ? `${overview.contestants} thí sinh · ${overview.locked} tài khoản bị khóa${overview.trust === 'classroom' ? ' · Chế độ lớp học: kết quả không chính thức' : ''}` : overview.readOnly || 'Tài khoản thí sinh đang hoạt động.';
   if (admin) { document.getElementById('admin-guide').hidden = false; document.getElementById('match-panel').hidden = false; await loadMatches(); }
-  else { document.getElementById('submission-panel').hidden = false; await loadSubmissionStages(); await loadSubmissions(); }
+  else { document.getElementById('submission-panel').hidden = false; setupTurnstile(overview.turnstileSiteKey); await loadSubmissionStages(); await loadSubmissions(); }
   await startAdminTools();
   if (!admin) document.dispatchEvent(new Event('portal-ready'));
 }
@@ -86,10 +86,10 @@ const replaySlider = document.getElementById('replay-turn');
 const replaySpeed = document.getElementById('replay-speed');
 const statusLabels = { queued: 'Đang chờ', running: 'Đang thi đấu', finished: 'Đã hoàn tất', blocked: 'Tạm dừng do lỗi máy chủ', bot_error: 'Lỗi chuẩn bị bot', infrastructure_error: 'Lỗi máy chủ · không tính thua' };
 const jobLabels = { queued: 'Chờ xử lý', running: 'Đang xử lý', done: 'Đã xử lý', blocked: 'Tạm dừng sau lỗi máy chủ' };
-const matchReasonLabels = { reached_home: 'Chiếm nhà đối thủ', eliminated: 'Ăn hết quân đối thủ', no_legal_moves: 'Đối thủ không còn nước đi hợp lệ', repetition: 'Lặp thế cờ đến giới hạn của bộ luật', move_limit: 'Đạt giới hạn số nước đi', bot_crash: 'Chương trình bot gặp lỗi khi chạy', cpu_timeout: 'Bot vượt thời gian CPU cho một nước', total_cpu_timeout: 'Bot vượt tổng thời gian CPU của trận', wall_timeout: 'Bot không phản hồi trong thời gian cho phép', illegal_move: 'Bot trả nước đi không hợp lệ', invalid_output: 'Bot trả dữ liệu không đúng định dạng', output_limit: 'Bot xuất quá nhiều dữ liệu', userdata_limit: 'Dữ liệu ghi nhớ vượt giới hạn', sandbox_violation: 'Bot thực hiện thao tác bị cấm' };
+const matchReasonLabels = { reached_home: 'Chiếm nhà đối thủ', eliminated: 'Ăn hết quân đối thủ', no_legal_moves: 'Đối thủ không còn nước đi hợp lệ', repetition: 'Lặp thế cờ đến giới hạn của bộ luật', move_limit: 'Đạt giới hạn số nước đi', material: 'Hết số nước: so số quân còn lại (bằng nhau thì hòa)', bot_crash: 'Chương trình bot gặp lỗi khi chạy', cpu_timeout: 'Bot vượt thời gian CPU cho một nước', total_cpu_timeout: 'Bot vượt tổng thời gian CPU của trận', wall_timeout: 'Bot không phản hồi trong thời gian cho phép', illegal_move: 'Bot trả nước đi không hợp lệ', invalid_output: 'Bot trả dữ liệu không đúng định dạng', output_limit: 'Bot xuất quá nhiều dữ liệu', userdata_limit: 'Dữ liệu ghi nhớ vượt giới hạn', sandbox_violation: 'Bot thực hiện thao tác bị cấm' };
 document.getElementById('check-sandbox').addEventListener('click', async event => {
   const status = document.getElementById('sandbox-status'); event.target.disabled = true; status.textContent = 'Đang kiểm tra khả năng chạy bot và các cơ chế cách ly…';
-  try { const data = await api('/api/admin/sandbox'); status.textContent = `Máy chủ sẵn sàng chạy bot. Đã kiểm tra cơ chế chặn thao tác hệ thống và đọc file ngoài phạm vi cho phép (Landlock ABI ${data.landlock_abi}, seccomp).`; }
+  try { const data = await api('/api/admin/sandbox'); status.textContent = data.backend === 'windows-job' ? `Máy chủ sẵn sàng chạy bot (${data.image}${data.cpp ? '' : `; ${data.cppError || 'chưa có g++, chỉ chấm Python'}`}). ${data.warning}` : `Máy chủ sẵn sàng chạy bot. Đã kiểm tra cơ chế chặn thao tác hệ thống và đọc file ngoài phạm vi cho phép (Landlock ABI ${data.landlock_abi}, seccomp).`; }
   catch (error) { status.textContent = `Môi trường chạy bot chưa sẵn sàng: ${error.message}`; }
   finally { event.target.disabled = false; }
 });
@@ -173,19 +173,52 @@ replaySpeed.addEventListener('change', () => {
 });
 replaySlider.addEventListener('input', () => { pauseReplay(); renderReplay(); updatePlaybackLabel(); });
 window.addEventListener('pagehide', pauseReplay);
+// Captures and pickups, recomputed only when a live replay grows.
+let replayEventCache = { replay: null, length: -1, events: [] };
+function replayEventList() {
+  if (replayEventCache.replay !== replay || replayEventCache.length !== replay?.turns.length) replayEventCache = { replay, length: replay?.turns.length ?? -1, events: replay ? OTT.replayEvents(replay) : [] };
+  return replayEventCache.events;
+}
+function setReplayTurn(turn) { pauseReplay(); replaySlider.value = turn; renderReplay(); updatePlaybackLabel(); }
+for (const [id, direction] of [['replay-prev-event', -1], ['replay-next-event', 1]]) document.getElementById(id).addEventListener('click', () => {
+  const target = OTT.nextEvent(replayEventList(), Number(replaySlider.value), direction); if (target !== null) setReplayTurn(target);
+});
+OTT.bindReplayKeys({ active: () => !document.getElementById('replay-panel').hidden && !!replay?.turns.length, get: () => Number(replaySlider.value), set: setReplayTurn,
+  max: () => replay.turns.length, toggle: () => replayPlay.click(), events: replayEventList });
+document.getElementById('replay-move-log').addEventListener('click', event => { const entry = event.target.closest('[data-turn]'); if (entry) setReplayTurn(Number(entry.dataset.turn)); });
 function renderReplay() {
   if (!replay) return;
   const turn = Number(document.getElementById('replay-turn').value);
   document.getElementById('replay-turn-label').textContent = `${turn}/${replay.turns.length}`;
+  const events = replayEventList();
+  document.getElementById('replay-prev-event').disabled = OTT.nextEvent(events, turn, -1) === null;
+  document.getElementById('replay-next-event').disabled = OTT.nextEvent(events, turn, 1) === null;
   const board = structuredClone(replay.initial.board);
-  let powerUps=structuredClone(replay.initial.powerUps||[]);
-  const pickups=new Set();
-  const captures = new Set();
-  replay.turns.slice(0, turn).forEach(({ move: m }, i) => {
-    if (board[m.toRow][m.toCol]) captures.add(i);
+  let powerUps=structuredClone(replay.initial.powerUps||[]), tiles=structuredClone(replay.initial.tiles||[]);
+  const notes = [];
+  replay.turns.slice(0, turn).forEach((entry, i) => {
+    const m = entry.move, note = notes[i] = [];
+    // New replays carry the engine's own board diffs, so drawing needs no knowledge of the rules.
+    if (Array.isArray(entry.changes)) {
+      const target = board[m.toRow][m.toCol];
+      for (const change of entry.changes) {
+        if ('piece' in change) board[change.row][change.col] = change.piece && structuredClone(change.piece);
+        if ('tile' in change) {
+          const tile = tiles.find(t => t.row === change.row && t.col === change.col);
+          note.push(tile ? `Nhặt ${tileLabel(replay.rules, tile.type)}` : 'Nhặt power-up (+)');
+          tiles = tiles.filter(t => t.row !== change.row || t.col !== change.col); powerUps = powerUps.filter(p => p[0] !== change.row || p[1] !== change.col);
+        }
+      }
+      const moved = entry.changes.some(c => c.row === m.fromRow && c.col === m.fromCol && 'piece' in c && c.piece === null);
+      if (target && target.player !== entry.player) note.unshift(moved ? 'Ăn quân' : 'Đánh vỡ khiên, quân đứng yên');
+      if (entry.changes.some(c => c.piece?.player === entry.player && !(c.row === m.toRow && c.col === m.toCol) && !(c.row === m.fromRow && c.col === m.fromCol))) note.push('Lướt thêm 1 ô');
+      return;
+    }
+    if (board[m.toRow][m.toCol]) note.push('Ăn quân');
     board[m.toRow][m.toCol] = board[m.fromRow][m.fromCol]; board[m.fromRow][m.fromCol] = null;
-    if(powerUps.some(p=>p[0]===m.toRow&&p[1]===m.toCol)){board[m.toRow][m.toCol].powered=true;powerUps=powerUps.filter(p=>p[0]!==m.toRow||p[1]!==m.toCol);pickups.add(i);}
+    if(powerUps.some(p=>p[0]===m.toRow&&p[1]===m.toCol)){board[m.toRow][m.toCol].powered=true;powerUps=powerUps.filter(p=>p[0]!==m.toRow||p[1]!==m.toCol);note.push('Nhặt power-up (+)');}
   });
+  const tileAt = new Map(tiles.map(t => [`${t.row},${t.col}`, t.type]));
   const rows = board.length, cols = board[0].length;
   const last = turn ? replay.turns[turn - 1] : null;
   const element = document.getElementById('replay-board'); element.replaceChildren();
@@ -200,19 +233,23 @@ function renderReplay() {
   const images = { R: '/assets/pieces/rock.svg', P: '/assets/pieces/paper.svg', S: '/assets/pieces/scissor.svg' };
   const labels = { R: 'Búa', P: 'Bao', S: 'Kéo' };
   const counts = [{}, {}];
-  const blocked = new Set((replay.rules.blockedCells || []).map(p => p.join(',')));
-  const voids = new Set((replay.rules.voidCells || []).map(p => p.join(',')));
+  // Rules with tileTypes list blocked/void cells in state.tiles; older rules keep them only in the RuleSet.
+  const blocked = replay.initial.tiles ? new Set() : new Set((replay.rules.blockedCells || []).map(p => p.join(',')));
+  const voids = replay.initial.tiles ? new Set() : new Set((replay.rules.voidCells || []).map(p => p.join(',')));
   board.forEach((row, r) => row.forEach((piece, c) => {
     const cell = document.createElement('div'); cell.className = `cell ${(r + c) % 2 === 0 ? 'light-sq' : 'dark-sq'}`;
     cell.title = `${columnName(c)}${rows - r}${piece ? ` · Bên ${piece.player} · ${labels[piece.type] || piece.type}` : ''}`;
     if (blocked.has(`${r},${c}`)) { cell.classList.add('terrain-blocked'); cell.title += ' · Chướng ngại vật'; }
     if (voids.has(`${r},${c}`)) { cell.classList.add('terrain-void'); cell.title += ' · Ngoài bản đồ'; }
+    if (tileAt.has(`${r},${c}`)) cell.title += ` · ${paintTile(cell, replay.rules, tileAt.get(`${r},${c}`))}`;
     if(powerUps.some(p=>p[0]===r&&p[1]===c)){const badge=document.createElement('span');badge.className='power-up';badge.textContent='+';badge.title='Power-up: đi vào ô này để nâng cấp quân';cell.append(badge);cell.title+=' · Power-up';}
     if (piece) {
       counts[piece.player][piece.type] = (counts[piece.player][piece.type] || 0) + 1;
       const token = document.createElement('div'); token.className = `piece p${piece.player}`;
       if (images[piece.type]) { const img = document.createElement('img'); img.src = images[piece.type]; img.alt = labels[piece.type]; token.append(img); }
       else token.textContent = piece.type;
+      token.dataset.player = piece.player; token.dataset.type = piece.type;
+      if (piece.effect) cell.title += ` · ${paintEffect(token, replay.rules, piece.effect)}`;
       if(piece.powered){token.classList.add('powered');const badge=document.createElement('span');badge.className='powered-badge';badge.textContent='+';token.append(badge);cell.title+=' · Đã nâng cấp: ăn được quân cùng loại';}
       cell.append(token);
     }
@@ -246,16 +283,25 @@ function renderReplay() {
   const log = document.getElementById('replay-move-log'); log.replaceChildren();
   if (!turn) { const empty = document.createElement('p'); empty.className = 'log-empty'; empty.textContent = 'Chưa có nước đi.'; log.append(empty); }
   replay.turns.slice(0, turn).map((entry, i) => ({ entry, i, m: entry.move })).reverse().forEach(({ entry, i, m }) => {
-    const item = document.createElement('div'); item.className = 'log-entry';
+    const item = document.createElement('button'); item.type = 'button'; item.className = 'log-entry'; item.dataset.turn = i + 1; item.title = 'Quay lại nước này';
     const player = document.createElement('span'); player.className = `pt p${entry.player}`; player.textContent = `Bên ${entry.player}`;
     item.append(document.createTextNode(`${i + 1}. `), player, document.createTextNode(` ${columnName(m.fromCol)}${rows - m.fromRow} → ${columnName(m.toCol)}${rows - m.toRow}`));
-    if (captures.has(i)) item.append(document.createTextNode(' · Ăn quân'));
-    if (pickups.has(i)) item.append(document.createTextNode(' · Nhặt power-up (+)'));
+    for (const note of notes[i]) item.append(document.createTextNode(` · ${note}`));
     log.append(item);
   });
 }
 
-let submissionPoll = null, selectedSubmission = null;
+let submissionPoll = null, selectedSubmission = null, turnstileWidget = null;
+// Cloudflare Turnstile guards the file-upload fallback only when the server provides a site key.
+function setupTurnstile(siteKey) {
+  if (!siteKey || turnstileWidget !== null) return;
+  const box = document.getElementById('turnstile-box'), script = document.createElement('script');
+  box.hidden = false; turnstileWidget = undefined;
+  script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; script.async = true;
+  script.onload = () => { turnstileWidget = turnstile.render(box, { sitekey: siteKey, 'response-field': false }); };
+  script.onerror = () => { box.textContent = 'Không tải được bước xác minh chống bot. Kiểm tra mạng rồi tải lại trang.'; };
+  document.head.append(script);
+}
 let submissionStageId = '', submissionStage = null, submissionSequence = 0, retryUpload = null, uploadBusy = false;
 async function loadSubmissionStages() {
   const data = await api('/api/portal/tournaments');
@@ -275,18 +321,6 @@ document.getElementById('submission-stage-refresh').addEventListener('click', as
 });
 document.addEventListener('visibilitychange', () => { if (!admin && !document.hidden && submissionStageId) loadSubmissions().catch(error => { submissionMessage.textContent = error.message; }); });
 const submissionLabels = { Queued: 'Đang chờ', Scanning: 'Đang kiểm tra bài', Compiling: 'Đang chuẩn bị chạy', 'Test match': 'Đang đấu thử', Accepted: 'Sẵn sàng thi đấu', Rejected: 'Cần sửa bài' };
-const submissionHints = {
- static_scan: 'Bài có dùng thư viện hoặc lệnh không được phép. Mở chi tiết kỹ thuật để xem tên, rồi bỏ lệnh đó hoặc dùng cách khác.',
- compile_error: 'Code chưa chạy được. Kiểm tra dấu ngoặc, dấu nháy, thụt dòng (Python) hoặc dấu chấm phẩy (C++). Chi tiết kỹ thuật có thể chỉ ra file và dòng bị lỗi.',
- bot_crash: 'Chương trình bị dừng khi đang chơi. Kiểm tra việc đọc dữ liệu, lấy phần tử ngoài danh sách hoặc chia cho 0. Xem chi tiết kỹ thuật nếu cần.',
- cpu_timeout: 'Bot tính quá lâu cho một nước. Kiểm tra vòng lặp có dừng không, hoặc thử cách chọn nước đơn giản hơn.',
- total_cpu_timeout: 'Bot đã dùng hết thời gian tính toán cho cả trận. Cần chọn nước nhanh hơn ở mỗi lượt.',
- wall_timeout: 'Bot chưa trả lời kịp. Kiểm tra vòng lặp và giữ phần nhận/gửi dữ liệu như mẫu; đừng chờ người dùng nhập thêm.',
- invalid_output: 'Hệ thống chưa đọc được câu trả lời của bot. Thử giữ nguyên phần nhận/gửi dữ liệu trong mẫu; không thêm print hoặc cout để in lời chào vào câu trả lời.',
- output_limit: 'Bot in quá nhiều chữ. Bỏ các dòng in không cần thiết; giữ câu trả lời như trong mã mẫu.',
- illegal_move: 'Bot đã chọn nước không được phép. Hãy chọn một nước từ legal_moves (danh sách nước được đi) trong mã mẫu.',
- userdata_limit: 'Bot ghi nhớ quá nhiều dữ liệu. Giảm nội dung userdata hoặc để trống như mã mẫu.'
-};
 const submissionMessage = document.getElementById('submission-message');
 document.getElementById('submission-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = document.getElementById('submit-bot'); button.disabled = true; submissionMessage.textContent = '';
@@ -299,6 +333,11 @@ document.getElementById('submission-form').addEventListener('submit', async even
     if (file.size > (file.name.endsWith('.zip') ? 5 : 1) * 1024 * 1024) throw new Error('Một file mã nguồn tối đa 1 MiB; file ZIP tối đa 5 MiB.');
     const form = new FormData(); form.append('bot', file);
     const entry = document.getElementById('bot-entry').value.trim(); if (entry) form.append('entry', entry);
+    if (turnstileWidget !== null) {
+      const token = turnstileWidget === undefined ? '' : turnstile.getResponse(turnstileWidget);
+      if (!token) throw new Error('Hãy hoàn tất bước xác minh chống bot bên dưới trước khi nộp.');
+      form.append('cf-turnstile-response', token);
+    }
     const stageId = submissionStageId;
     if (!retryUpload || retryUpload.file !== file || retryUpload.entry !== entry || retryUpload.stageId !== stageId) retryUpload = { file, entry, stageId, key: Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('') };
     const result = await api(stageId ? `/api/portal/stages/${encodeURIComponent(stageId)}/submissions` : '/api/portal/submissions', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken, ...(stageId ? { 'Idempotency-Key': retryUpload.key } : {}) }, body: form });
@@ -307,7 +346,7 @@ document.getElementById('submission-form').addEventListener('submit', async even
     submissionMessage.textContent = `Đã nhận phiên bản v${result.version} · Mã bài: ${result.id} · ${new Date(result.received_at).toLocaleString('vi-VN', { timeZone: 'Asia/Saigon' })} (giờ Việt Nam). Theo dõi kết quả bên dưới.`;
     await loadSubmissions();
   } catch (error) { submissionMessage.textContent = error.message; }
-  finally { uploadBusy = false; button.disabled = false; document.getElementById('submission-stage').disabled = document.getElementById('submission-stage-refresh').disabled = false; document.getElementById('submission-upload-fields').disabled = !!submissionStage && !submissionStage.canSubmit; }
+  finally { if (turnstileWidget) turnstile.reset(turnstileWidget); uploadBusy = false; button.disabled = false; document.getElementById('submission-stage').disabled = document.getElementById('submission-stage-refresh').disabled = false; document.getElementById('submission-upload-fields').disabled = !!submissionStage && !submissionStage.canSubmit; }
 });
 async function submissionAction(id, action) {
   try {
@@ -363,8 +402,19 @@ function renderSubmissionStage(stage) {
       for (const [type, move] of Object.entries(rules.movementByType || {})) item(pieceName(type) + ': ' + (movementNames[move.kind] || 'hướng tùy chỉnh ' + JSON.stringify(move.directions) + ', tối đa ' + move.maxSteps + ' bước' + (move.relative ? ', đảo hướng cho bên B' : '')) + '.');
       item('Không được đi xuyên qua quân, ô chặn hoặc ô ngoài bản đồ. Ăn quân: ' + Object.entries(rules.beats).map(([a, b]) => pieceName(a) + ' ăn ' + pieceName(b)).join('; ') + '.');
       item('Thắng khi chiếm nhà đối phương, ăn hết quân đối phương hoặc đối phương không còn nước hợp lệ. Điều kiện thắng được xét trước điều kiện hòa.');
-      item('Hòa khi đạt ' + rules.maxMoves + ' nước tổng cộng hoặc cùng thế cờ và bên đến lượt lặp lại ' + rules.repetitionLimit + ' lần.');
-      item(rules.powerUps ? 'Có vật phẩm tăng sức mạnh: sinh ngẫu nhiên tối đa 3 ở ô trống; quân nhặt được có thể ăn cả quân cùng loại. Vật phẩm không sinh lại.' : 'Không có vật phẩm tăng sức mạnh.');
+      item(rules.onMoveLimit === 'material'
+        ? 'Đạt ' + rules.maxMoves + ' nước tổng cộng: bên còn nhiều quân hơn thắng (mỗi quân 1 điểm), bằng nhau thì hòa. Cùng thế cờ và bên đến lượt lặp lại ' + rules.repetitionLimit + ' lần luôn là hòa.'
+        : 'Hòa khi đạt ' + rules.maxMoves + ' nước tổng cộng hoặc cùng thế cờ và bên đến lượt lặp lại ' + rules.repetitionLimit + ' lần.');
+      if (rules.tileTypes) {
+        // Described from the RuleSet itself, so a new tile type needs no portal change.
+        for (const [type, definition] of Object.entries(rules.tileTypes)) item('Ô ' + definition.render.symbol + ' · ' + definition.render.label + (definition.passable ? '' : ' (không đi vào được)') + (definition.effect ? ' — đi vào thì quân nhận hiệu ứng và ô biến mất; mỗi quân giữ một hiệu ứng, nhặt ô mới thì thay.' : '.') + ' Mã loại: ' + type + '.');
+        if (rules.tiles?.length) item('Bàn có ' + rules.tiles.length + ' ô đặt sẵn; xem vị trí trong cấu hình đầy đủ (trường tiles).');
+        for (const spawn of rules.tileSpawns || []) {
+          const region = spawn.region ? ' trong vùng hàng ' + (spawn.region.rowFrom + 1) + '–' + (spawn.region.rowTo + 1) + ', cột ' + (spawn.region.colFrom + 1) + '–' + (spawn.region.colTo + 1) : '';
+          item('Mỗi trận rải ngẫu nhiên theo mã khởi tạo ' + spawn.count[0] + '–' + spawn.count[1] + (spawn.symmetry === 'point' ? ' cặp ô đối xứng qua tâm bàn' : ' ô') + region + ': ' + spawn.types.map(type => rules.tileTypes[type].render.label).join('; ') + '. Vị trí thật nằm trong state.tiles mỗi lượt.');
+        }
+        item('Nước ăn quân đang có khiên vẫn nằm trong legal_moves, nhưng chỉ làm vỡ khiên và quân của bạn đứng yên. Đọc piece.effect để biết.');
+      } else item(rules.powerUps ? 'Có vật phẩm tăng sức mạnh: sinh ngẫu nhiên tối đa 3 ở ô trống; quân nhặt được có thể ăn cả quân cùng loại. Vật phẩm không sinh lại.' : 'Không có vật phẩm tăng sức mạnh.');
       item('Tọa độ bắt đầu từ 0. Vị trí nhà và vị trí xuất phát nằm trong cấu hình đầy đủ bên dưới; quân được xáo trộn theo mã khởi tạo. Bot nên đọc luật, trạng thái và danh sách nước hợp lệ máy chủ gửi, không cố định bàn cờ trong mã.');
     } else item('Vòng này dùng bộ máy luật riêng. Hãy xem cấu hình đầy đủ và thông báo của ban tổ chức trước khi nộp.');
     rulePanel.append(list);
@@ -386,7 +436,7 @@ async function loadSubmissions() {
   if (!data.submissions.length) list.textContent = 'Chưa có phiên bản nào. Tải mã mẫu trong mục Hướng dẫn hoặc chọn file để nộp bot đầu tiên.';
   for (const submission of data.submissions) {
     const row = document.createElement('div'); row.className = 'submission-row';
-    const info = document.createElement('div'), title = document.createElement('strong'); title.textContent = `v${submission.version} · ${submission.filename}`;
+    const info = document.createElement('div'), title = document.createElement('strong'); title.textContent = `v${submission.version} · ${submission.commit_sha ? `commit ${submission.commit_sha.slice(0, 7)}${submission.origin === 'deadline' ? ' (lấy lúc hết hạn)' : ''}` : submission.filename}`;
     const badge = document.createElement('span'); badge.className = `status-badge ${submission.status.toLowerCase().replace(' ', '-')}`; badge.textContent = submissionLabels[submission.status] || submission.status;
     info.append(title, badge);
     if (submission.active) { const active = document.createElement('span'); active.className = 'status-badge active'; active.textContent = submissionStageId ? 'ĐANG CHỌN CHO GIAI ĐOẠN NÀY' : 'ĐANG CHỌN NGOÀI GIẢI'; info.append(active); }
@@ -415,7 +465,7 @@ async function loadSubmissionDetail() {
       ? 'Máy chủ đang gặp sự cố và đã tạm dừng kiểm tra. Bấm “Thử lại” hoặc báo ban tổ chức. Bạn chưa cần sửa code vì thông báo này.'
       : 'Máy chủ gặp sự cố và sẽ tự thử lại. Bạn chưa cần sửa code hoặc nộp lại bài.';
   } else if (submission.status === 'Rejected') {
-    reason.textContent = submissionHints[submission.reason_code] || 'Bài chưa vượt qua kiểm tra. Mở “Chi tiết kỹ thuật” để xem lý do; nếu chưa hiểu, gửi thông báo đó cho giảng viên hoặc ban tổ chức.';
+    const hint = OTT.explain(submission.reason_code, submission.reason); reason.textContent = `${hint.title} ${hint.fix}${hint.detail ? ` Chi tiết: ${hint.detail}` : ''}`;
   } else {
     reason.textContent = 'Bot được kiểm tra bằng hai ván thử. Chỉ cần chạy đúng luật và trong thời gian cho phép, không bắt buộc thắng. Hai ván này không tính điểm.';
   }

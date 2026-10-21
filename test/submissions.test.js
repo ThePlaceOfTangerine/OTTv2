@@ -120,5 +120,5 @@ test('expired leases are recovered after restart, and upload queue limits are en
   db.prepare("UPDATE bot_submissions SET job_status='running',worker_id='old-worker',lease_until=0,attempts=1 WHERE id=?").run(first.id);
   service.start(); await service.idle();
   assert.equal(service.detail(first.id,1).status,'Accepted'); assert.equal(service.detail(first.id,1).attempts,2);
-  assert.ok(service.detail(first.id,1).events.some(event=>event.message.includes('ngừng phản hồi')));
+  assert.ok(service.detail(first.id,1).events.some(event=>event.message.includes('khởi động lại')), 'jobs of the previous process are requeued at start without waiting for the lease');
 }));

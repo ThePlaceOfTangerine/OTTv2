@@ -11,8 +11,9 @@
     if (request !== sequence || select.value !== id) return;
     status.textContent = data.status === 'not_started' ? 'Ban tổ chức chưa bắt đầu vòng loại.'
       : `${data.status === 'paused' ? 'Vòng loại đang tạm dừng' : data.status === 'cancelled' ? 'Vòng loại đã hủy; không duyệt đội đi tiếp' : data.status === 'finished' ? 'Đã hoàn tất vòng loại; chờ ban tổ chức duyệt kết quả' : 'Điểm tạm tính trong khi thi đấu'} · ${data.rounds.filter(r => r.status === 'finished').length}/${data.preview.rounds} vòng hoàn tất. Thứ tự xét khi bằng điểm: tổng điểm đối thủ → điểm đối thủ có trọng số → điểm ván → bốc thăm.`;
-    table(document.getElementById('portal-swiss-standings'), ['Hạng', 'Đội', 'Bản bot', 'Điểm vòng loại', 'Tổng điểm đối thủ', 'Điểm đối thủ có trọng số', 'Điểm ván', 'Lượt miễn đấu'],
-      data.standings.map(e => [e.rank, e.username, 'v' + e.version, e.points, e.buchholz, e.sonnebornBerger, e.gamePoints, e.byes]));
+    table(document.getElementById('portal-swiss-standings'), ['Hạng', '±', 'Đội', 'Huy hiệu', 'Bản bot', 'Điểm vòng loại', 'Tổng điểm đối thủ', 'Điểm đối thủ có trọng số', 'Điểm ván', 'Lượt miễn đấu'],
+      data.standings.map(e => [e.rank, OTT.rankChangeText(e.rankChange), e.username, OTT.badgeCell(e.badges), 'v' + e.version, e.points, e.buchholz, e.sonnebornBerger, e.gamePoints, e.byes]));
+    if (data.standings.length) document.getElementById('portal-swiss-standings').append(OTT.badgeLegend());
     if (data.controlReason) status.textContent += ' Lý do: ' + data.controlReason;
     if (data.qualification) status.textContent = `Đã duyệt ${data.qualification.topN} đội đi tiếp: ${data.qualification.teams.map(e => `${e.username} (hạt giống ${e.seed})`).join(', ')}. Vòng loại trực tiếp chưa bắt đầu.`;
     renderBracket(document.getElementById('portal-bracket'), bracketResult.bracket);

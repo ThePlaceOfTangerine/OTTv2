@@ -148,6 +148,11 @@ test('Swiss worker runs pinned bots, swapped seeds, awards pairs once, then comp
     result = f.swiss.next(f.tournament.id, 1, { expectedRevision: result.revision }); await idle(f.swiss);
     result = f.swiss.get(f.tournament.id); assert.equal(result.status, 'finished');
     assert.equal(f.tournaments.get(f.tournament.id).status, 'provisional');
+    // The fixture's losers crash: their games record fault_user, and only teams without such a game keep "Bot mẫu mực".
+    const faulted = new Set(f.db.prepare('SELECT fault_user FROM swiss_games WHERE fault_user IS NOT NULL').all().map(row => row.fault_user));
+    assert.ok(faulted.size > 0 && !faulted.has(2));
+    for (const row of result.standings) assert.equal(row.badges.some(b => b.code === 'clean'), row.played > 0 && !faulted.has(row.userId), row.username);
+    assert.ok(result.standings.every(row => typeof row.rankChange === 'number'));
     assert.equal(result.rounds.length, 2); assert.equal(result.standings.find(e => e.userId === 2).points, 2);
     assert.equal(new Set(result.pairs.filter(p => p.user1 === null).map(p => p.user0)).size, 2);
     assert.ok(f.swiss.export(f.tournament.id).includes('swiss_points')); assert.ok(!f.swiss.get(f.tournament.id, false).pairs);
@@ -241,4 +246,40 @@ test('Swiss pause drains current game, persists control across worker restart an
     assert.throws(() => c.swiss.resume(cid, 1, body()), status(409));
     assert.throws(() => c.swiss.approve(cid, 1, { expectedRevision: c.tournaments.get(cid).revision, swissRevision: body().expectedRevision, topN: 2, reason: 'Không được' }), status(409));
   } finally { await c.swiss.close(); c.db.close(); }
+});
+
+test('Swiss pairing scales to 1000 teams in blocks: no rematch, no repeated bye, close ranks, deterministic', () => {
+  const n = 1000, players = entrants(n), history = [], used = new Set(), byes = new Set();
+  const started = performance.now();
+  for (let round = 1; round <= 8; round++) {
+    const ranking = standings(players, history, 'thousand'), rank = new Map(ranking.map(row => [row.userId, row.rank]));
+    const plan = pairRound(ranking, history);
+    if (round === 1) assert.deepEqual(pairRound(ranking, history), plan);
+    const playing = plan.pairs.flat();
+    assert.equal(plan.bye, null); assert.equal(new Set(playing).size, n);
+    plan.pairs.forEach(([a, b], i) => {
+      const key = [a, b].sort((x, y) => x - y).join(':'); assert.ok(!used.has(key), `rematch ${key}`); used.add(key);
+      assert.ok(Math.abs(rank.get(a) - rank.get(b)) < 384, 'pairs stay inside their block of nearby ranks');
+      const score = (round + i) % 3;
+      history.push({ status: 'finished', user0: a, user1: b, result0_units: score, result1_units: 2 - score, game0_units: score * 2, game1_units: (2 - score) * 2 });
+    });
+  }
+  const odd = entrants(999), first = pairRound(standings(odd, [], 'odd'), []);
+  assert.ok(first.bye !== null && first.pairs.length === 499 && !first.pairs.flat().includes(first.bye));
+  assert.ok(performance.now() - started < 30000, 'Pairing 1000 teams over 8 rounds took longer than 30 seconds');
+});
+
+test('up to 256 teams the block search is the same single exact search; a blocked block absorbs the next one', () => {
+  const players = entrants(150), history = [];
+  for (let round = 1; round <= 4; round++) {
+    const ranking = standings(players, history, 'same'), plan = pairRound(ranking, history);
+    assert.deepEqual(plan.pairs, pairRound(ranking, history, { chunk: Infinity }).pairs);
+    plan.pairs.forEach(([a, b]) => history.push({ status: 'finished', user0: a, user1: b, result0_units: 1, result1_units: 1, game0_units: 2, game1_units: 2 }));
+  }
+  // Teams ranked 1–4 have all met each other, so a 4-team block cannot be paired alone and must take the next block.
+  const rows = standings(entrants(8), [], 'merge'), top = rows.slice(0, 4).map(r => r.userId);
+  const met = []; for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) met.push({ user0: top[i], user1: top[j] });
+  const plan = pairRound(rows, met, { chunk: 4 });
+  assert.equal(plan.pairs.length, 4);
+  for (const [a, b] of plan.pairs) assert.ok(!(top.includes(a) && top.includes(b)), 'no rematch inside the merged block');
 });

@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Portal thi đấu
+Exec=firefox-esr
+X-GNOME-Autostart-enabled=true

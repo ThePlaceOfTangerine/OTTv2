@@ -35,3 +35,9 @@ Thumbs.db
 *.db-wal
 *.tmp
 *.bak
+
+# Classroom packages (npm run package:classroom).
+/dist/
+
+# Wrangler (Cloudflare) local cache.
+/.wrangler/

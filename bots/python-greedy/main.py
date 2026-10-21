@@ -5,9 +5,15 @@ import sys
 request = json.loads(sys.stdin.readline())
 board = request['state']['board']
 player = request['player_index']
-home = request['rules']['homes'][1 - player]
+rules = request['rules']
+home = rules['homes'][1 - player]
 # Luật cũ không có powerUps: khi đó danh sách này rỗng.
 power_ups = request['state'].get('powerUps', [])
+# Luật mới mô tả ô trong state['tiles'] (type + tags); loại ô có "effect"
+# trong rules['tileTypes'] là ô hiệu ứng (wildcard, shield, dash...).
+tile_types = rules.get('tileTypes', {})
+effect_tiles = {(t['row'], t['col']) for t in request['state'].get('tiles', [])
+                if tile_types.get(t['type'], {}).get('effect')}
 
 # THAY CHIẾN THUẬT Ở ĐÂY.
 # Chỉ chọn từ legal_moves: hệ thống đã xét ô chặn, ô ngoài bản đồ,
@@ -19,10 +25,14 @@ def score(move):
     # Chiếm nhà đối thủ là thắng ngay.
     if row == home['row'] and col == home['col']:
         return 100000
-    points = 40 if board[row][col] is not None else 0
-    # Quân có powered=True đã được nâng cấp, không cần ưu tiên nhặt thêm.
-    # Nâng cấp ăn được cùng loại + loại yếu hơn; vẫn thua loại khắc chế.
-    if [row, col] in power_ups and not piece.get('powered', False):
+    target = board[row][col]
+    points = 0
+    if target is not None:
+        # Quân có khiên (effect == 'shield') không bị ăn: nước này chỉ làm vỡ khiên.
+        points = 5 if target.get('effect') == 'shield' else 40
+    # Quân đã có powered hoặc effect thì không cần ưu tiên nhặt thêm.
+    has_bonus = piece.get('powered', False) or piece.get('effect')
+    if not has_bonus and ([row, col] in power_ups or (row, col) in effect_tiles):
         points += 15
     # Chỉ là gợi ý tiến gần nhà, không phải số lượt cần để đến đó.
     # Với bản đồ có chướng ngại hoặc kiểu đi khác, có thể sửa cách tính này.

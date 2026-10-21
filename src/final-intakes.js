@@ -44,6 +44,7 @@ class FinalIntakes {
       if (tournament.revision !== body.expectedRevision || tournament.status !== 'provisional' || this.db.prepare('SELECT 1 FROM bracket_runs WHERE tournament_id=?').get(id)) fail(409, 'Dữ liệu đã thay đổi hoặc đã chạy loại trực tiếp.');
       const intake = this.get(id), stage = intake && this.stages.row(intake.stage.id);
       if (!stage || this.stages.status(stage) !== 'closing') fail(409, 'Phải kết thúc nhận bài trước khi chốt bot nộp lại.');
+      if (this.stages.repos?.pending(stage.id)) fail(409, 'Đang lấy commit tại hạn nộp từ GitHub của các đội. Chờ hoàn tất rồi chốt bot.');
       if (this.db.prepare("SELECT 1 FROM bot_submissions WHERE stage_id=? AND job_status IN ('queued','running','blocked') LIMIT 1").get(stage.id)) fail(409, 'Còn bài đang chờ, đang kiểm tra hoặc lỗi hạ tầng. Xử lý hết trước khi chốt.');
       const entrants = intake.stage.entrants;
       for (const entrant of entrants) {

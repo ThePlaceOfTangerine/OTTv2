@@ -128,7 +128,9 @@ test('migration from schema 7 preserves old data; tournaments persist after reop
     db = openDatabase(file);
     db.prepare("INSERT INTO users(id,username,password_hash,role,created_at) VALUES (10,'historical','unused','contestant',0)").run();
     // Build the previous schema in this dedicated temporary fixture only.
-    db.exec(`DROP TABLE swiss_controls; DELETE FROM migrations WHERE version=16; DROP TABLE tournament_final_intakes; DELETE FROM migrations WHERE version=15;
+    db.exec(`DROP TABLE repo_snapshots; DROP TABLE repo_pushes; DROP TABLE team_repos; DROP TABLE team_profiles; DROP INDEX submissions_commit; DROP INDEX submissions_sha;
+      ALTER TABLE bot_submissions DROP COLUMN origin; ALTER TABLE bot_submissions DROP COLUMN commit_sha; ALTER TABLE bot_submissions DROP COLUMN repo_full_name; DELETE FROM migrations WHERE version=17;
+      DROP TABLE swiss_controls; DELETE FROM migrations WHERE version=16; DROP TABLE tournament_final_intakes; DELETE FROM migrations WHERE version=15;
       DROP TABLE tournament_final_rules; DELETE FROM migrations WHERE version=14;
       DROP TABLE bracket_games; DROP TABLE bracket_runs; DELETE FROM migrations WHERE version=13;
       DROP TABLE tournament_brackets; DELETE FROM migrations WHERE version=12;

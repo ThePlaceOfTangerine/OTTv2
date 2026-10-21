@@ -14,6 +14,7 @@ const workspaceViews = workspaceAdmin ? {
 } : {
   start: ['Bắt đầu', 'Làm quen với trò chơi và nộp bot đầu tiên trong 4 bước.'],
   bots: ['Bot của tôi', 'Nộp file code, xem kết quả kiểm tra và chọn bản để thi đấu.'],
+  team: ['Đội & GitHub', 'Thông tin thành viên, xác minh repo GitHub và cách nộp bằng commit.'],
   scores: ['Bảng xếp hạng', 'Kết quả thi đấu theo từng vòng do ban tổ chức tạo.'],
   help: ['Hướng dẫn', 'Tải mã mẫu, nộp thử và học cách chọn nước đi.']
 };

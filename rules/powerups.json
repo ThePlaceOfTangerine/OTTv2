@@ -1,0 +1,130 @@
+{
+  "id": "ottv2-powerups",
+  "version": 1,
+  "engine": "rps-grid-v1",
+  "name": "OTTv2 Power-ups",
+  "randomExtraPiece": true,
+  "boardSize": 9,
+  "homes": [
+    {
+      "row": 0,
+      "col": 8
+    },
+    {
+      "row": 8,
+      "col": 0
+    }
+  ],
+  "pieceTypes": [
+    "R",
+    "R",
+    "R",
+    "P",
+    "P",
+    "P",
+    "S",
+    "S",
+    "S",
+    "S"
+  ],
+  "beats": {
+    "R": "S",
+    "S": "P",
+    "P": "R"
+  },
+  "directions": [
+    [-1,-1],
+    [-1,0],
+    [-1,1],
+    [0,-1],
+    [0,1],
+    [1,-1],
+    [1,0],
+    [1,1]
+  ],
+  "startingPositions": [
+    [
+      [0,6],
+      [1,7],
+      [2,8],
+      [0,5],
+      [1,6],
+      [2,7],
+      [3,8],
+      [1,5],
+      [2,6],
+      [3,7]
+    ],
+    [
+      [8,2],
+      [7,1],
+      [6,0],
+      [8,3],
+      [7,2],
+      [6,1],
+      [5,0],
+      [7,3],
+      [6,2],
+      [5,1]
+    ]
+  ],
+  "maxMoves": 500,
+  "repetitionLimit": 3,
+  "noLegalMoves": "loss",
+  "onMoveLimit": "material",
+  "tileTypes": {
+    "wildcard": {
+      "passable": true,
+      "tags": [
+        "effect"
+      ],
+      "effect": "wildcard",
+      "render": {
+        "color": "#7c3aed",
+        "symbol": "W",
+        "label": "Wildcard: ăn mọi quân"
+      }
+    },
+    "shield": {
+      "passable": true,
+      "tags": [
+        "effect"
+      ],
+      "effect": "shield",
+      "render": {
+        "color": "#0e7490",
+        "symbol": "S",
+        "label": "Khiên: chặn một lần bị ăn"
+      }
+    },
+    "dash": {
+      "passable": true,
+      "tags": [
+        "effect"
+      ],
+      "effect": "dash",
+      "render": {
+        "color": "#c2410c",
+        "symbol": "D",
+        "label": "Lướt: ăn xong đi thêm 1 ô"
+      }
+    }
+  },
+  "tileSpawns": [
+    {
+      "types": [
+        "wildcard",
+        "shield",
+        "dash"
+      ],
+      "count": [1,2],
+      "region": {
+        "rowFrom": 3,
+        "rowTo": 5,
+        "colFrom": 3,
+        "colTo": 5
+      },
+      "symmetry": "point"
+    }
+  ]
+}

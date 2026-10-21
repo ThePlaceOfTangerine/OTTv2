@@ -1,0 +1,12 @@
+/* Data-driven tiles (RuleSet.tileTypes[type].render): colour comes from --tile-color. */
+.tile-custom{position:relative;box-shadow:inset 0 0 0 3px var(--tile-color);background-image:linear-gradient(color-mix(in srgb,var(--tile-color) 22%,transparent),color-mix(in srgb,var(--tile-color) 22%,transparent))}
+.tile-impassable{background-image:repeating-linear-gradient(45deg,color-mix(in srgb,var(--tile-color) 70%,transparent) 0 5px,color-mix(in srgb,var(--tile-color) 40%,transparent) 5px 10px)}
+.tile-unknown{position:relative;box-shadow:inset 0 0 0 2px #7a7a7a;background-image:repeating-linear-gradient(135deg,#00000014 0 4px,transparent 4px 8px)}
+.tile-mark{position:absolute;top:2px;left:3px;font:700 11px/1 system-ui,sans-serif;color:var(--tile-color,#555);pointer-events:none}
+.tile-impassable .tile-mark{color:#fff}
+.effect-badge{position:absolute;right:-4px;bottom:-4px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:var(--tile-color,#555);color:#fff;font:700 10px/16px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2px #fff}
+.rule-board .spawn-region{outline:2px dashed #b45309;outline-offset:-4px}
+.map-tools button .tile-swatch{display:inline-block;width:12px;height:12px;margin-right:6px;border-radius:3px;background:var(--tile-color);vertical-align:-1px}
+/* Built-in terrain for boards outside the admin console (public site). */
+.terrain-void{background:repeating-linear-gradient(135deg,#34443e 0 3px,#40534a 3px 6px)}
+.terrain-blocked{background:repeating-linear-gradient(45deg,#6c7d66 0 5px,#94a08a 5px 10px);box-shadow:inset 0 0 0 2px #40543e}

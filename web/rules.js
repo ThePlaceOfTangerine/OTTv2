@@ -77,6 +77,7 @@ function loadRuleDraft(rules) {
   if (rules.engine !== 'rps-grid-v1' || (rules.playerPieceTypes || [rules.pieceTypes]).flat().some(t => !Object.hasOwn(pieceNames,t))) throw new Error('Trình chỉnh bàn cờ hỗ trợ quân Búa/Bao/Kéo của rps-grid-v1.');
   ruleDraft = structuredClone(rules); previewBoard = null;
   ruleDraft.blockedCells ||= []; ruleDraft.voidCells ||= [];
+  if (ruleDraft.tileTypes) ruleDraft.tiles ||= [];
   el('rule-rows').value=editorRows(); el('rule-cols').value=editorCols();
   el('rule-shape').value=['rectangle','diamond','cross','custom'].includes(ruleDraft.boardShape)?ruleDraft.boardShape:ruleDraft.voidCells.length ? 'custom' : 'rectangle';
   el('rule-max-moves').value=rules.maxMoves; el('rule-repetition').value=rules.repetitionLimit;
@@ -88,7 +89,21 @@ function loadRuleDraft(rules) {
   el('rule-piece-mode').value=rules.randomExtraPiece ? 'random' : 'custom';
   for (const type of ['R','P','S']) el(`rule-count-${type}`).value=(rules.playerPieceTypes?.[0] || rules.pieceTypes).filter(t=>t===type).length;
   el('rule-power-ups').checked=!!rules.powerUps;
-  loadMovementFields(rules);updatePieceMode(); renderRuleBoard();
+  // Data-driven tiles replace the legacy power-up switch.
+  el('rule-power-ups').disabled=!!rules.tileTypes;
+  el('rule-power-ups').title=rules.tileTypes?'Bộ luật dùng loại ô (tileTypes); khai báo ô hiệu ứng bằng tileSpawns trong JSON nâng cao.':'';
+  renderTileTools();loadMovementFields(rules);updatePieceMode(); renderRuleBoard();
+}
+// One map tool per tile type declared in the RuleSet; new types appear here without changing this file.
+function renderTileTools() {
+  el('map-tools').querySelectorAll('.tile-tool').forEach(button => button.remove());
+  if (mapTool.startsWith('tile:') && !ruleDraft.tileTypes?.[mapTool.slice(5)]) mapTool = 'floor';
+  for (const [type, definition] of Object.entries(ruleDraft.tileTypes || {})) {
+    const button = textNode('button', definition.render.label); button.type = 'button'; button.className = 'tile-tool'; button.dataset.tool = `tile:${type}`;
+    const swatch = textNode('span', ''); swatch.className = 'tile-swatch'; swatch.style.setProperty('--tile-color', definition.render.color); button.prepend(swatch);
+    button.setAttribute('aria-pressed', String(mapTool === button.dataset.tool)); el('map-tools').append(button);
+  }
+  el('map-tools').querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tool === mapTool)));
 }
 function updatePieceMode() {
   const random=el('rule-piece-mode').value==='random';
@@ -101,7 +116,8 @@ function buildEditorRules() {
   const r=structuredClone(ruleDraft);
   Object.assign(r,{boardSize:Math.max(editorRows(),editorCols()),boardRows:editorRows(),boardCols:editorCols(),maxMoves:Number(el('rule-max-moves').value),repetitionLimit:Number(el('rule-repetition').value),boardTheme:el('rule-theme').value,beats:coreBeats});
   r.randomExtraPiece=el('rule-piece-mode').value==='random';
-  r.symmetricArmies=true;r.powerUps=el('rule-power-ups').checked;delete r.playerPieceTypes;
+  r.symmetricArmies=true;r.powerUps=!r.tileTypes&&el('rule-power-ups').checked;delete r.playerPieceTypes;
+  if(!r.tileTypes)delete r.tiles;
   if (r.randomExtraPiece) { r.pieceTypes=['R','R','R','P','P','P','S','S','S','S']; delete r.playerPieceTypes; }
   else {
     r.pieceTypes=piecePool(0);
@@ -124,6 +140,9 @@ function renderRuleBoard() {
     let meaning='Ô trống';
     if(blocked.has(key)){cell.classList.add('terrain-blocked');meaning='Ô chặn';}
     if(voids.has(key)){cell.classList.add('terrain-void');meaning='Ngoài bản đồ';}
+    const tile=ruleDraft.tiles?.find(t=>sameCell(t.at,row,col));
+    if(tile)meaning=paintTile(cell,ruleDraft,tile.type);
+    if((ruleDraft.tileSpawns||[]).some(s=>{const g={rowFrom:0,rowTo:rows-1,colFrom:0,colTo:cols-1,...s.region};return row>=g.rowFrom&&row<=g.rowTo&&col>=g.colFrom&&col<=g.colTo;})){cell.classList.add('spawn-region');meaning+=' · Vùng rải ô ngẫu nhiên mỗi trận';}
     if(home>=0){cell.classList.add('map-home',`side-${home}`);cell.textContent=home===0?'★A':'★B';meaning=`Nhà ${home===0?'A':'B'}`;}
     if(side>=0){cell.classList.add('map-spawn',`side-${side}`);cell.textContent=side===0?'A':'B';meaning=`Vị trí quân ${side===0?'A':'B'}`;}
     const piece=previewBoard?.[row]?.[col];
@@ -133,7 +152,10 @@ function renderRuleBoard() {
   }
   const summary=el('rule-board-summary');summary.replaceChildren();
   const terrain=document.createElement('div');terrain.className='board-facts';
-  for(const [label,value]of [['Kích thước',`${rows} hàng × ${cols} cột`],['Ô chặn',`${blocked.size} ô không thể đi vào`],['Ngoài bản đồ',`${voids.size} ô đã bỏ`]]){
+  const facts=[['Kích thước',`${rows} hàng × ${cols} cột`],['Ô chặn',`${blocked.size} ô không thể đi vào`],['Ngoài bản đồ',`${voids.size} ô đã bỏ`]];
+  if(ruleDraft.tileTypes)facts.push(['Ô đặt sẵn',`${ruleDraft.tiles.length} ô theo loại ô của bộ luật`]);
+  for(const spawn of ruleDraft.tileSpawns||[])facts.push(['Rải mỗi trận',`${spawn.count[0]}–${spawn.count[1]} ${spawn.symmetry==='point'?'cặp đối xứng':'ô'} trong vùng viền cam`]);
+  for(const [label,value]of facts){
     const item=document.createElement('div');item.append(textNode('span',label),textNode('strong',value));terrain.append(item);
   }
   const armies=document.createElement('div');armies.className='board-armies';
@@ -156,12 +178,14 @@ function renderRuleBoard() {
   const positions=spawnSide===null?new Set():new Set(ruleDraft.startingPositions[spawnSide].map(p=>p.join(',')));
   if(full)for(const [index,cell]of [...board.children].entries())if(!positions.has(`${Math.floor(index/cols)},${index%cols}`))cell.setAttribute('aria-disabled','true');
   const toolHints={floor:'Ô cờ: bấm ô đang có để xóa khỏi bản đồ; bấm ô đã bỏ để thêm lại. Quân hoặc ô chặn trên ô bị xóa cũng được bỏ.',blocked:'Ô chặn: bấm để thêm chướng ngại vật; bấm lại ô chặn để bỏ chướng ngại vật.',home0:'Nhà A: bấm ô mới để chuyển nhà A đến đó. Nhà luôn có đúng một ô.',home1:'Nhà B: bấm ô mới để chuyển nhà B đến đó. Nhà luôn có đúng một ô.',spawn0:'Quân A: bấm ô để thêm quân A; bấm lại quân A để bỏ.',spawn1:'Quân B: bấm ô để thêm quân B; bấm lại quân B để bỏ.'};
+  if(mapTool.startsWith('tile:'))toolHints[mapTool]=`${ruleDraft.tileTypes[mapTool.slice(5)].render.label}: bấm ô để đặt, bấm lại để bỏ. Không đặt trên nhà hoặc vị trí quân.`;
   el('rule-board-feedback').textContent=full?`Bên ${spawnSide===0?'A':'B'} đã đủ quân. Bấm lại một quân cùng bên để bỏ, rồi chọn ô mới. Muốn tăng quân, đổi số lượng ở mục 4.`:toolHints[mapTool];
 }
 function paintCell(row,col) {
   if(!ruleDraft)return;
   const home=ruleDraft.homes.findIndex(h=>h.row===row&&h.col===col);
   if(home>=0 && mapTool!==`home${home}`){boardNotice('Ô này là nhà. Chọn công cụ Nhà tương ứng rồi đặt nhà sang ô khác trước.');return;}
+  if(mapTool.startsWith('tile:')&&ruleDraft.startingPositions.some(positions=>positions.some(p=>sameCell(p,row,col)))){boardNotice('Không đặt ô đặc biệt trên vị trí xuất phát của quân. Bỏ quân ở ô này trước.');return;}
   const wasOwn=mapTool.startsWith('spawn') && ruleDraft.startingPositions[Number(mapTool.slice(-1))].some(p=>sameCell(p,row,col));
   if(mapTool.startsWith('spawn')&&!wasOwn){
     const side=Number(mapTool.slice(-1));
@@ -175,6 +199,8 @@ function paintCell(row,col) {
   const key=[row,col];
   const wasBlocked=ruleDraft.blockedCells.some(p=>sameCell(p,row,col));
   const wasVoid=ruleDraft.voidCells.some(p=>sameCell(p,row,col));
+  const wasTile=ruleDraft.tiles?.some(t=>sameCell(t.at,row,col)&&`tile:${t.type}`===mapTool);
+  if(ruleDraft.tiles)ruleDraft.tiles=ruleDraft.tiles.filter(t=>!sameCell(t.at,row,col));
   if(mapTool.startsWith('home')) {
     const side=Number(mapTool.slice(-1));ruleDraft.homes[side]={row,col};
   }
@@ -183,11 +209,12 @@ function paintCell(row,col) {
   if(mapTool==='blocked'&&!wasBlocked)ruleDraft.blockedCells.push(key);
   if(mapTool==='floor'&&!wasVoid)ruleDraft.voidCells.push(key);
   if(mapTool.startsWith('spawn')&&!wasOwn)ruleDraft.startingPositions[Number(mapTool.slice(-1))].push(key);
+  if(mapTool.startsWith('tile:')&&!wasTile)ruleDraft.tiles.push({at:key,type:mapTool.slice(5)});
   ruleDraft.boardShape='custom';el('rule-shape').value='custom'; renderRuleBoard(); el('rule-message').textContent='Đã chỉnh bàn cờ. Bấm Lưu bộ luật để lưu thay đổi.';
 }
 function autoPlace() {
   if(!ruleDraft)return;
-  const taken=new Set([...ruleDraft.blockedCells,...ruleDraft.voidCells,...ruleDraft.homes.map(h=>[h.row,h.col])].map(p=>p.join(','))), positions=[[],[]];
+  const taken=new Set([...ruleDraft.blockedCells,...ruleDraft.voidCells,...(ruleDraft.tiles||[]).map(t=>t.at),...ruleDraft.homes.map(h=>[h.row,h.col])].map(p=>p.join(','))), positions=[[],[]];
   const counts=[expectedPieces(0),expectedPieces(1)];
   if(counts.some(n=>n<1||n>128))throw new Error('Mỗi bên cần từ 1 đến 128 quân.');
   if(editorRows()*editorCols()-taken.size<counts[0]+counts[1])throw new Error('Không đủ ô trống để đặt quân. Giảm số quân, xóa bớt ô chặn hoặc tăng bản đồ.');
@@ -218,7 +245,9 @@ function applyLayout() {
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(!voids.has(`${r},${c}`)&&!blocked.has(`${r},${c}`))cells.push({row:r,col:c});
     if(cells.length<4)throw new Error('Bản đồ cần đủ ô cho hai nhà và quân hai bên.');
     cells.sort((a,b)=>(a.row+(cols-1-a.col))-(b.row+(cols-1-b.col))||a.row-b.row);
-    ruleDraft.homes=[cells[0],cells[cells.length-1]];autoPlace();
+    ruleDraft.homes=[cells[0],cells[cells.length-1]];
+    if(ruleDraft.tiles)ruleDraft.tiles=ruleDraft.tiles.filter(t=>inside(t.at)&&!voids.has(t.at.join(','))&&!blocked.has(t.at.join(','))&&!ruleDraft.homes.some(h=>sameCell(t.at,h.row,h.col)));
+    autoPlace();
     el('rule-message').textContent='Đã cập nhật bản đồ và xếp quân. Có thể sửa từng ô trước khi lưu.';
   }catch(error){ruleDraft=old;el('rule-rows').value=editorRows();el('rule-cols').value=editorCols();el('rule-shape').value=old.boardShape||(old.voidCells.length?'custom':'rectangle');renderRuleBoard();throw error;}
 }
@@ -240,7 +269,8 @@ async function loadRuleSelection(version) {
   el('rule-version').replaceChildren(...row.versions.map(v=>{const option=textNode('option',`Bản ${v.version}${v.version===row.versions[0].version?' (mới nhất)':' (cũ)'}`);option.value=v.version;return option;}));
   el('rule-version').value=row.version;el('rule-name').value=row.rules.name;loadRuleDraft(row.rules);el('rule-json').value=JSON.stringify(row.rules,null,2);el('rule-message').textContent='';
 }
-el('map-tools').querySelectorAll('button').forEach(button=>button.onclick=()=>{mapTool=button.dataset.tool;previewBoard=null;el('map-tools').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));renderRuleBoard();});
+// Delegated so tile tools added per RuleSet work like the fixed tools.
+el('map-tools').addEventListener('click',event=>{const button=event.target.closest('button[data-tool]');if(!button)return;mapTool=button.dataset.tool;previewBoard=null;el('map-tools').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));renderRuleBoard();});
 el('rule-select').onchange=()=>loadRuleSelection().catch(ruleNotice);
 el('rule-version').onchange=()=>loadRuleSelection(Number(el('rule-version').value)).catch(ruleNotice);
 el('rule-new').onclick=()=>{if(!ruleTemplate)return;ruleSelection=null;el('rule-history-field').hidden=true;el('rule-name').value='Bộ luật mới';loadRuleDraft(ruleTemplate);el('rule-message').textContent='Đang tạo luật mới. Chỉnh bản đồ rồi lưu.';};

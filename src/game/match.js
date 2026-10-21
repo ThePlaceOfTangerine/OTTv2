@@ -29,7 +29,7 @@ async function runMatch({ seed, rules = DEFAULT_RULES, bots, choose, limits = LI
       const move = Object.fromEntries(['fromRow','fromCol','toRow','toCol'].map(k => [k, output.move[k]]));
       if (!request.legal_moves.some(m => Object.keys(move).every(k => m[k] === move[k]))) throw new BotFault('illegal_move');
       engine.apply(move); userdata[player] = output.userdata ?? null;
-      replay.turns.push({ request_id: request.request_id, player, move, userdata: userdata[player], cpu_ms: response.cpu_ms, stderr: response.stderr || '' });
+      replay.turns.push({ request_id: request.request_id, player, move, userdata: userdata[player], cpu_ms: response.cpu_ms, stderr: response.stderr || '', ...(engine.lastChanges ? { changes: engine.lastChanges } : {}) });
     } catch (error) {
       if (!(error instanceof BotFault)) throw error;
       if (error.metrics && Number.isFinite(error.metrics.cpu_ms)) replay.cpu_ms[player] += error.metrics.cpu_ms;
@@ -46,6 +46,8 @@ function verifyReplay(replay) {
   for (const turn of replay.turns) {
     if (turn.player !== engine.snapshot().currentTurn || turn.request_id !== `turn-${engine.snapshot().moveCount}`) throw new Error('Replay turn mismatch');
     engine.apply(turn.move);
+    // Board diffs drive the replay UI, so they must match an independent recomputation exactly.
+    if (turn.changes !== undefined && JSON.stringify(turn.changes) !== JSON.stringify(engine.lastChanges)) throw new Error('Replay changes mismatch');
   }
   if (replay.fault) {
     if (engine.snapshot().status !== 'playing' || replay.fault.player !== engine.snapshot().currentTurn) throw new Error('Replay fault mismatch');

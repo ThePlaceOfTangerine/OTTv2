@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/assets/favicon.svg"><title>Cài đặt OTTv2</title><link rel="stylesheet" href="/assets/minimal.css"><link rel="stylesheet" href="/assets/setup.css"><script src="/assets/setup.js" defer></script></head>
+<body>
+<main id="main-content" class="setup">
+  <header class="page-header"><div><p class="eyebrow">CÀI ĐẶT LẦN ĐẦU</p><h1>Chào thầy cô! Ba bước là xong.</h1>
+    <p class="muted">Trang này chỉ mở trên chính máy đang chạy OTTv2 và tự khóa sau khi tạo tài khoản quản trị.</p></div></header>
+  <form id="setup-form">
+    <section aria-labelledby="step-admin"><h2 id="step-admin">1. Tài khoản quản trị (giáo viên)</h2>
+      <label for="admin-username">Tên đăng nhập</label><input id="admin-username" autocomplete="username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\-]{3,40}" value="giaovien">
+      <label for="admin-password">Mật khẩu</label><input id="admin-password" type="password" autocomplete="new-password" required minlength="12">
+      <label for="admin-confirm">Nhập lại mật khẩu</label><input id="admin-confirm" type="password" autocomplete="new-password" required minlength="12">
+      <p class="muted">Ít nhất 12 ký tự. Ghi lại ở nơi an toàn: không có cách lấy lại nếu quên.</p>
+    </section>
+    <section aria-labelledby="step-trust"><h2 id="step-trust">2. Mức tin cậy khi chạy bot</h2>
+      <p id="checks-status" role="status" class="muted">Đang kiểm tra máy…</p>
+      <label class="choice"><input type="radio" name="trust" value="classroom"> <span><strong>Lớp học có giám sát</strong> (khuyên dùng ở phòng máy trường)<br>
+        <span class="muted">Chạy ngay trên Windows, không cần quyền quản trị. Giới hạn thời gian, bộ nhớ và tiến trình con nhưng <strong>không chặn mạng và file</strong>: chỉ dùng khi có giáo viên giám sát. Kết quả là giải luyện tập, <strong>không chính thức</strong>.</span>
+        <span id="classroom-detail" class="muted"></span></span></label>
+      <label class="choice"><input type="radio" name="trust" value="official"> <span><strong>Giải chính thức</strong><br>
+        <span class="muted">Cách ly đầy đủ bằng Docker. Cần Docker đã cài và đang chạy.</span> <span id="official-detail" class="muted"></span></span></label>
+    </section>
+    <section aria-labelledby="step-class"><h2 id="step-class">3. Lớp học (có thể bỏ qua)</h2>
+      <label class="choice"><input type="checkbox" id="lan"> <span>Cho máy học sinh vào bằng mạng LAN của phòng máy<br>
+        <span class="muted">Học sinh mở http://&lt;địa chỉ máy giáo viên&gt;:3000/portal. Windows có thể hỏi quyền tường lửa; nếu không có quyền quản trị để cho phép, học sinh nộp bài qua USB/thư mục chung (mục Giải đấu → Nhập bài từ thư mục).</span></span></label>
+      <label for="class-file">Danh sách học sinh (CSV)</label><input id="class-file" type="file" accept=".csv,text/csv">
+      <textarea id="class-csv" rows="5" placeholder="username&#10;hs01&#10;hs02" aria-describedby="class-help"></textarea>
+      <p id="class-help" class="muted">Dòng đầu là <code>username</code>, mỗi dòng sau một tài khoản. Mật khẩu ban đầu trùng tên, học sinh đổi ở lần đăng nhập đầu. Có danh sách thì hệ thống tạo sẵn “Giải luyện tập” gồm cả lớp.</p>
+    </section>
+    <button id="setup-submit" type="submit">Hoàn tất cài đặt</button>
+    <p id="setup-message" role="alert"></p>
+  </form>
+  <section id="setup-done" hidden aria-labelledby="done-heading"><h2 id="done-heading" tabindex="-1">Đã cài đặt xong</h2>
+    <p id="done-status" role="status"></p>
+    <div id="done-credentials" hidden><p class="muted">Tài khoản học sinh (in ra và phát cho lớp; trang này chỉ hiện một lần):</p>
+      <table><thead><tr><th>Tài khoản</th><th>Mật khẩu ban đầu</th></tr></thead><tbody id="credentials-body"></tbody></table>
+      <button id="print-credentials" type="button" class="secondary-button">In danh sách</button></div>
+    <p><a id="done-link" href="/admin">Vào trang quản trị →</a></p>
+  </section>
+</main>
+</body>
+</html>

@@ -113,11 +113,11 @@ Bấm **Xem các ván đấu** trong một cặp để mở các nút xem lại.
 
 ## 8. Phạm vi hiện có và những việc cần chuẩn bị
 
-Hiện có thể chạy trọn giải với **cùng bot và bộ luật giữa vòng loại và loại trực tiếp**, xem lại ván và duyệt kết quả. Đã diễn tập thật 6 đội với Docker Python/C++; đây chưa phải chứng nhận chịu tải 150 đội.
+Hiện có thể chạy trọn giải với **cùng bot và bộ luật giữa vòng loại và loại trực tiếp**, xem lại ván và duyệt kết quả. Đã diễn tập thật 6 đội với Docker Python/C++. Thử tải 1.000 đội (đăng nhập, nộp bài sát hạn, vòng loại 8 lượt, 4.000 người xem) có số đo trong tài liệu docs/CAPACITY.md; thời gian chấm thật phụ thuộc số máy chấm.
 
 Đã có chế độ tự chạy toàn bộ, chế độ admin điều khiển từng cặp/vòng và bước chọn/chốt luật chính thức. Đã có công bố luật, cửa sổ nộp lại và kiểm tra theo luật chính thức. Chính sách yêu cầu bài hợp lệ trong đợt mới, không tự lấy bot vòng loại chưa được kiểm tra theo luật mới. Đã hỗ trợ chốt bot đợt mới và chạy loại trực tiếp theo luật đó. Sau khi mở nộp lại phải chốt đủ bot mới, không thể bỏ qua bằng bot cũ. Nếu muốn chạy ngay, hãy giữ luật vòng loại. Khi chưa chốt riêng, luồng cũ vẫn giữ luật vòng loại như trước.
 
-Đã có tạm dừng/tiếp tục/hủy riêng cho loại trực tiếp, chưa có điều khiển tổng quát cho mọi giai đoạn hay website kết quả cho khách không đăng nhập. Kết quả đã duyệt hiện dành cho admin và thí sinh thuộc giải.
+Đã có tạm dừng/tiếp tục/hủy cho vòng loại và loại trực tiếp (xem hai mục cuối). Kết quả cho khách không đăng nhập được đưa ra bằng **bản công bố** trên site công khai, có mã tra cứu riêng cho từng đội (xem docs/PUBLISHING.md); trong portal, kết quả đã duyệt dành cho admin và thí sinh thuộc giải.
 
 Trước giải thật: chốt thể lệ và lịch với ban tổ chức; kiểm tra đủ bot; chọn số lượt phù hợp; diễn tập bằng luật và chiến thuật thực tế; sao lưu database cùng bài nộp/artifact; đo thời gian chấm và chuẩn bị máy dự phòng.
 

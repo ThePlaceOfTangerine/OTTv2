@@ -1,0 +1,16 @@
+[Unit]
+Description=OTTv2: tường lửa máy thí sinh (chỉ tới máy chủ portal)
+DefaultDependencies=no
+After=ott-conf.service
+Requires=ott-conf.service
+Before=network-pre.target systemd-networkd.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ott-firewall
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

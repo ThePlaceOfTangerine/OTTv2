@@ -43,3 +43,5 @@ body[data-session=guest] main{max-width:1000px;padding-top:80px}body[data-sessio
 @media(max-width:700px){body[data-session] footer .footer-legacy{display:inline-flex}}
 .admin-scroll[data-overflow=true]::before{content:"Cuộn ngang để xem toàn bộ bảng →";display:block;position:sticky;left:0;width:fit-content;padding:0 0 10px;color:var(--muted);font-size:11px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.badges{display:inline-flex;gap:4px;font-size:16px;white-space:nowrap}.badge{cursor:help}.badge-legend{font-size:12px;color:var(--muted);line-height:1.7;margin:10px 0 0;white-space:normal}

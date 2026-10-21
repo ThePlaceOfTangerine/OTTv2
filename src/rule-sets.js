@@ -2,11 +2,16 @@ const crypto = require('node:crypto');
 const { DEFAULT_RULES } = require('./game/engine');
 const { validateEngineRules, engineIds, createEngine } = require('./game/registry');
 const bad = message => Object.assign(new Error(message), { status: 400 });
+// Sample rule sets shipped in rules/; seeded once so admins can pick them, never overwritten.
+const SAMPLES = [DEFAULT_RULES, require('../rules/obstacles.json'), require('../rules/powerups.json')];
 class RuleSetService {
   constructor(db) {
     this.db = db;
-    db.prepare('INSERT OR IGNORE INTO rule_sets VALUES (?,?,?)').run(DEFAULT_RULES.id, DEFAULT_RULES.name, Date.now());
-    db.prepare('INSERT OR IGNORE INTO rule_versions VALUES (?,?,?,NULL,?)').run(DEFAULT_RULES.id, DEFAULT_RULES.version, JSON.stringify(DEFAULT_RULES), Date.now());
+    for (const rules of SAMPLES) {
+      validateEngineRules(rules);
+      db.prepare('INSERT OR IGNORE INTO rule_sets VALUES (?,?,?)').run(rules.id, rules.name, Date.now());
+      db.prepare('INSERT OR IGNORE INTO rule_versions VALUES (?,?,?,NULL,?)').run(rules.id, rules.version, JSON.stringify(rules), Date.now());
+    }
   }
   list() { return this.db.prepare('SELECT s.id,s.name,MAX(v.version) version,COUNT(*) versions FROM rule_sets s JOIN rule_versions v ON v.rule_set_id=s.id GROUP BY s.id ORDER BY s.created_at,s.id').all(); }
   get(id, version) {

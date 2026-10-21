@@ -42,10 +42,12 @@ function containerArgs({ name, image, source, mode, language, entry, limits = LI
     image, mode, language, entry];
 }
 
+// Speaks the supervisor's line-JSON protocol; subclasses only change how the isolated supervisor is launched and removed.
 class DockerSession {
   constructor(options) { this.options = options; this.name = `ottv2-${crypto.randomUUID()}`; this.sequence = 0; this.closed = false; }
+  launch() { return spawn(dockerBinary(), containerArgs({ ...this.options, name: this.name }), { windowsHide: true, shell: false, env: dockerEnv() }); }
   async start() {
-    this.child = spawn(dockerBinary(), containerArgs({ ...this.options, name: this.name }), { windowsHide: true, shell: false, env: dockerEnv() });
+    this.child = this.launch();
     let buffer = '', stderr = '';
     this.ready = new Promise((resolve, reject) => { this.readyResolve = resolve; this.readyReject = reject; });
     this.child.stdin.on('error', error => this.fail(new InfrastructureError('docker_stdin', error.message)));
@@ -91,14 +93,17 @@ class DockerSession {
   async close() {
     this.fail(new InfrastructureError('session_closed'));
     this.closed = true;
-    // Removing our exact UUID container also works when the attached Docker CLI
-    // disconnects. A cleanup failure is infrastructure failure, not a forfeit.
     let cleanup;
-    try { await dockerCommand(['rm', '-f', this.name]); }
-    catch (error) { if (!/No such container|removal of container .* already in progress/i.test(error.message)) cleanup = error; }
+    try { await this.remove(); } catch (error) { cleanup = error; }
     this.child?.stdin.destroy();
-    this.child?.kill();
+    this.child?.kill('SIGKILL');
     if (cleanup) throw cleanup;
+  }
+  // Removing our exact UUID container also works when the attached Docker CLI
+  // disconnects. A cleanup failure is infrastructure failure, not a forfeit.
+  async remove() {
+    try { await dockerCommand(['rm', '-f', this.name]); }
+    catch (error) { if (!/No such container|removal of container .* already in progress/i.test(error.message)) throw error; }
   }
 }
 
@@ -151,10 +156,11 @@ class SandboxManager {
       return { available: true, image: this.imageId, kernel: info.KernelVersion, ...result };
     } finally { await dockerCommand(['rm', '-f', probeName]).catch(error => { if (!/No such container|removal of container .* already in progress/i.test(error.message)) throw error; }); }
   }
+  session(options) { return new DockerSession(options); }
   async prepare(source) {
     if (!this.imageId) await this.check();
     const staged = await stageSources(source);
-    const session = new DockerSession({ image: this.imageId, source: staged.directory, mode: 'compile', language: source.language, entry: source.entry });
+    const session = this.session({ image: this.imageId, source: staged.directory, mode: 'compile', language: source.language, entry: source.entry });
     try {
       await session.start();
       const compiled = await session.call({}, 55000);
@@ -172,9 +178,9 @@ class SandboxManager {
     }
   }
   async start(artifact, limits = LIMITS) {
-    const session = new DockerSession({ image: artifact.image, source: artifact.directory, mode: 'run', language: artifact.language, entry: artifact.entry, limits });
+    const session = this.session({ image: artifact.image, source: artifact.directory, mode: 'run', language: artifact.language, entry: artifact.entry, limits });
     try { return await session.start(); } catch (error) { await session.close(); throw error; }
   }
   async dispose(artifact) { await removeStage(artifact.directory); }
 }
-module.exports = { SandboxManager, DockerSession, containerArgs, dockerCommand, dockerBinary, dockerEnv, stageSources };
+module.exports = { SandboxManager, DockerSession, containerArgs, dockerCommand, dockerBinary, dockerEnv, stageSources, removeStage };

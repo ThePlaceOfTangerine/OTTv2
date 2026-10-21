@@ -297,7 +297,7 @@ npm start</pre><p class="muted">Lưu mật khẩu mà lệnh seed in ra. Chạy 
           <h3>2. Điều kiện hòa</h3><label for="rule-max-moves">Số nước tối đa (cả hai bên)</label><input id="rule-max-moves" type="number" min="1" max="5000" required>
           <label for="rule-repetition">Hòa khi lặp thế cờ mấy lần?</label><input id="rule-repetition" type="number" min="2" max="10" required>
           <label for="rule-directions">Hướng di chuyển</label><select id="rule-directions"><option value="eight">8 hướng, có đường chéo</option><option value="four">4 hướng, không có đường chéo</option><option value="custom">Tùy chỉnh riêng Búa / Bao / Kéo</option></select>
-          <h3>Power-up</h3><label class="check-label"><input id="rule-power-ups" type="checkbox"> Có 1–3 power-up ngẫu nhiên trên sân</label><p class="muted">Quân nhặt được power-up có dấu + và ăn thêm quân cùng loại. Vẫn bị loại khắc chế ăn. Hiệu lực đến khi quân bị ăn.</p>
+          <h3>Power-up</h3><label class="check-label"><input id="rule-power-ups" type="checkbox"> Có 1–3 power-up ngẫu nhiên trên sân</label><p id="rule-power-ups-locked" class="muted" hidden>Bộ luật này dùng loại ô (tileTypes) nên công tắc này bị khóa. Khai báo ô hiệu ứng bằng <code>tileSpawns</code> trong mục Nhập / xem JSON (nâng cao).</p><p class="muted">Quân nhặt được power-up có dấu + và ăn thêm quân cùng loại. Vẫn bị loại khắc chế ăn. Hiệu lực đến khi quân bị ăn.</p>
         </div>
         <div>
           <h3>3. Vẽ trực tiếp trên bàn cờ</h3>

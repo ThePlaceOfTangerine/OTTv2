@@ -91,7 +91,7 @@ function loadRuleDraft(rules) {
   el('rule-power-ups').checked=!!rules.powerUps;
   // Data-driven tiles replace the legacy power-up switch.
   el('rule-power-ups').disabled=!!rules.tileTypes;
-  el('rule-power-ups').title=rules.tileTypes?'Bộ luật dùng loại ô (tileTypes); khai báo ô hiệu ứng bằng tileSpawns trong JSON nâng cao.':'';
+  el('rule-power-ups-locked').hidden=!rules.tileTypes;
   renderTileTools();loadMovementFields(rules);updatePieceMode(); renderRuleBoard();
 }
 // One map tool per tile type declared in the RuleSet; new types appear here without changing this file.

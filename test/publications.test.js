@@ -94,7 +94,8 @@ test('publications are immutable snapshots without private data; the site, team 
       assert.ok(!text.includes(secret), `${file} leaks ${secret}`);
   }
   assert.match(await fs.readFile(path.join(site, '_headers'), 'utf8'), /immutable/);
-  for (const asset of ['index.html', 'assets/public.js', 'assets/tiles.js', 'assets/tiles.css', 'assets/pieces/rock.svg']) await fs.access(path.join(site, asset));
+  for (const asset of ['index.html', 'assets/favicon.svg', 'assets/public.js', 'assets/tiles.js', 'assets/tiles.css', 'assets/pieces/rock.svg']) await fs.access(path.join(site, asset));
+  assert.match(await fs.readFile(path.join(site, 'index.html'), 'utf8'), /rel="icon"[^>]*href="assets\/favicon\.svg"/);
 
   const code = f.publications.lookupCode(2);
   assert.match(code, /^[0-9a-f]{20}$/); assert.notEqual(code, f.publications.lookupCode(3)); assert.ok(!code.includes('team2'));

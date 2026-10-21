@@ -71,13 +71,13 @@ Quân hai bên đều chặn đường nhau: không được đi xuyên hay nh�
 
 ## Loại ô, hiệu ứng và điều kiện hết nước (dữ liệu hóa)
 
-Có từ bản Phase 3a. Bộ luật không khai báo `tileTypes` chạy y hệt trước đây (kể cả `powerUps` cũ); replay cũ vẫn kiểm tra được. Ba bộ luật mẫu được nạp sẵn khi khởi động: `ottv2-classic` (rules/default.json), `ottv2-obstacles` (tường đá đối xứng qua tâm) và `ottv2-powerups` (ô hiệu ứng ở khu giữa, hết nước tính theo số quân).
+Có từ bản Phase 3a. Bộ luật không khai báo `tileTypes` chạy y hệt trước đây (kể cả `powerUps` cũ); replay cũ vẫn kiểm tra được. Ba bộ luật mẫu được nạp sẵn khi khởi động: `ottv2-classic` (rules/default.json), `ottv2-obstacles` (tường đá đối xứng qua tâm) và `ottv2-powerups` (bản 2 rải 2–4 ô hiệu ứng ngẫu nhiên trên toàn bàn, hết nước tính theo số quân).
 
 | Trường | Ý nghĩa |
 | --- | --- |
 | `tileTypes` | Đối tượng `{mã: {passable, tags, effect, render}}`, tối đa 32 loại. Mã 1–24 ký tự `a-z0-9_-`, không trùng loại có sẵn `blocked`/`void`. `passable=false` là ô không đi vào được. `effect` là tên hiệu ứng đã cài trên máy chủ (`wildcard`, `shield`, `dash`, `plus`); ô hiệu ứng phải đi vào được. `render`: `color` `#rrggbb`, `symbol` tối đa 2 ký tự, `label` 1–40 ký tự; giao diện vẽ ô theo bảng này. |
 | `tiles` | Ô cố định `[{at:[hàng,cột], type}]`. Không được trùng nhà, vị trí xuất phát, ô chặn hoặc ô khác. |
-| `tileSpawns` | Tối đa 8 nhóm rải ô theo seed: `{types, count:[min,max], region:{rowFrom,rowTo,colFrom,colTo}, symmetry}`. `symmetry:"point"` đặt từng cặp đối xứng qua tâm bàn (bỏ ô tự đối xứng), mỗi cặp nhận một loại ngẫu nhiên trong `types`; `"none"` đặt từng ô. Vùng rải tự trừ nhà, vị trí xuất phát và ô khác; thiếu chỗ thì luật bị từ chối khi lưu. Không dùng cùng `powerUps` cũ. |
+| `tileSpawns` | Tối đa 8 nhóm rải ô theo seed: `{types, count:[min,max], region:{rowFrom,rowTo,colFrom,colTo}, symmetry}`. `symmetry:"point"` đặt từng cặp đối xứng qua tâm bàn (bỏ ô tự đối xứng), mỗi cặp nhận một loại ngẫu nhiên trong `types`; `"none"` đặt từng ô. Không khai báo `region` thì rải trên toàn bàn; `region` chỉ còn được đọc để tương thích luật/replay cũ. Trình chỉnh trực quan bỏ phạm vi này khi lưu phiên bản mới. Vị trí rải tự trừ nhà, vị trí xuất phát, ô chặn, ô ngoài bản đồ và ô khác; thiếu chỗ thì luật bị từ chối khi lưu. Không dùng cùng `powerUps` cũ. |
 | `onMoveLimit` | `"draw"` (mặc định) hoặc `"material"`: hết `maxMoves` thì bên còn nhiều quân hơn thắng (mỗi quân 1 điểm), bằng nhau thì hòa. Lặp thế cờ luôn là hòa. |
 
 Hiệu ứng (một quân mang tối đa một hiệu ứng; nhặt ô mới thì thay hiệu ứng cũ; giữ đến khi bị ăn):
@@ -87,8 +87,16 @@ Hiệu ứng (một quân mang tối đa một hiệu ứng; nhặt ô mới th�
 - `dash`: sau khi ăn quân, đi thêm 1 ô theo hướng đơn vị của nước vừa đi (dấu của từng trục). Ô đó phải trong bàn, đi vào được và không phải nhà; nếu có quân đối thủ thì chỉ ăn khi Búa/Bao/Kéo thường cho phép (khiên thì vỡ, quân lướt đứng lại). Lướt vào ô hiệu ứng thì nhặt ô đó.
 - `plus`: như power-up cũ, ăn thêm được quân cùng loại.
 
-Trong **Bộ luật → Thiết kế bàn cờ**, mỗi loại ô của bộ luật có một nút công cụ riêng (lấy màu và nhãn từ `render`): bấm ô để đặt, bấm lại để bỏ; không đặt được trên nhà hoặc vị trí quân. Vùng `tileSpawns` có viền cam nét đứt. Sửa `tileTypes`, `tileSpawns`, `onMoveLimit` trong **Nhập / xem JSON (nâng cao)** rồi bấm Áp dụng JSON; công cụ và hình vẽ cập nhật ngay. Khi bộ luật có `tileTypes`, ô power-up cũ bị khóa. Replay và mô tả luật cho thí sinh vẽ theo cùng bảng `render`; loại ô không có `render` hiển thị ô xám có dấu ?.
+Trong **Bộ luật → Thiết kế bàn cờ**, mỗi loại ô của bộ luật có một nút công cụ riêng (lấy màu và nhãn từ `render`): bấm ô để đặt, bấm lại để bỏ; không đặt được trên nhà hoặc vị trí quân. **Cách đặt power-up** có hai lựa chọn: **Ngẫu nhiên trên toàn bàn** rải vào các ô hợp lệ, không có phạm vi cố định; **Admin tự chọn vị trí** chỉ dùng các ô được đặt bằng công cụ, không sinh thêm ngẫu nhiên. Chuyển chế độ trong bản nháp giữ lại các vị trí thủ công để có thể quay lại; khi lưu, chỉ chế độ đang chọn được ghi vào luật. Các phiên bản lịch sử vẫn giữ nguyên. Sửa `tileTypes`, `tileSpawns`, `onMoveLimit` trong **Nhập / xem JSON (nâng cao)** rồi bấm Áp dụng JSON; công cụ và hình vẽ cập nhật ngay. Khi bộ luật có `tileTypes`, ô power-up cũ bị khóa. Replay và mô tả luật cho thí sinh vẽ theo cùng bảng `render`; loại ô không có `render` hiển thị ô xám có dấu ?.
 
 Thêm loại ô mới (ví dụ bùn, nước) chỉ cần sửa JSON; thêm *hiệu ứng* mới cần một module tin cậy trên máy chủ (`registerEffect` trong src/game/tiles.js), JSON không thể chạy mã.
 
 Replay mới ghi `changes` cho từng lượt: danh sách `{row, col, piece}` (quân sau thay đổi, `null` là ô trống) và `{row, col, tile: null}` (ô hiệu ứng bị nhặt), áp theo thứ tự. `verifyReplay` tính lại độc lập và so khớp từng byte.
+
+## Ba luật mặc định và xóa bộ luật (21/10/2026)
+
+- **OTTv2 Classic:** công cụ Ô cờ, Nhà A/B, Quân A/B; không có công cụ ô chặn hoặc power-up.
+- **OTTv2 Obstacles:** thêm duy nhất Ô chặn. Bản 2 dùng blockedCells; Tường đá được gộp vào Ô chặn khi chỉnh luật cũ, không còn công cụ trùng chức năng.
+- **OTTv2 Power-ups:** công cụ cơ bản và ba loại vật phẩm. Chọn random toàn bàn, nhập số tối thiểu/tối đa từ 1 đến 16 (hai số bằng nhau để có số cố định), hoặc chọn vị trí thủ công. Chế độ thủ công dùng đúng các ô được đặt, không sinh thêm.
+
+Ba luật mặc định được giữ lại. Muốn tạo luật riêng, chọn mẫu rồi Nhân bản và Lưu. Nút Xóa bộ luật gỡ bản riêng khỏi các danh sách chọn mới, có hộp thoại xác nhận; phiên bản lịch sử vẫn được giữ cho giải và replay. Không thể dùng luật đã xóa để tạo giải/trận thử mới. Lưu/chỉnh/xóa không tự đổi luật đã ghim của giải.

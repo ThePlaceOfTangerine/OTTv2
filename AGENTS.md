@@ -1,5 +1,7 @@
 # Theo dõi công việc
 
+- Mỗi lần bắt đầu làm việc trong dự án, kiểm tra web tại http://127.0.0.1:3000/api/health. Nếu chưa chạy, khởi động bằng `npm start` tại thư mục OTTv2, giữ tiến trình hoạt động và xác nhận trang `/portal` truy cập được. Nếu đã có server hoạt động thì dùng lại, không chạy trùng hoặc tự dừng server. Đây là yêu cầu trực tiếp của người dùng ngày 19/10/2026.
+
 - Đọc `TODO.md` trước khi thực hiện công việc trong dự án.
 - Sau mỗi đợt công việc, tự cập nhật các mục liên quan trong `TODO.md` và thêm bằng chứng vào nhật ký tiến trình.
 - Chỉ đánh dấu `[x]` khi đạt tiêu chí nghiệm thu trong phạm vi mục đó. Phân biệt đã viết code, đã chạy test và đã kiểm chứng vận hành thực tế.

@@ -1,5 +1,22 @@
 # Công việc cần làm cho OTTv2
 
+- 19/10/2026: Theo yêu cầu người dùng, bổ sung AGENTS.md yêu cầu kiểm tra và bật web khi bắt đầu mỗi lượt làm việc trong dự án, dùng lại server nếu đã chạy. Đã khởi động npm start tại cổng 3000, xác nhận /api/health HTTP 200 (status ok) và /portal HTTP 200; giữ server hoạt động.
+
+## Trải nghiệm người mới — 19/10/2026
+
+- [x] Thêm mục Bắt đầu theo vai trò với lộ trình nộp bot/điều hành giải, giải thích thuật ngữ và hướng dẫn giới thiệu cho giám khảo; mã và tài liệu đã cập nhật.
+- [x] Làm rõ luyện tập/bài thi, lựa chọn bot theo giai đoạn và bản đã chốt; đổi nhãn điểm cũ thành Điểm ngoài giải, thu gọn điểm cũ/tùy chọn ZIP; ẩn Hủy ở bước đổi mật khẩu bắt buộc.
+- [x] Kiểm tra cú pháp JavaScript và diff; npm test 111/111 đạt ngoài sandbox (trong sandbox lỗi kết nối localhost EACCES).
+- [ ] Kiểm chứng trực quan desktop/mobile, bàn phím và luồng sử dụng thật sau thay đổi; cổng localhost:3000 không hoạt động khi thử truy cập trong đợt này.
+- [ ] Thử với sinh viên năm nhất/giám khảo thật và đo khả năng hoàn thành lần đầu; chưa kết luận nghiệm thu khả năng sử dụng.
+- [x] Triển khai thẻ bước tiếp theo theo trạng thái và nút chuyển đến thao tác; thu gọn cấu hình số đội/vòng/ván, giữ bản tóm tắt; mở lại khi validation lỗi. Đã kiểm tra mã và test trạng thái; chưa nghiệm thu trực quan.
+- [ ] Kiểm chứng trực quan thẻ tiến độ/cấu hình thu gọn trên desktop/mobile và bàn phím. Trình duyệt trong đợt này còn hiển thị HTML cũ, trong khi HTTP trực tiếp trả HTML mới; chưa đủ bằng chứng nghiệm thu UI.
+- [ ] Bổ sung trang kết quả chỉ đọc cho giám khảo/khách.
+
+Nhật ký 19/10/2026 (tiếp TODO): dùng lại web cổng 3000; bổ sung web/tournament-progress.js và hướng dẫn 6 bước trong quản lý giải. Không tự kích hoạt nút nghiệp vụ khi chuyển đến thao tác. Test trạng thái bảo đảm không gợi ý bắt đầu loại trực tiếp trước khi chốt bài nộp lại; phân biệt tạm dừng/hủy/chờ duyệt/đã duyệt. npm test 115/115 đạt; kiểm tra cú pháp/diff đạt. Sau đó bổ sung tóm tắt cấu hình và tự mở phần cấu hình khi invalid, kiểm tra cú pháp đạt. Không chạy trận, đổi luật hoặc sửa giải đang có; không thêm dependency/migration. Kiểm chứng trực quan và người dùng thật còn mở.
+
+Nhật ký 19/10/2026: rà cấu trúc, điều hướng, giao diện admin/portal, nộp bài, bảng điểm, replay và tài liệu; triển khai cải thiện trên. Dùng ui-ux-pro-max, giữ nguyên API/engine/dữ liệu giải. Báo cáo phạm vi, vấn đề và giới hạn: docs/RA-SOAT-TRAI-NGHIEM.md. Chưa chạy integration Docker, chưa nghiệm thu người dùng thật; không đánh dấu toàn bộ phổ cập là hoàn tất.
+
 Cập nhật lần đầu: 18/10/2026, giờ Việt Nam.
 
 Mục tiêu: hoàn thiện nền tảng tổ chức giải bot từ chuẩn bị, nhận bài, chấm, chung kết LAN đến công bố và phục hồi sự cố; sau đó mở rộng theo số đo thực tế.
@@ -87,13 +104,15 @@ Nghiệm thu: tổ chức trọn một giải thử 8–16 đội từ tạo gi�
 
 ## P0 Chuẩn bị nhận người dùng qua mạng
 
-- [ ] Sửa giới hạn đăng nhập đang tính cả lần thành công theo IP/socket; kiểm thử nhiều người chung mạng.
-- [ ] Cấu hình proxy tin cậy, nhận đúng giao thức/IP; không tin header chuyển tiếp từ nguồn tùy ý.
-- [ ] Kiểm tra Origin, HTTPS và cookie khi chạy sau reverse proxy.
+- [x] Sửa giới hạn đăng nhập tính cả lần thành công: tách hạn mức tài khoản/IP trực tiếp (10/100 mặc định), giữ chỗ trước bcrypt và hoàn đúng lượt khi thành công; test nhiều tài khoản chung IP, lỗi cũ không bị xóa, giới hạn IP khi đổi tên và yêu cầu đồng thời qua hai app dùng cùng DB. npm test 118/118 đạt; chưa phải thử tải LAN thật.
+- [x] Triển khai TRUSTED_PROXIES theo IP/CIDR, mặc định tắt; PUBLIC_ORIGIN cố định, xác thực cấu hình trước mở DB. Giới hạn đăng nhập dùng req.ip theo chuỗi tin cậy; test từ chối header giả từ socket không tin cậy và không chọn địa chỉ giả bên trái chuỗi.
+- [x] Kiểm thử API với header proxy mô phỏng: Origin đúng/sai/null/cross-site, Host và X-Forwarded-Host giả, giao thức không khớp, cookie Secure/HttpOnly/SameSite; npm test 122/122 đạt.
+- [ ] Nghiệm thu end-to-end qua Nginx/Cloudflare và HTTPS thật: proxy ghi đè header, chặn cổng Node, IP khách và đăng nhập/cookie trong trình duyệt; chưa cấu hình hạ tầng trong đợt này.
 - [ ] Thay quy trình admin mặc định admin/admin bằng thông tin riêng trước khi mở giải; bổ sung đổi mật khẩu admin.
 - [ ] Cấp thông tin đăng nhập riêng phù hợp cho giải thật; rà soát việc dùng username làm mật khẩu ban đầu.
 - [ ] Đo và thiết kế lại tiếp nhận upload quanh giới hạn hiện tại 4 lượt đồng thời; bảo vệ RAM và có backpressure.
-- [ ] Hiển thị trạng thái 429, Retry-After và retry có khoảng chờ phù hợp.
+- [x] API đăng nhập trả Retry-After theo thời gian còn lại; nút đăng nhập có đếm ngược và cho thử lại sau hạn, không tự gửi lại mật khẩu. Mã frontend đã kiểm tra cú pháp; chưa kiểm chứng trực quan riêng trạng thái 429.
+- [ ] Bổ sung Retry-After và khoảng chờ cho upload/các thao tác khác; kiểm chứng trực quan 429 đăng nhập.
 - [x] Biên nhận và Idempotency-Key cho nộp theo giải: retry cùng yêu cầu trả cùng bài, sau hạn vẫn tra được; kiểm thử cả hai request đồng thời.
 - [ ] Mở rộng chống trùng cho luồng luyện tập cũ và khôi phục khóa retry phía trình duyệt sau reload nếu cần.
 - [ ] Quyết định phạm vi /legacy: demo riêng hay dùng chung engine; xử lý xác thực tái nhập vai chơi nếu tiếp tục mở qua mạng.
@@ -333,6 +352,10 @@ Cấu hình dưới đây chỉ là điểm bắt đầu để benchmark, chưa 
 
 - 19/10/2026: Hoàn thành Phase 1 nộp bằng GitHub, migration 17 (team_profiles, team_repos, repo_pushes, repo_snapshots, cột commit trên bot_submissions). GitHub App bằng JWT RS256 node:crypto + fetch, không thêm dependency; CSV đội; xác minh repo; nút/tag/webhook HMAC; lấy commit lúc hết hạn và chặn chốt bot khi chưa xong; zipball chỉ giải nén ott.json + bot/; Turnstile tùy chọn. npm test 121/121 (thêm 10 test với server GitHub giả: giả mạo repo, repo public, symlink/hook/.., SHA sau hạn, trùng delivery, rate limit, cùng SHA hai đội); test:pipeline và test:stages Docker đạt. Trình duyệt (playwright-core trong scratchpad, Chromium có sẵn): đội khai thành viên, lưu/xác minh repo, nộp commit Accepted qua Docker thật; admin thấy bảng repo; desktop và 390 px không tràn. Ảnh output/playwright/github-*.png. Sửa lỗi thông báo xác minh bị ghi đè khi kiểm tra. Chưa thử GitHub App/webhook thật.
 
+- 19/10/2026 (tiếp P0 proxy): thêm src/http-config.js, TRUSTED_PROXIES/PUBLIC_ORIGIN vào server; từ chối trust-all/số hop/dải /0, Origin có path/query/credentials và HTTPS thiếu COOKIE_SECURE. Mặc định không tin proxy. Express xác định IP/giao thức theo proxy tin cậy; Origin dùng địa chỉ cố định, không dựa vào X-Forwarded-Host. Kiểm thử header mô phỏng và cấu hình: npm test 122/122 đạt; cú pháp/diff đạt. Cập nhật README, hướng dẫn cài và DEPLOYMENT với ví dụ proxy ghi đè header. Không deploy, đổi proxy/firewall, sửa DB hoặc dừng server cổng 3000; backend mới nạp ở lần khởi động lại tiếp theo. Nginx/Cloudflare/TLS và hành vi cookie trong trình duyệt thật chưa nghiệm thu.
+
+- 19/10/2026 (tiếp P0 mạng): sửa giới hạn đăng nhập trong src/app.js, mặc định 10/tài khoản và 100/IP socket trong 15 phút; giữ chỗ đồng bộ trước bcrypt, hoàn đúng một lượt cho yêu cầu thành công và đúng cửa sổ hết hạn. Giữ các lỗi cũ, không tin X-Forwarded-For để đổi IP. Retry-After theo thời gian còn lại và JSON retryAfter. Thêm 3 test API cho đăng nhập chung mạng, giới hạn IP/đổi tên/header giả/thời gian còn lại và đồng thời qua hai app chung DB; npm test 118/118 đạt ngoài sandbox. Sau đó thêm nút đăng nhập đếm ngược, không tự retry mật khẩu; kiểm tra cú pháp frontend/backend và diff đạt. Cập nhật README/hướng dẫn. Không sửa schema hoặc dữ liệu người dùng; server 3000 được giữ hoạt động theo AGENTS, backend mới chưa nạp vào tiến trình này và cần lần khởi động lại tiếp theo. Chưa kiểm chứng trực quan riêng 429 hoặc thử tải LAN/proxy thật; các mục proxy/upload còn mở.
+
 - 19/10/2026: Hoàn thành chốt bot chính thức nguyên tử, kiểm tra hạn/hàng đợi/tài khoản/đủ bài mọi đội; giữ bản chọn riêng hoặc bản hợp lệ mới nhất của đợt mới, không lấy bot cũ. Nối snapshot vào máy chấm tự động/thủ công, giữ danh sách/hạt giống và luật/bot vòng loại. npm test 108/108 đạt; test:stages Docker Python/C++ đạt (~56 giây), chạy loại trực tiếp luật 12 nước và xác minh replay dùng đúng bài mới. API chốt có quyền/CSRF/revision; chốt trùng và rollback thiếu đội được kiểm tra. Cập nhật nút admin/hướng dẫn, không thêm dependency hoặc migration. Chưa kiểm chứng trực quan riêng nút mới.
 
 - 19/10/2026: Hoàn thành công bố/nhận/đóng bài nộp lại chính thức, migration 15 bảo toàn dữ liệu cũ. npm test 107/107 và test:stages Docker thật đạt: quyền, hạn nộp, tách bài, luật ghim, mở lại DB. Trình duyệt DB giả: công bố cho đúng 5 đội, portal có đợt riêng/luật 16 nước/thông báo/hạn giờ Việt Nam; 390 px không tràn. Ảnh output/playwright/final-intake-portal.png. Cập nhật hướng dẫn, không thêm dependency. Chốt bot đợt mới và nối loại trực tiếp là mục tiếp theo.
@@ -399,3 +422,19 @@ Cấu hình dưới đây chỉ là điểm bắt đầu để benchmark, chưa 
 
 - [x] Hướng dẫn tải/cài/sử dụng cho người mới tại docs/CAI-DAT-VA-SU-DUNG.md, README dẫn tới đúng luồng giải hiện tại; quy tắc duy trì tài liệu trong AGENTS.md.
 - 19/10/2026: Soạn hướng dẫn cài lần đầu/chạy lại, admin/thí sinh, cập nhật/backup/LAN, biến môi trường và lỗi thường gặp. Đối chiếu package.json, seed, server và đường dẫn lưu bài; sửa README bỏ mô tả cũ chưa có loại trực tiếp/nộp lại. Chỉ thay tài liệu, không cài lại hoặc thao tác giải thật.
+
+- 20/10/2026: Khởi động web local bằng npm start theo yêu cầu test; xác nhận /api/health HTTP 200 (status ok, phase 5) và /portal HTTP 200. Giữ tiến trình server cổng 3000 hoạt động.
+
+- 21/10/2026: Theo yêu cầu người dùng, đã tắt tiến trình npm start của web local; kiểm tra không còn listener cổng 3000. Không tự khởi động lại server trong lượt dừng này.
+
+- 21/10/2026: Tạo nhánh test từ main, lưu 12 file code/test tại d234cbb, ghép origin/thu-nghiem (4e56c0c) và xử lý xung đột server/auth/script. npm test đạt 177/177; chưa chạy integration Docker hoặc nghiệm thu proxy thật. Tài liệu local giữ ngoài staging, bản gốc lưu data/backups/local-docs-before-test-merge-20261021 và stash. Không push, không bật lại server theo yêu cầu dừng trước đó.
+
+- 21/10/2026: Kiểm thử nhánh test sau merge bằng Playwright + UI/UX Pro Max. Tổng kết tự động cuối: 201 ca, 198 đạt, 0 lỗi còn lại, 2 skip và 1 TODO; hai lỗi native C++ ban đầu do thiếu nlohmann/json.hpp đã đạt sau khi đặt OTT_CPP_INCLUDE tới header lấy từ image Docker, không sửa source. UI: 8 mục admin và 5 mục portal ở desktop/mobile, đổi mật khẩu, upload Python/C++, vòng loại/chung kết/công bố/replay trên DB QA riêng. Phát hiện panel công bố ẩn sau tạo giải, mất focus khi sửa ô bằng bàn phím, hướng dẫn công khai lỗi thời và favicon 404. Báo cáo local: output/playwright/full-qa/REPORT.md. Chưa sửa source/commit/push; chưa nghiệm thu offline thật, bwrap/USB boot, proxy/TLS/dịch vụ ngoài hoặc load test.
+
+- 21/10/2026: Đã sửa bốn vấn đề từ full QA: phát tournament-updated sau render để panel công bố/nhập bài đồng bộ cả khi tạo mới; chặn phản hồi cũ khi đổi giải; giữ focus ô bàn cờ khi Enter/Space render lại; cập nhật hướng dẫn trang kết quả công khai; favicon SVG bàn cờ dùng chung và đóng gói vào site tĩnh. npm test 177/177 đạt, syntax/diff đạt; Playwright xác nhận tạo hai giải/chuyển giải/tạo nháp ẩn panel, focus desktop1366/mobile390, link /site và favicon200 không lỗi JS/request. Log data/ui-fixes-result.log, ảnh output/playwright/fixes-qa. Chỉ dùng DB QA; đã dừng server QA, chưa commit/push.
+
+- 21/10/2026: Mở web local bằng npm start trên dữ liệu hiện có để người dùng test bản sửa UI; sao lưu DB/WAL/SHM trước khởi động tại data/backups/before-local-start-20261021-130908. /api/health, /portal và /admin HTTP 200; giữ server cổng 3000 hoạt động.
+
+- 21/10/2026: Power-up có hai chế độ trực quan: random toàn bàn hoặc admin tự đặt vị trí; bỏ viền/phạm vi rải cố định khỏi editor, lưu mới không mang region. Luật mẫu ottv2-powerups bản 2 rải 2–4 ô hợp lệ toàn bàn; giữ phiên bản cũ/replay/giải đã ghim bất biến. 179/179 unit/API test đạt, Docker rulesets Python/C++ đạt; UI xác nhận đặt 2 ô thủ công, chuyển chế độ giữ bản nháp, random preview ngoài vùng giữa, lưu/tải lại và lịch sử bất biến. Cập nhật tài liệu/dựng hướng dẫn/cú pháp/diff đạt. Log data/powerup-ui-result.log, ảnh output/playwright/powerups-qa. Sao lưu trước restart tại data/backups/before-powerup-v2-20261021-132337, web local3000 đã mở lại với control mới; chưa commit/push.
+
+- 21/10/2026: Tách công cụ theo Classic (5 cơ bản), Obstacles (thêm Ô chặn, gộp Tường đá; mẫu bản 2), Power-ups (nhập min/max 1–16 hoặc tự đặt). Thêm DELETE luật riêng với quyền/CSRF/expectedVersion; migration23 lưu archive, giữ luật mặc định và lịch sử, chặn dùng luật đã xóa cho giải/trận mới; đồng bộ archive trong bundle. 181/181 unit/API đạt (gồm xóa/quyền/sync), Docker 3 luật Python/C++ đạt. UI desktop/mobile xác nhận công cụ, số lượng3, Hủy/Xác nhận xóa và lịch sử. Log data/rule-tools-delete-result.log; ảnh output/playwright/rule-tools-qa. Đã sao lưu DB trước khởi động lại local; cập nhật tài liệu/dựng hướng dẫn; chưa commit/push.

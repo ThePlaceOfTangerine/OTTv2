@@ -1,6 +1,35 @@
 # Phương án triển khai OTTv2
 
-Cập nhật ngày 18/10/2026. Mục tiêu thực tế dưới 150 đội; cấu hình bên dưới là điểm bắt đầu để đo tải, chưa phải bảo đảm đủ năng lực. Chưa có thao tác deploy hoặc mua dịch vụ nào trong đợt này.
+Cập nhật ngày 19/10/2026. Mục tiêu thực tế dưới 150 đội; cấu hình bên dưới là điểm bắt đầu để đo tải, chưa phải bảo đảm đủ năng lực. Chưa có thao tác deploy hoặc mua dịch vụ nào trong đợt này.
+
+## Proxy tin cậy và địa chỉ website
+
+Mặc định ứng dụng không tin header chuyển tiếp. Nếu chạy sau reverse proxy, cấu hình trước khi `npm start`:
+
+```powershell
+$env:TRUSTED_PROXIES = '127.0.0.1,::1'
+$env:PUBLIC_ORIGIN = 'https://arena.example'
+$env:COOKIE_SECURE = 'true'
+npm start
+```
+
+Thay tên miền bằng địa chỉ website thật. Ví dụ chỉ phù hợp khi proxy nối tới Node từ loopback. Proxy ở máy khác thì khai báo đúng IP hoặc CIDR của proxy đó. Không dùng `true`, số hop, tên mạng viết tắt hay dải `/0`. Cấu hình không hợp lệ bị từ chối trước khi mở DB. Khi bật proxy phải có PUBLIC_ORIGIN; chỉ gồm giao thức/tên miền/cổng. Origin HTTPS yêu cầu COOKIE_SECURE=true.
+
+Giới hạn đăng nhập dùng IP được Express xác định từ socket và chuỗi X-Forwarded-For theo danh sách tin cậy. Origin đăng nhập phải khớp PUBLIC_ORIGIN, kể cả khi Host phía upstream khác; X-Forwarded-Host không quyết định Origin hợp lệ. Giao thức được xác định cũng phải khớp PUBLIC_ORIGIN. Địa chỉ không nằm trong danh sách tin cậy không thể tự khai HTTPS/IP khách qua header.
+
+Proxy ngoài cùng phải **ghi đè** các header do khách gửi. Với Nginx là điểm kết thúc HTTPS và nối trực tiếp Node, phần location có thể dùng:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host arena.example;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host "";
+}
+```
+
+Đây chỉ là phần chuyển tiếp trong server HTTPS đã có chứng chỉ; cấu hình TLS/chuyển hướng HTTP, WebSocket legacy và Cloudflare nhiều tầng cần kiểm chứng riêng. Chặn truy cập trực tiếp cổng Node từ Internet. Không dùng nguyên ví dụ loopback nếu một tiến trình/người khác trên cùng máy có thể gửi header tùy ý; danh sách tin cậy là ranh giới vận hành phải được bảo vệ. Không tự mở cổng, đổi proxy hay bật HTTPS trên máy hiện tại trong đợt triển khai mã này.
 
 ## Đề xuất
 
@@ -38,7 +67,7 @@ Chỉ tăng máy chấm hoặc tách web/worker sau khi có báo cáo thời gia
 
 Các mục này đã có trong TODO, chưa được coi là hoàn tất chỉ vì có tài liệu triển khai:
 
-- Sửa giới hạn đăng nhập cho nhiều người chung IP, cấu hình đúng proxy tin cậy và Origin/HTTPS.
+- Đã có giới hạn đăng nhập phù hợp IP chung và cấu hình proxy tin cậy/Origin; cần nghiệm thu với proxy/TLS thật, nhiều người chung mạng và chính sách bảo vệ cổng Node.
 - Đổi thông tin admin mặc định, quy trình cấp tài khoản riêng và cookie Secure khi triển khai HTTPS.
 - Kiểm tra nhận bài/retry khi mạng chậm, hạn nộp, quota dung lượng và rate limit tại đúng origin.
 - Backup/restore DB cùng source/artifact/image; diễn tập khôi phục trên máy khác.

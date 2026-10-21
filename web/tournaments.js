@@ -156,6 +156,7 @@
     el('tournament-locked-bots').replaceChildren();
     if (stage?.status === 'locked') for (const entrant of stage.entrants) el('tournament-locked-bots').append(textNode('li', `${entrant.username}: ${entrant.snapshot ? 'v' + entrant.snapshot.version + ' · ' + entrant.snapshot.submissionId : 'không đủ điều kiện (' + entrant.exclusionReason + ')'}`));
     renderTeams(); controls();
+    document.dispatchEvent(new CustomEvent('tournament-updated', { detail: { id: selected?.id || '' } }));
   }
   function updateConfigSummary() {
     el('tournament-config-summary').textContent = `Cấu hình: tối đa ${el('tournament-capacity').value} đội · ${el('tournament-rounds').value} lượt vòng loại · ${el('tournament-games').value} ván/cặp vòng loại · ${el('tournament-top').value} đội đi tiếp · ${el('tournament-bestof').value} ván/cặp loại trực tiếp · tối đa ${el('tournament-extra').value} cặp phụ khi hòa. Mở phần điều chỉnh nếu tổ chức giải ít đội; số lượt vòng loại phải nhỏ hơn số bot thực tế.`;

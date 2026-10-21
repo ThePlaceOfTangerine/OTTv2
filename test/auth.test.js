@@ -84,7 +84,7 @@ test('migrations are repeatable and data persists after reopening SQLite', () =>
   let persisted = openDatabase(file);
   persisted.prepare('INSERT INTO users(username,password_hash,role,created_at) VALUES (?,?,?,?)').run('persisted', 'hash', 'contestant', 1);
   persisted.close(); persisted = openDatabase(file);
-  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 22);
+  assert.equal(persisted.prepare('SELECT COUNT(*) n FROM migrations').get().n, 23);
   assert.equal(persisted.prepare('SELECT username FROM users').get().username, 'persisted');
   persisted.close();
   for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name));
@@ -419,6 +419,21 @@ test('rule-set APIs isolate admin permissions, enforce CSRF and versioning',asyn
  response=await request('/api/admin/rule-sets/'+first.id+'/clone',{...opts,body:{name:'copy',version:1}});assert.equal(response.status,404);
  assert.equal((await request('/api/admin/rule-sets/'+first.id+'/versions',{...opts,body:{name:'stale',rules:base,expectedVersion:1}})).status,409);
  assert.equal((await request('/api/admin/rule-sets',{...opts,body:{name:'bad',rules:{...base,engine:'unknown'}}})).status,400);
+});
+
+test('rule deletion enforces admin, CSRF, stale versions and default protection', async () => {
+ const admin=await login('admin'),player=await login();
+ const created=await request('/api/admin/rule-sets',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{name:'Delete HTTP test',rules:require('../rules/default.json')}});
+ const rule=await created.json(),url='/api/admin/rule-sets/'+rule.id,body={expectedVersion:rule.version};
+ assert.equal((await request(url,{method:'DELETE',body})).status,401);
+ assert.equal((await request(url,{method:'DELETE',cookie:player.cookie,csrf:player.data.csrfToken,body})).status,403);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,body})).status,403);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{expectedVersion:0}})).status,409);
+ assert.equal((await request('/api/admin/rule-sets/ottv2-classic',{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{expectedVersion:require('../rules/default.json').version}})).status,400);
+ assert.equal((await request(url,{method:'DELETE',cookie:admin.cookie,csrf:admin.data.csrfToken,body})).status,200);
+ const listed=await (await request('/api/admin/rule-sets',{cookie:admin.cookie})).json();assert.ok(!listed.ruleSets.some(r=>r.id===rule.id));
+ assert.equal((await request(url+'?version=1',{cookie:admin.cookie})).status,200);
+ assert.equal((await request('/api/admin/tournaments',{method:'POST',cookie:admin.cookie,csrf:admin.data.csrfToken,body:{name:'Archived rules denied',ruleSetId:rule.id,ruleSetVersion:1}})).status,400);
 });
 
 test('tournament APIs enforce admin role, CSRF, revision checks and isolated rosters', async () => {

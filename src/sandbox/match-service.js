@@ -46,6 +46,7 @@ class MatchService {
     const bots = [this.resolveBot(botA), this.resolveBot(botB)];
     const selected = this.ruleSets.get(ruleSetId || DEFAULT_RULES.id, ruleSetVersion === undefined ? (ruleSetId ? undefined : DEFAULT_RULES.version) : ruleSetVersion);
     if (!selected) throw Object.assign(new Error('Không tìm thấy phiên bản bộ luật.'), { status: 400 });
+    if (selected.archived) throw Object.assign(new Error('Bộ luật đã xóa khỏi danh sách.'), { status: 400 });
     const rules = selected.rules;
     const id = crypto.randomUUID(), time = Date.now();
     this.db.prepare(`INSERT INTO practice_matches(id,created_by,created_at,updated_at,status,seed,rules_json,bots_json,rule_set_id,rule_set_version,bot_snapshots_json)

@@ -410,7 +410,7 @@ function renderSubmissionStage(stage) {
         for (const [type, definition] of Object.entries(rules.tileTypes)) item('Ô ' + definition.render.symbol + ' · ' + definition.render.label + (definition.passable ? '' : ' (không đi vào được)') + (definition.effect ? ' — đi vào thì quân nhận hiệu ứng và ô biến mất; mỗi quân giữ một hiệu ứng, nhặt ô mới thì thay.' : '.') + ' Mã loại: ' + type + '.');
         if (rules.tiles?.length) item('Bàn có ' + rules.tiles.length + ' ô đặt sẵn; xem vị trí trong cấu hình đầy đủ (trường tiles).');
         for (const spawn of rules.tileSpawns || []) {
-          const region = spawn.region ? ' trong vùng hàng ' + (spawn.region.rowFrom + 1) + '–' + (spawn.region.rowTo + 1) + ', cột ' + (spawn.region.colFrom + 1) + '–' + (spawn.region.colTo + 1) : '';
+          const region = spawn.region ? ' trong vùng hàng ' + (spawn.region.rowFrom + 1) + '–' + (spawn.region.rowTo + 1) + ', cột ' + (spawn.region.colFrom + 1) + '–' + (spawn.region.colTo + 1) : ' trên toàn bàn';
           item('Mỗi trận rải ngẫu nhiên theo mã khởi tạo ' + spawn.count[0] + '–' + spawn.count[1] + (spawn.symmetry === 'point' ? ' cặp ô đối xứng qua tâm bàn' : ' ô') + region + ': ' + spawn.types.map(type => rules.tileTypes[type].render.label).join('; ') + '. Vị trí thật nằm trong state.tiles mỗi lượt.');
         }
         item('Nước ăn quân đang có khiên vẫn nằm trong legal_moves, nhưng chỉ làm vỡ khiên và quân của bạn đứng yên. Đọc piece.effect để biết.');

@@ -75,6 +75,7 @@ class TournamentService {
     if (current && ruleSetId !== current.rule_set_id && input.ruleSetVersion === undefined) throw bad('Đổi bộ luật phải chọn phiên bản cụ thể.');
     const selected = this.ruleSets.get(ruleSetId, ruleSetVersion);
     if (!selected) throw bad('Không tìm thấy phiên bản bộ luật.');
+    if (selected.archived && (!current || current.rule_set_id !== ruleSetId || current.rule_set_version !== ruleSetVersion)) throw bad('Bộ luật đã xóa khỏi danh sách, hãy chọn bộ luật khác.');
     const opensAt = input.opensAt === undefined ? (current?.opens_at ?? null) : timeValue(input.opensAt, 'opensAt');
     const closesAt = input.closesAt === undefined ? (current?.closes_at ?? null) : timeValue(input.closesAt, 'closesAt');
     if (opensAt !== null && closesAt !== null && opensAt >= closesAt) throw bad('Thời điểm đóng phải sau thời điểm mở.');

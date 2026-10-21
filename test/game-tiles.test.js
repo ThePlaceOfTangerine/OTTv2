@@ -40,20 +40,34 @@ test('tile validation rejects homes, starting squares, unknown types/effects and
   assert.throws(() => validateRules({ ...rules(), tileTypes: undefined, tiles: [] }), /tileTypes/);
 });
 
-test('seeded spawns are reproducible, point-symmetric pairs in the centre and never on homes or starting squares', () => {
+test('power-ups spawn reproducibly across the whole board, excluding homes and starting squares', () => {
   const layouts = new Set();
+  const forbidden = new Set([...POWERUPS.homes.map(h => `${h.row},${h.col}`), ...POWERUPS.startingPositions.flat().map(p => p.join(','))]);
+  let outsideCentre = false, atCentre = false;
   for (let i = 0; i < 30; i++) {
     const tiles = new GameEngine({ seed: `seed-${i}`, rules: POWERUPS }).snapshot().tiles;
     assert.deepEqual(new GameEngine({ seed: `seed-${i}`, rules: POWERUPS }).snapshot().tiles, tiles);
-    assert.ok([2, 4].includes(tiles.length), JSON.stringify(tiles));
+    assert.ok(tiles.length >= 2 && tiles.length <= 4, JSON.stringify(tiles));
     for (const tile of tiles) {
-      assert.ok(tile.row >= 3 && tile.row <= 5 && tile.col >= 3 && tile.col <= 5 && !(tile.row === 4 && tile.col === 4));
-      assert.ok(tiles.some(t => t.row === 8 - tile.row && t.col === 8 - tile.col && t.type === tile.type), 'mirror pair');
+      assert.ok(tile.row >= 0 && tile.row < 9 && tile.col >= 0 && tile.col < 9);
+      assert.ok(!forbidden.has(`${tile.row},${tile.col}`));
+      if (tile.row < 3 || tile.row > 5 || tile.col < 3 || tile.col > 5) outsideCentre = true;
+      if (tile.row === 4 && tile.col === 4) atCentre = true;
       assert.deepEqual(tile.tags, ['effect']);
     }
     layouts.add(JSON.stringify(tiles));
   }
   assert.ok(layouts.size > 3);
+  assert.ok(outsideCentre, 'random power-ups must reach beyond the old central region');
+  assert.ok(atCentre, 'the central square is also eligible');
+});
+
+test('manual power-ups stay at admin-selected squares without random additions', () => {
+  const custom = { ...POWERUPS, tileSpawns: [], tiles: [{ at: [0, 0], type: 'shield' }, { at: [4, 4], type: 'dash' }] };
+  for (const seed of ['manual-a', 'manual-b']) {
+    const tiles = new GameEngine({ seed, rules: custom }).snapshot().tiles;
+    assert.deepEqual(tiles.map(t => [t.row, t.col, t.type]), [[0, 0, 'shield'], [4, 4, 'dash']]);
+  }
 });
 
 test('entering an effect tile gives its effect, removes the tile, and a new pickup replaces the old effect', () => {
@@ -143,5 +157,20 @@ test('sample rule sets classic, obstacles and powerups are seeded and valid', ()
     for (const id of ['ottv2-classic', 'ottv2-obstacles', 'ottv2-powerups']) assert.ok(ids.includes(id), id);
     new RuleSetService(db);
     assert.equal(db.prepare("SELECT COUNT(*) n FROM rule_versions WHERE rule_set_id='ottv2-powerups'").get().n, 1);
+  } finally { db.close(); }
+});
+
+test('seeding whole-board power-ups adds version 2 without changing the historical central-region version', () => {
+  const db = openDatabase(':memory:');
+  const historical = { ...structuredClone(POWERUPS), version: 1, tileSpawns: [{ types: ['wildcard', 'shield', 'dash'], count: [1, 2], symmetry: 'point', region: { rowFrom: 3, rowTo: 5, colFrom: 3, colTo: 5 } }] };
+  try {
+    db.prepare('INSERT OR IGNORE INTO rule_sets VALUES (?,?,?)').run(historical.id, historical.name, 0);
+    db.prepare('INSERT INTO rule_versions VALUES (?,?,?,NULL,?)').run(historical.id, 1, JSON.stringify(historical), 0);
+    const service = new RuleSetService(db);
+    assert.deepEqual(service.get(historical.id, 1).rules, historical);
+    assert.equal(service.get(historical.id).version, 2);
+    assert.equal(service.get(historical.id).rules.tileSpawns[0].region, undefined);
+    const oldTiles = new GameEngine({ seed: 'historical', rules: service.get(historical.id, 1).rules }).snapshot().tiles;
+    assert.ok(oldTiles.every(tile => tile.row >= 3 && tile.row <= 5 && tile.col >= 3 && tile.col <= 5));
   } finally { db.close(); }
 });

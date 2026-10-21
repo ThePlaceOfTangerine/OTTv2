@@ -46,6 +46,7 @@ class BracketService {
       if (!qualification) fail(409, 'Cần duyệt danh sách đội đi tiếp trước khi chốt luật chính thức.');
       if (this.finalRule(id)) fail(409, 'Luật chính thức đã được chốt, không thể thay đổi.');
       const selected = this.tournaments.ruleSets.get(body.ruleSetId, body.ruleSetVersion);
+      if (selected?.archived) fail(400, 'Bộ luật đã xóa khỏi danh sách.');
       if (!selected) fail(400, 'Không tìm thấy phiên bản bộ luật.');
       const original = JSON.parse(qualification.snapshot_json).rules;
       const changed = original.id !== selected.id || original.version !== selected.version;

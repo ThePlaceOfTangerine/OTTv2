@@ -4,6 +4,7 @@ const { validateEngineRules, engineIds, createEngine } = require('./game/registr
 const bad = message => Object.assign(new Error(message), { status: 400 });
 // Sample rule sets shipped in rules/; seeded once so admins can pick them, never overwritten.
 const SAMPLES = [DEFAULT_RULES, require('../rules/obstacles.json'), require('../rules/powerups.json')];
+const isDefault = id => SAMPLES.some(rules => rules.id === id);
 class RuleSetService {
   constructor(db) {
     this.db = db;
@@ -13,17 +14,27 @@ class RuleSetService {
       db.prepare('INSERT OR IGNORE INTO rule_versions VALUES (?,?,?,NULL,?)').run(rules.id, rules.version, JSON.stringify(rules), Date.now());
     }
   }
-  list() { return this.db.prepare('SELECT s.id,s.name,MAX(v.version) version,COUNT(*) versions FROM rule_sets s JOIN rule_versions v ON v.rule_set_id=s.id GROUP BY s.id ORDER BY s.created_at,s.id').all(); }
+  list() { return this.db.prepare('SELECT s.id,s.name,MAX(v.version) version,COUNT(*) versions FROM rule_sets s JOIN rule_versions v ON v.rule_set_id=s.id WHERE NOT EXISTS (SELECT 1 FROM rule_set_archives a WHERE a.rule_set_id=s.id) GROUP BY s.id ORDER BY s.created_at,s.id').all().map(row => ({ ...row, isDefault: isDefault(row.id) })); }
+  isArchived(id) { return !!this.db.prepare('SELECT 1 FROM rule_set_archives WHERE rule_set_id=?').get(id); }
+  remove(id, expectedVersion, userId) {
+    if (!this.db.prepare("SELECT 1 FROM users WHERE id=? AND role='admin' AND locked=0 AND deleted_at IS NULL").get(userId)) throw Object.assign(bad('Chỉ admin đang hoạt động được xóa bộ luật.'), { status: 403 });
+    const row = this.get(id); if (!row) return null;
+    if (isDefault(id)) throw bad('Ba bộ luật mặc định được giữ lại. Có thể nhân bản để chỉnh và xóa bản riêng.');
+    if (row.version !== expectedVersion) throw Object.assign(bad('Bộ luật đã thay đổi. Tải lại trước khi xóa.'), { status: 409 });
+    this.db.prepare('INSERT OR IGNORE INTO rule_set_archives VALUES (?,?,?)').run(id, userId, Date.now());
+    return { id, deleted: true };
+  }
   get(id, version) {
     if (typeof id !== 'string' || (version !== undefined && (!Number.isInteger(version) || version < 1))) return null;
     const row = version === undefined ? this.db.prepare('SELECT * FROM rule_versions WHERE rule_set_id=? ORDER BY version DESC LIMIT 1').get(id) : this.db.prepare('SELECT * FROM rule_versions WHERE rule_set_id=? AND version=?').get(id, version);
-    return row ? { id, version: row.version, rules: JSON.parse(row.rules_json), created_at: row.created_at,
+    return row ? { id, version: row.version, isDefault: isDefault(id), archived: this.isArchived(id), rules: JSON.parse(row.rules_json), created_at: row.created_at,
       versions: this.db.prepare('SELECT version,created_at FROM rule_versions WHERE rule_set_id=? ORDER BY version DESC').all(id) } : null;
   }
   save({ id, name, rules, userId, expectedVersion }) {
     if (typeof name !== 'string' || !name.trim() || name.length > 80 || !rules || typeof rules !== 'object' || Array.isArray(rules)) throw bad('Tên bộ luật cần 1–80 ký tự và cấu hình phải là đối tượng JSON.');
     const existing = id ? this.get(id) : null;
     if (id && !existing) throw bad('Không tìm thấy bộ luật cần sửa.');
+    if (existing?.archived) throw bad('Bộ luật đã xóa khỏi danh sách. Nhân bản phiên bản lịch sử nếu cần dùng lại.');
     if (existing && expectedVersion !== existing.version) throw Object.assign(new Error('Bộ luật đã có phiên bản mới. Tải lại trước khi lưu.'), { status: 409 });
     id ||= crypto.randomUUID(); const version = existing ? existing.version + 1 : 1;
     let checked;
@@ -54,5 +65,10 @@ function registerRuleSets(app, { ruleSets, requireRole, csrf }) {
   });
   app.post('/api/admin/rule-sets', requireRole('admin'), csrf, (req,res) => res.status(201).json(ruleSets.save({ name:req.body?.name,rules:req.body?.rules,userId:req.auth.id })));
   app.post('/api/admin/rule-sets/:id/versions', requireRole('admin'), csrf, (req,res) => res.status(201).json(ruleSets.save({ id:req.params.id,name:req.body?.name,rules:req.body?.rules,expectedVersion:req.body?.expectedVersion,userId:req.auth.id })));
+  app.delete('/api/admin/rule-sets/:id', requireRole('admin'), csrf, (req,res) => {
+    const result = ruleSets.remove(req.params.id, req.body?.expectedVersion, req.auth.id);
+    if (!result) return res.status(404).json({ error: 'Không tìm thấy bộ luật.' });
+    res.json(result);
+  });
 }
 module.exports = { RuleSetService, registerRuleSets };

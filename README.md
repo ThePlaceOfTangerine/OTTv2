@@ -6,6 +6,14 @@
 
 Thí sinh viết bot Python/C++, nộp qua GitHub hoặc form upload. Máy chủ kiểm tra, chấm trong sandbox, xếp cặp, công bố kết quả. Có đủ công cụ cho chung kết LAN không cần Internet.
 
+Cập nhật trải nghiệm: 19/10/2026. Sau đăng nhập, mở **Bắt đầu**: thí sinh có 4 bước nộp bot; ban tổ chức có lộ trình điều hành giải và phần giới thiệu cho giám khảo. Người tham gia chỉ cần tài khoản và trình duyệt; việc cài máy chủ bên dưới dành cho người vận hành.
+
+Trong **Giải đấu**, thẻ **Việc cần làm tiếp theo** giải thích bước hiện tại; bấm **Đến phần cần thao tác** để chuyển đến vị trí tương ứng, rồi tự kiểm tra và thực hiện. Cấu hình số đội/vòng/ván được tóm tắt bên ngoài và chỉnh trong phần mở rộng.
+
+Bài **Luyện tập ngoài giải** không phải bài dự thi. Chọn đúng giải/giai đoạn trước khi nộp, kiểm tra bản đang chọn và bản đã chốt. **Điểm ngoài giải** là luồng cũ, được thu gọn và không quyết định thứ hạng giải chính thức. Xem [rà soát trải nghiệm](docs/RA-SOAT-TRAI-NGHIEM.md) để biết phạm vi đã sửa và phần còn cần kiểm chứng.
+
+## Chạy nhanh trên máy cá nhân
+
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A524-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-node%3Asqlite-003B57?logo=sqlite&logoColor=white)
@@ -273,4 +281,19 @@ Danh sách đầy đủ trong [package.json](package.json).
 
 <sub>OTTv2 · Cập nhật 21/10/2026</sub>
 
+Đăng nhập sai được giới hạn trong cửa sổ 15 phút: mặc định 10 lượt/tài khoản và 100 lượt/IP. Đăng nhập đúng hoàn lại lượt của chính yêu cầu đó; các lần sai trước vẫn được giữ. Khi gặp HTTP 429, nút đăng nhập đếm ngược theo `Retry-After` rồi cho thử lại, không tự gửi lại mật khẩu.
+
+Proxy mặc định tắt. Khi dùng reverse proxy, đặt `TRUSTED_PROXIES` theo IP/CIDR của proxy, `PUBLIC_ORIGIN` theo địa chỉ website; HTTPS cần `COOKIE_SECURE=true`. Giới hạn đăng nhập lấy IP qua chuỗi proxy tin cậy và Origin được đối chiếu với địa chỉ cố định. Xem [cấu hình proxy](docs/DEPLOYMENT.md); chưa nghiệm thu cấu hình Nginx/Cloudflare thật.
+
+- npm test: unit/API; npm run test:stages: luồng giải bằng Docker. Các lệnh khác nằm trong package.json.
+- Sao lưu data/ và phiên bản mã/image trước cập nhật. SQLite tự migration khi khởi động; DB cần đi cùng artifact trong data/submissions.
+- Git không chứa data/, node_modules, .env, khóa bí mật hoặc kết quả thử cục bộ. Giữ package-lock.json và dùng npm ci.
+- Khi đổi cách cài/chạy hoặc hành vi sử dụng, cập nhật hướng dẫn người dùng, README và TODO trong cùng đợt. Sửa quy tắc giải thì dựng lại trang admin bằng node scripts/build-tournament-guide.js.
+
 </div>
+
+Cập nhật 21/10/2026: trong Giải đấu, mục Công bố kết quả công khai xuất hiện theo giải đang chọn, kể cả giải vừa tạo. Sau khi công bố, khách xem bảng điểm và replay tại `/site/` (hoặc địa chỉ do ban tổ chức cung cấp), không cần tài khoản quản trị. Trình sửa bàn cờ giữ focus tại ô vừa chỉnh khi dùng bàn phím.
+
+Power-up (21/10/2026): Bộ luật → Cách đặt power-up cho chọn ngẫu nhiên trên toàn bàn hoặc admin tự đặt từng vị trí. Luật mẫu OTTv2 Power-ups bản 2 rải 2–4 ô; nhà, vị trí xuất phát, ô chặn và ô ngoài bản đồ được loại trừ. Lưu tạo phiên bản mới, không đổi luật đã ghim của giải cũ.
+
+Cập nhật bộ luật 21/10/2026: Classic có 5 công cụ cơ bản; Obstacles thêm Ô chặn (gộp Tường đá); Power-ups có số lượng random tối thiểu/tối đa hoặc đặt từng ô. Có nút Xóa bộ luật riêng, giữ ba mẫu mặc định và lịch sử giải/replay. Xem docs/RULE-SETS.md.

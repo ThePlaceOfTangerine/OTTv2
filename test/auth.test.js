@@ -161,6 +161,11 @@ test('cross origin login and malformed JSON are rejected', async () => {
   assert.equal((await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400);
   assert.equal((await request('/api/auth/login', { method: 'POST', body: { username: {}, password } })).status, 400);
 });
+test('login behind a local HTTPS proxy accepts its https Origin', async () => {
+  const origin = base.replace('http://', 'https://');
+  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-Proto': 'https' }, body: { username: 'player', password } })).status, 200);
+  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin }, body: { username: 'player', password } })).status, 403);
+});
 test('match APIs enforce admin role, CSRF and fixed sample bot selection', async () => {
   const player = await login(), admin = await login('admin');
   for (const url of ['/api/admin/matches', '/api/admin/matches/unknown', '/api/admin/sandbox']) {

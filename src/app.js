@@ -44,6 +44,8 @@ const TTL = 8 * 60 * 60 * 1000;
 
 async function createApp({ db, secureCookies = false, now = Date.now, loginMax = 10, matchService, submissionService, submissionOptions, swissOptions, bracketOptions, publicationOptions, snapshotOptions, onRestart, setupProbe, github = githubFromEnv(), turnstile = turnstileFromEnv() } = {}) {
   const app = express();
+  // HTTPS proxies on the same machine (Tailscale Funnel, Caddy, cloudflared) talk plain HTTP; X-Forwarded-Proto keeps the Origin check right.
+  app.set('trust proxy', 'loopback');
   const authority = new Authority(db, { now });
   app.locals.authority = authority;
   const matches = matchService || new MatchService(db);

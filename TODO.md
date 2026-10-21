@@ -251,6 +251,8 @@ Nguồn: yêu cầu ngày 19/10/2026; quyết định chốt trong docs/TOURNAME
 - [ ] Chọn và cấu hình Caddy hoặc Nginx khi triển khai HTTPS.
 - [ ] Chuẩn bị domain/DNS và Cloudflare nếu công bố Internet.
 - [x] Ghi phương án triển khai trong docs/DEPLOYMENT.md: VPS Linux chạy Node/SQLite/Docker, Cloudflare phía trước; demo có thể dùng Tunnel. Chưa mua VPS/domain hoặc triển khai dịch vụ.
+- [x] Máy chủ thử nghiệm cho nhóm (21/10/2026): VPS 1 vCPU/1 GB dùng chung với app khác, Ubuntu 24.04, Docker + sandbox:check đạt (Landlock ABI 4, seccomp), Node 24 riêng ở /opt/node24, dịch vụ systemd ott ở 127.0.0.1:3100 (BOT_WORKERS=1, COOKIE_SECURE=true), swap 2 GB, mở ra Internet bằng Tailscale Funnel (link .ts.net cố định). Admin tạo qua /setup bằng đường hầm SSH; /setup từ ngoài trả 409.
+- [ ] Sau Tailscale Funnel mọi request đến từ 127.0.0.1: giới hạn đăng nhập theo IP (10× loginMax) dùng chung cho cả nhóm. Đủ cho nhóm nhỏ thử; trước khi mở rộng cần đọc IP thật từ proxy tin cậy.
 - [ ] Chuẩn bị PostgreSQL nếu chọn kiến trúc phân tán.
 - [ ] Chuẩn bị Redis/BullMQ chỉ nếu chọn phương án queue này.
 - [ ] Chuẩn bị nơi lưu artifact dùng chung hoặc API tải artifact; MinIO/object storage là tùy chọn.
@@ -291,6 +293,8 @@ Cấu hình dưới đây chỉ là điểm bắt đầu để benchmark, chưa 
 7. Git, Sheets và bộ đóng gói cho người ít kỹ thuật.
 
 ## Nhật ký tiến trình
+
+- 21/10/2026: Dựng máy chủ thử nghiệm trên VPS của bạn trong nhóm (được chủ dự án đồng ý từng bước): script E:/OTTv2-local/tools/inet-setup.sh (base, node, app, sandbox, service, tailscale, funnel). sandbox:check trên VPS: Landlock ABI 4, seccomp, passwd_denied. Từ ngoài: /portal 200, /admin 200, /site/ 200, /setup 302, /api/setup 409, có CSP và X-Frame-Options. App sẵn có của chủ VPS (cổng 3000) vẫn chạy; tắt accept-dns của Tailscale để không đổi DNS của VPS. DNS công khai của Funnel: AAAA có trước, A có sau khoảng 15 phút. Chưa cho nhóm đăng nhập và chạy ván thật trên VPS.
 
 - 21/10/2026: Viết lại README (mục lục, tính năng, công nghệ, sơ đồ Mermaid, cây thư mục, lệnh npm, năng lực đã đo, bảng tài liệu theo vai trò). Kiểm tra mọi liên kết tương đối trong README tồn tại; npm test 165/165. Thêm /.wrangler/ vào .gitignore. Giữ nguyên cấu trúc thư mục (di chuyển sẽ làm gãy đường dẫn trong mã, test, tài liệu). Commit toàn bộ lên nhánh thu-nghiem, không đụng main.
 

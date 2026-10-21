@@ -46,7 +46,7 @@ const TTL = 8 * 60 * 60 * 1000;
 async function createApp({ db, secureCookies = false, trustedProxies = '', publicOrigin = '', now = Date.now, loginMax = 10, loginIpMax = Math.max(100, loginMax * 10), matchService, submissionService, submissionOptions, swissOptions, bracketOptions, publicationOptions, snapshotOptions, onRestart, setupProbe, github = githubFromEnv(), turnstile = turnstileFromEnv() } = {}) {
   const config = httpConfig({ trustedProxies, publicOrigin, secureCookies });
   const app = express();
-  // HTTPS proxies on the same machine (Tailscale Funnel, Caddy, cloudflared) talk plain HTTP; X-Forwarded-Proto keeps the Origin check right.
+  // Only explicitly configured proxies may supply the client IP and protocol.
   app.set('trust proxy', config.trustProxy);
   const authority = new Authority(db, { now });
   app.locals.authority = authority;

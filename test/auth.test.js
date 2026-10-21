@@ -161,9 +161,9 @@ test('cross origin login and malformed JSON are rejected', async () => {
   assert.equal((await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400);
   assert.equal((await request('/api/auth/login', { method: 'POST', body: { username: {}, password } })).status, 400);
 });
-test('login behind a local HTTPS proxy accepts its https Origin', async () => {
+test('forwarded HTTPS is ignored until a proxy is explicitly trusted', async () => {
   const origin = base.replace('http://', 'https://');
-  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-Proto': 'https' }, body: { username: 'player', password } })).status, 200);
+  assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin, 'X-Forwarded-Proto': 'https' }, body: { username: 'player', password } })).status, 403);
   assert.equal((await request('/api/auth/login', { method: 'POST', headers: { Origin: origin }, body: { username: 'player', password } })).status, 403);
 });
 test('match APIs enforce admin role, CSRF and fixed sample bot selection', async () => {
@@ -178,7 +178,7 @@ test('match APIs enforce admin role, CSRF and fixed sample bot selection', async
   assert.equal((await request('/api/admin/matches', { ...admin, csrf: admin.data.csrfToken, method: 'POST', body: { botA: '../../bad', botB: 'cpp-greedy', seed: 'test' } })).status, 400);
 });
 test('rate limit is shared across app instances and resets after the window', async () => {
-  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2 }));
+  const limited = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 20 }));
   limited.listen(0, '127.0.0.1'); await once(limited, 'listening');
   const url = `http://127.0.0.1:${limited.address().port}/api/auth/login`;
   db.prepare('DELETE FROM login_limits').run();
@@ -193,7 +193,7 @@ test('rate limit is shared across app instances and resets after the window', as
     db.prepare('DELETE FROM login_limits').run();
     for (let i = 0; i < 30; i++) assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: i % 2 ? 'player' : 'admin', password }) })).status, 200, `lần ${i + 1}`);
     assert.equal(db.prepare("SELECT COALESCE(SUM(attempts),0) n FROM login_limits").get().n, 0);
-    // Failures still count: per account at loginMax, per IP at 10× loginMax.
+    // Failures still count: per account at loginMax, per IP at the configured loginIpMax.
     for (let i = 0; i < 20; i++) await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: `khong-co-${i}`, password: 'wrong' }) });
     assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'player', password }) })).status, 429);
   } finally { limited.closeIdleConnections(); await new Promise(resolve => limited.close(resolve)); }
@@ -238,7 +238,7 @@ test('concurrent failed logins across app instances cannot exceed the reserved a
   db.prepare('DELETE FROM login_limits').run();
   try {
     for (let i = 0; i < 2; i++) {
-      const instance = http.createServer(await createApp({ db, now: () => time, loginMax: 2 }));
+      const instance = http.createServer(await createApp({ db, now: () => time, loginMax: 2, loginIpMax: 20 }));
       instance.listen(0, '127.0.0.1'); await once(instance, 'listening'); servers.push(instance);
     }
     const responses = await Promise.all(Array.from({ length: 6 }, (_, i) => fetch(`http://127.0.0.1:${servers[i % 2].address().port}/api/auth/login`, {
